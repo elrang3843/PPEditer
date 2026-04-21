@@ -815,6 +815,11 @@ public partial class SlideEditorCanvas : UserControl
             double t = Canvas.GetTop(target);
             _selOverlay = BuildOverlay(l, t, target.Width, target.Height);
             Panel.SetZIndex(_selOverlay, 9999);
+            if (target.RenderTransform is RotateTransform rt && rt.Angle != 0)
+            {
+                _selOverlay.RenderTransformOrigin = new Point(0.5, 0.5);
+                _selOverlay.RenderTransform       = new RotateTransform(rt.Angle);
+            }
             canvas.Children.Add(_selOverlay);
         }
 
@@ -945,6 +950,11 @@ public partial class SlideEditorCanvas : UserControl
         double t = Canvas.GetTop(fe);
         var overlay = BuildSimpleOverlay(l, t, fe.Width, fe.Height);
         Panel.SetZIndex(overlay, 9999);
+        if (fe.RenderTransform is RotateTransform rt && rt.Angle != 0)
+        {
+            overlay.RenderTransformOrigin = new Point(0.5, 0.5);
+            overlay.RenderTransform       = new RotateTransform(rt.Angle);
+        }
         canvas.Children.Add(overlay);
         _multiOverlays[treeIdx] = overlay;
     }
