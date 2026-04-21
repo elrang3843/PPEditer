@@ -21,6 +21,8 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<RichTextBox>? EditingStarted;
     /// <summary>User committed a text edit. (slideIdx, shapeTreeIdx, paragraphs)</summary>
     public event Action<int, int, IReadOnlyList<PptxConverter.PptxParagraph>>? TextCommitted;
+    /// <summary>User moved a shape with arrow keys. (slideIdx, shapeTreeIdx, deltaXEmu, deltaYEmu)</summary>
+    public event Action<int, int, long, long>? ShapeMoved;
 
     // ── State ──────────────────────────────────────────────────────────
 
@@ -30,7 +32,8 @@ public partial class SlideEditorCanvas : UserControl
     private Canvas?            _nativeCanvas;      // the live SlideRenderer canvas
     private double             _zoom = 1.0;
 
-    private int       _selectedIdx  = -1;          // canvas child index
+    private int       _selectedIdx     = -1;        // canvas child index
+    private int       _selectedTreeIdx = -1;        // shape-tree index of selected shape
     private Rectangle? _selRect;                   // selection highlight
     private RichTextBox? _editor;                  // active inline editor
     private int       _editingTreeIdx = -1;        // shape-tree index being edited
@@ -59,8 +62,11 @@ public partial class SlideEditorCanvas : UserControl
 
     public void Invalidate()
     {
+        int savedTreeIdx = _selectedTreeIdx;
         CommitEdit(save: false);
         Rebuild();
+        if (savedTreeIdx >= 0 && _nativeCanvas is not null)
+            SelectShapeByTreeIndex(savedTreeIdx);
     }
 
     public void ZoomIn()      { _zoom = Math.Min(3.0,  Math.Round(_zoom + 0.1, 1)); ApplyZoom(); }
@@ -73,9 +79,10 @@ public partial class SlideEditorCanvas : UserControl
 
     private void Rebuild()
     {
-        _selectedIdx    = -1;
-        _selRect        = null;
-        _editingTreeIdx = -1;
+        _selectedIdx     = -1;
+        _selectedTreeIdx = -1;
+        _selRect         = null;
+        _editingTreeIdx  = -1;
         NoDocMsg.Visibility = Visibility.Collapsed;
 
         if (_model is null || !_model.IsOpen || _slidePart is null)
@@ -154,6 +161,18 @@ public partial class SlideEditorCanvas : UserControl
         {
             // Future: delete selected shape
         }
+        else if (_selectedIdx >= 0 && _editor is null &&
+                 (e.Key == Key.Left || e.Key == Key.Right ||
+                  e.Key == Key.Up   || e.Key == Key.Down))
+        {
+            bool fine = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+            long step = fine ? 7200L : 72000L;
+            long dx = e.Key == Key.Left  ? -step : e.Key == Key.Right ? step : 0L;
+            long dy = e.Key == Key.Up    ? -step : e.Key == Key.Down  ? step : 0L;
+            if (_selectedTreeIdx >= 0)
+                ShapeMoved?.Invoke(_slideIndex, _selectedTreeIdx, dx, dy);
+            e.Handled = true;
+        }
     }
 
     // ── Hit testing ───────────────────────────────────────────────────
@@ -184,8 +203,10 @@ public partial class SlideEditorCanvas : UserControl
             _selRect = null;
         }
 
-        _selectedIdx = idx;
+        _selectedIdx     = idx;
+        _selectedTreeIdx = -1;
         if (idx < 0 || canvas.Children[idx] is not FrameworkElement target) return;
+        if (target.Tag is int ti) _selectedTreeIdx = ti;
 
         _selRect = new Rectangle
         {
@@ -201,6 +222,21 @@ public partial class SlideEditorCanvas : UserControl
         Canvas.SetTop(_selRect,  Canvas.GetTop(target));
         Panel.SetZIndex(_selRect, 9999);
         canvas.Children.Add(_selRect);
+    }
+
+    private void SelectShapeByTreeIndex(int treeIdx)
+    {
+        if (_nativeCanvas is null) return;
+        for (int i = _nativeCanvas.Children.Count - 1; i >= 0; i--)
+        {
+            if (_nativeCanvas.Children[i] is FrameworkElement fe &&
+                fe.Tag is int t && t == treeIdx)
+            {
+                SelectShape(_nativeCanvas, i);
+                _nativeCanvas.Focus();
+                return;
+            }
+        }
     }
 
     // ── Inline text editing ────────────────────────────────────────────

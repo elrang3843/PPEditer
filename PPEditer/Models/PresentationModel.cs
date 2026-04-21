@@ -351,6 +351,29 @@ public sealed class PresentationModel : IDisposable
         return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(newShape);
     }
 
+    /// <summary>Move a shape by <paramref name="deltaXEmu"/> / <paramref name="deltaYEmu"/> EMU.</summary>
+    public void MoveShape(int slideIndex, int shapeTreeIndex, long deltaXEmu, long deltaYEmu)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return;
+
+        A.Transform2D? xfrm = null;
+        if (elements[shapeTreeIndex] is Shape s)
+            xfrm = s.ShapeProperties?.GetFirstChild<A.Transform2D>();
+
+        if (xfrm?.Offset is null) return;
+
+        PushUndo();
+        xfrm.Offset.X = (xfrm.Offset.X?.Value ?? 0L) + deltaXEmu;
+        xfrm.Offset.Y = (xfrm.Offset.Y?.Value ?? 0L) + deltaYEmu;
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
     // ── Undo / Redo ─────────────────────────────────────────────────────
 
     public bool Undo()

@@ -27,9 +27,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        SlidePanel.SlideSelected   += idx => { _currentSlide = idx; ShowCurrentSlide(); UpdateActions(); };
+        SlidePanel.SlideSelected    += idx => { _currentSlide = idx; ShowCurrentSlide(); UpdateActions(); };
         EditorCanvas.EditingStarted += OnEditorEditingStarted;
         EditorCanvas.TextCommitted  += OnEditorTextCommitted;
+        EditorCanvas.ShapeMoved     += OnShapeMoved;
 
         RegisterKeyBindings();
         InitSettings();
@@ -380,6 +381,15 @@ public partial class MainWindow : Window
         TbInsertTxBox.IsEnabled = false;
         rtb.SelectionChanged += Editor_SelectionChanged;
         SyncFormatToolbar();
+    }
+
+    private void OnShapeMoved(int slideIdx, int treeIdx, long dx, long dy)
+    {
+        _model.MoveShape(slideIdx, treeIdx, dx, dy);
+        EditorCanvas.Invalidate();
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
     }
 
     private void OnEditorTextCommitted(int slideIdx, int treeIdx,
