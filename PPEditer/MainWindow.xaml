@@ -158,18 +158,18 @@
 
             <!-- Row 1: File / Slide / Zoom -->
             <ToolBar Band="1" BandIndex="1" FontFamily="맑은 고딕, Segoe UI" FontSize="12">
-                <Button ToolTip="{DynamicResource Tt_New}"  Click="OnNew">{DynamicResource Tb_New}</Button>
-                <Button ToolTip="{DynamicResource Tt_Open}" Click="OnOpen">{DynamicResource Tb_Open}</Button>
-                <Button x:Name="TbSave" ToolTip="{DynamicResource Tt_Save}" Click="OnSave" IsEnabled="False">{DynamicResource Tb_Save}</Button>
+                <Button Content="{DynamicResource Tb_New}"  ToolTip="{DynamicResource Tt_New}"  Click="OnNew"/>
+                <Button Content="{DynamicResource Tb_Open}" ToolTip="{DynamicResource Tt_Open}" Click="OnOpen"/>
+                <Button x:Name="TbSave" Content="{DynamicResource Tb_Save}" ToolTip="{DynamicResource Tt_Save}" Click="OnSave" IsEnabled="False"/>
                 <Separator/>
-                <Button x:Name="TbUndo" Click="OnUndo" IsEnabled="False" ToolTip="{DynamicResource Tt_Undo}">{DynamicResource Tb_Undo}</Button>
-                <Button x:Name="TbRedo" Click="OnRedo" IsEnabled="False" ToolTip="{DynamicResource Tt_Redo}">{DynamicResource Tb_Redo}</Button>
+                <Button x:Name="TbUndo" Content="{DynamicResource Tb_Undo}" Click="OnUndo" IsEnabled="False" ToolTip="{DynamicResource Tt_Undo}"/>
+                <Button x:Name="TbRedo" Content="{DynamicResource Tb_Redo}" Click="OnRedo" IsEnabled="False" ToolTip="{DynamicResource Tt_Redo}"/>
                 <Separator/>
-                <Button x:Name="TbAddSlide"    Click="OnAddSlide"      IsEnabled="False" ToolTip="{DynamicResource Tt_AddSlide}">{DynamicResource Tb_AddSlide}</Button>
-                <Button x:Name="TbDelSlide"    Click="OnDelSlide"      IsEnabled="False" ToolTip="{DynamicResource Tt_DelSlide}">{DynamicResource Tb_DelSlide}</Button>
-                <Button x:Name="TbInsertTxBox" Click="OnInsertTextBox" IsEnabled="False" ToolTip="{DynamicResource Tt_TextBox}">{DynamicResource Tb_TextBox}</Button>
+                <Button x:Name="TbAddSlide"    Content="{DynamicResource Tb_AddSlide}"  Click="OnAddSlide"      IsEnabled="False" ToolTip="{DynamicResource Tt_AddSlide}"/>
+                <Button x:Name="TbDelSlide"    Content="{DynamicResource Tb_DelSlide}"  Click="OnDelSlide"      IsEnabled="False" ToolTip="{DynamicResource Tt_DelSlide}"/>
+                <Button x:Name="TbInsertTxBox" Content="{DynamicResource Tb_TextBox}"   Click="OnInsertTextBox" IsEnabled="False" ToolTip="{DynamicResource Tt_TextBox}"/>
                 <Separator/>
-                <Button x:Name="TbExportPdf"   Click="OnExportPdf"     IsEnabled="False" ToolTip="{DynamicResource Tt_ExportPdf}">{DynamicResource Tb_ExportPdf}</Button>
+                <Button x:Name="TbExportPdf"   Content="{DynamicResource Tb_ExportPdf}" Click="OnExportPdf"     IsEnabled="False" ToolTip="{DynamicResource Tt_ExportPdf}"/>
                 <Separator/>
                 <Label VerticalAlignment="Center" Content="{DynamicResource Tb_ZoomLabel}"/>
                 <ComboBox x:Name="ZoomCombo" Width="72" IsEditable="True"
@@ -182,7 +182,7 @@
                     <ComboBoxItem Content="150%"/>
                     <ComboBoxItem Content="200%"/>
                 </ComboBox>
-                <Button Click="OnZoomFit" ToolTip="{DynamicResource Tt_ZoomFit}">{DynamicResource Tb_ZoomFit}</Button>
+                <Button Content="{DynamicResource Tb_ZoomFit}" Click="OnZoomFit" ToolTip="{DynamicResource Tt_ZoomFit}"/>
             </ToolBar>
 
             <!-- Row 2: Text Formatting (enabled while a shape is being edited) -->
@@ -280,7 +280,7 @@
                 </Button>
 
                 <Separator/>
-                <Button Click="OnCommitEdit" ToolTip="{DynamicResource Tt_CommitEdit}">{DynamicResource Tb_CommitEdit}</Button>
+                <Button Content="{DynamicResource Tb_CommitEdit}" Click="OnCommitEdit" ToolTip="{DynamicResource Tt_CommitEdit}"/>
             </ToolBar>
         </ToolBarTray>
 
