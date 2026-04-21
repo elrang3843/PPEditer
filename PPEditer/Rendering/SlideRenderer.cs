@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,10 +24,6 @@ public static class SlideRenderer
 
     // ── Public API ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Build a Canvas representing <paramref name="slidePart"/> at native pixel size.
-    /// Wrap the returned Canvas in a Viewbox to resize it for display.
-    /// </summary>
     public static Canvas BuildCanvas(SlidePart slidePart, long slideW, long slideH)
     {
         double nativeW = EmuToPx(slideW);
@@ -36,26 +31,30 @@ public static class SlideRenderer
 
         var canvas = new Canvas
         {
-            Width      = nativeW,
-            Height     = nativeH,
-            Background = GetSlideBrush(slidePart, nativeW, nativeH),
+            Width        = nativeW,
+            Height       = nativeH,
+            Background   = GetSlideBrush(slidePart, nativeW, nativeH),
             ClipToBounds = true,
         };
 
         var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
         if (tree is null) return canvas;
 
+        int treeIndex = 0;
         foreach (var element in tree.Elements<OpenXmlCompositeElement>())
         {
             var child = BuildElement(element, slidePart);
-            if (child is not null)
-                canvas.Children.Add(child);
+            if (child is FrameworkElement fe)
+            {
+                fe.Tag = treeIndex;
+                canvas.Children.Add(fe);
+            }
+            treeIndex++;
         }
 
         return canvas;
     }
 
-    /// <summary>Render a slide to a <see cref="BitmapSource"/> of size <paramref name="px"/>×<paramref name="py"/>.</summary>
     public static BitmapSource RenderToBitmap(SlidePart slidePart, long slideW, long slideH,
                                               int px, int py)
     {
@@ -85,7 +84,7 @@ public static class SlideRenderer
                 if (c.HasValue) return new SolidColorBrush(c.Value);
             }
         }
-        catch { /* fall through */ }
+        catch { }
         return Brushes.White;
     }
 
@@ -95,13 +94,40 @@ public static class SlideRenderer
     {
         return element switch
         {
-            Shape   shape   => BuildShape(shape, slidePart),
-            Picture picture => BuildPicture(picture, slidePart),
-            _               => null,
+            Shape      shape   => BuildShape(shape, slidePart),
+            Picture    picture => BuildPicture(picture, slidePart),
+            GroupShape group   => BuildGroupShape(group, slidePart),
+            _                  => null,
         };
     }
 
-    // ── Shape (text boxes, rectangles, placeholders) ──────────────────
+    private static UIElement? BuildGroupShape(GroupShape group, SlidePart slidePart)
+    {
+        var xfrm   = group.GroupShapeProperties?.GetFirstChild<A.TransformGroup>();
+        if (xfrm is null) return null;
+        double left   = EmuToPx(xfrm.Offset?.X   ?? 0);
+        double top    = EmuToPx(xfrm.Offset?.Y   ?? 0);
+        double width  = EmuToPx(xfrm.Extents?.Cx ?? 0);
+        double height = EmuToPx(xfrm.Extents?.Cy ?? 0);
+        if (width <= 0 || height <= 0) return null;
+
+        var container = new Canvas { Width = width, Height = height };
+        foreach (var child in group.Elements<OpenXmlCompositeElement>())
+        {
+            var el = BuildElement(child, slidePart);
+            if (el is FrameworkElement fe)
+            {
+                Canvas.SetLeft(fe, Canvas.GetLeft(fe) - left);
+                Canvas.SetTop(fe,  Canvas.GetTop(fe)  - top);
+                container.Children.Add(fe);
+            }
+        }
+        Canvas.SetLeft(container, left);
+        Canvas.SetTop(container,  top);
+        return container;
+    }
+
+    // ── Shape ─────────────────────────────────────────────────────────
 
     private static UIElement? BuildShape(Shape shape, SlidePart slidePart)
     {
@@ -110,7 +136,6 @@ public static class SlideRenderer
 
         var container = new Grid { Width = width, Height = height, ClipToBounds = true };
 
-        // Fill
         var fillBrush = GetShapeFill(shape, slidePart);
         if (fillBrush is not null)
         {
@@ -124,12 +149,8 @@ public static class SlideRenderer
             container.Children.Add(rect);
         }
 
-        // Text
         if (shape.TextBody is not null)
-        {
-            var tb = BuildTextBlock(shape.TextBody, width, height);
-            container.Children.Add(tb);
-        }
+            container.Children.Add(BuildTextBlock(shape.TextBody, width, height));
 
         Canvas.SetLeft(container, left);
         Canvas.SetTop(container, top);
@@ -148,7 +169,6 @@ public static class SlideRenderer
             if (c.HasValue) return new SolidColorBrush(c.Value);
         }
 
-        // No-fill or unknown → transparent
         if (spPr.GetFirstChild<A.NoFill>() is not null) return null;
         return null;
     }
@@ -156,24 +176,22 @@ public static class SlideRenderer
     private static void ApplyBorder(System.Windows.Shapes.Rectangle rect,
                                     Shape shape, SlidePart slidePart)
     {
-        var ln = shape.ShapeProperties?.GetFirstChild<A.Outline>();
-        if (ln is null) return;
-        var solid = ln.GetFirstChild<A.SolidFill>();
+        var ln    = shape.ShapeProperties?.GetFirstChild<A.Outline>();
+        var solid = ln?.GetFirstChild<A.SolidFill>();
         if (solid is null) return;
         var c = ResolveColor(solid, slidePart);
         if (!c.HasValue) return;
         rect.Stroke          = new SolidColorBrush(c.Value);
-        rect.StrokeThickness = ln.Width.HasValue ? EmuToPx(ln.Width.Value) : 1;
+        rect.StrokeThickness = ln?.Width?.Value is int thick ? EmuToPx((long)thick) : 1;
     }
 
     // ── Text body ─────────────────────────────────────────────────────
 
-    private static UIElement BuildTextBlock(A.TextBody body, double maxW, double maxH)
+    // Accepts Presentation.TextBody or Drawing.TextBody (both inherit OpenXmlCompositeElement)
+    private static UIElement BuildTextBlock(OpenXmlCompositeElement body, double maxW, double maxH)
     {
-        var panel = new StackPanel { Orientation = Orientation.Vertical };
-
-        // Vertical alignment
-        var anchor = body.BodyProperties?.Anchor?.Value;
+        var panel  = new StackPanel { Orientation = Orientation.Vertical };
+        var anchor = body.GetFirstChild<A.BodyProperties>()?.Anchor?.Value;
         var outer  = new Grid { Width = maxW, Height = maxH };
 
         foreach (var para in body.Elements<A.Paragraph>())
@@ -185,18 +203,15 @@ public static class SlideRenderer
         }
 
         outer.Children.Add(panel);
-        switch (anchor)
-        {
-            case A.TextAnchoringTypeValues.Center:
-                panel.VerticalAlignment = VerticalAlignment.Center;
-                break;
-            case A.TextAnchoringTypeValues.Bottom:
-                panel.VerticalAlignment = VerticalAlignment.Bottom;
-                break;
-            default:
-                panel.VerticalAlignment = VerticalAlignment.Top;
-                break;
-        }
+
+        // SDK v3: TextAnchoringTypeValues is a struct — cannot use switch case, must use ==
+        if (anchor == A.TextAnchoringTypeValues.Center)
+            panel.VerticalAlignment = VerticalAlignment.Center;
+        else if (anchor == A.TextAnchoringTypeValues.Bottom)
+            panel.VerticalAlignment = VerticalAlignment.Bottom;
+        else
+            panel.VerticalAlignment = VerticalAlignment.Top;
+
         return outer;
     }
 
@@ -204,23 +219,18 @@ public static class SlideRenderer
     {
         var tb = new TextBlock { FontFamily = new FontFamily("맑은 고딕") };
 
-        // Alignment
-        tb.TextAlignment = (para.ParagraphProperties?.Alignment?.Value) switch
-        {
-            A.TextAlignmentTypeValues.Center  => TextAlignment.Center,
-            A.TextAlignmentTypeValues.Right   => TextAlignment.Right,
-            A.TextAlignmentTypeValues.Justify => TextAlignment.Justify,
-            _                                 => TextAlignment.Left,
-        };
+        // SDK v3: TextAlignmentTypeValues is a struct — cannot use switch case, must use ==
+        var av = para.ParagraphProperties?.Alignment?.Value;
+        if (av == A.TextAlignmentTypeValues.Center)
+            tb.TextAlignment = TextAlignment.Center;
+        else if (av == A.TextAlignmentTypeValues.Right)
+            tb.TextAlignment = TextAlignment.Right;
+        else
+            tb.TextAlignment = TextAlignment.Left;
 
-        // Runs
         foreach (var run in para.Elements<A.Run>())
-        {
-            var inline = BuildRun(run);
-            tb.Inlines.Add(inline);
-        }
+            tb.Inlines.Add(BuildRun(run));
 
-        // Line break if no runs
         if (!para.Elements<A.Run>().Any())
             tb.Inlines.Add(new Run(" ") { FontSize = 14 });
 
@@ -235,24 +245,21 @@ public static class SlideRenderer
 
         if (rProps is null) return inline;
 
-        // Font family
         var latin = rProps.GetFirstChild<A.LatinFont>();
         if (latin?.Typeface is not null && latin.Typeface != "+mj-lt" && latin.Typeface != "+mn-lt")
             inline.FontFamily = new FontFamily(latin.Typeface);
 
-        // Font size: OpenXml stores hundredths of a point (e.g. 2400 = 24 pt)
-        if (rProps.FontSize.HasValue)
-        {
-            double ptSize  = rProps.FontSize.Value / 100.0;
-            inline.FontSize = ptSize * WpfDpi / 72.0;   // pt → WPF pixels
-        }
+        if (rProps.FontSize?.HasValue == true)
+            inline.FontSize = rProps.FontSize!.Value / 100.0 * WpfDpi / 72.0;
 
-        if (rProps.Bold?.Value == true)         inline.FontWeight = FontWeights.Bold;
-        if (rProps.Italic?.Value == true)       inline.FontStyle  = FontStyles.Italic;
-        if (rProps.Underline?.Value == true)
+        if (rProps.Bold?.Value   == true) inline.FontWeight = FontWeights.Bold;
+        if (rProps.Italic?.Value == true) inline.FontStyle  = FontStyles.Italic;
+
+        // SDK v3: Underline is EnumValue<TextUnderlineValues>, not bool — compare via InnerText
+        var uv = rProps.Underline?.InnerText;
+        if (uv is { Length: > 0 } && uv != "none")
             inline.TextDecorations = TextDecorations.Underline;
 
-        // Color
         var solid = rProps.GetFirstChild<A.SolidFill>();
         if (solid is not null)
         {
@@ -276,8 +283,7 @@ public static class SlideRenderer
         BitmapImage? bmp = null;
         try
         {
-            var imgPart = slidePart.GetPartById(rId) as ImagePart;
-            if (imgPart is not null)
+            if (slidePart.GetPartById(rId) is ImagePart imgPart)
             {
                 using var imgStream = imgPart.GetStream();
                 var ms = new MemoryStream();
@@ -285,13 +291,13 @@ public static class SlideRenderer
                 ms.Position = 0;
                 bmp = new BitmapImage();
                 bmp.BeginInit();
-                bmp.StreamSource  = ms;
-                bmp.CacheOption   = BitmapCacheOption.OnLoad;
+                bmp.StreamSource = ms;
+                bmp.CacheOption  = BitmapCacheOption.OnLoad;
                 bmp.EndInit();
                 bmp.Freeze();
             }
         }
-        catch { /* image unavailable */ }
+        catch { }
 
         var img = new Image
         {
@@ -307,10 +313,11 @@ public static class SlideRenderer
 
     // ── Transform helpers ─────────────────────────────────────────────
 
+    // Accepts Presentation.ShapeProperties or Drawing.ShapeProperties (both OpenXmlCompositeElement)
     private static (double left, double top, double width, double height)
-        GetTransform(A.ShapeProperties? spPr)
+        GetTransform(OpenXmlCompositeElement? spPr)
     {
-        var xfrm = spPr?.Transform2D;
+        var xfrm = spPr?.GetFirstChild<A.Transform2D>();
         return (
             EmuToPx(xfrm?.Offset?.X ?? 0),
             EmuToPx(xfrm?.Offset?.Y ?? 0),
@@ -321,7 +328,7 @@ public static class SlideRenderer
     private static (double left, double top, double width, double height)
         GetShapeTransformFromPicture(Picture picture)
     {
-        var xfrm = picture.ShapeProperties?.Transform2D;
+        var xfrm = picture.ShapeProperties?.GetFirstChild<A.Transform2D>();
         return (
             EmuToPx(xfrm?.Offset?.X ?? 0),
             EmuToPx(xfrm?.Offset?.Y ?? 0),
@@ -333,7 +340,6 @@ public static class SlideRenderer
 
     private static Color? ResolveColor(A.SolidFill fill, SlidePart? _)
     {
-        // RGB hex (most common)
         var hex = fill.GetFirstChild<A.RgbColorModelHex>();
         if (hex?.Val is not null)
         {
@@ -344,20 +350,19 @@ public static class SlideRenderer
                 Convert.ToByte(v[4..6], 16));
         }
 
-        // Scheme color → map to reasonable default; full resolution needs theme XML
+        // SDK v3: SchemeColorValues is a struct — cannot use switch case, must use ==
         var scheme = fill.GetFirstChild<A.SchemeColor>();
         if (scheme is not null)
         {
-            return scheme.Val?.Value switch
-            {
-                A.SchemeColorValues.Background1 or
-                A.SchemeColorValues.Light1       => Colors.White,
-                A.SchemeColorValues.Text1 or
-                A.SchemeColorValues.Dark1        => Colors.Black,
-                A.SchemeColorValues.Accent1      => Color.FromRgb(0x46, 0x72, 0xC4),
-                A.SchemeColorValues.Accent2      => Color.FromRgb(0xED, 0x7D, 0x31),
-                _                                => (Color?)null,
-            };
+            var sv = scheme.Val?.Value;
+            if (sv == A.SchemeColorValues.Background1 || sv == A.SchemeColorValues.Light1)
+                return Colors.White;
+            if (sv == A.SchemeColorValues.Text1 || sv == A.SchemeColorValues.Dark1)
+                return Colors.Black;
+            if (sv == A.SchemeColorValues.Accent1)
+                return Color.FromRgb(0x46, 0x72, 0xC4);
+            if (sv == A.SchemeColorValues.Accent2)
+                return Color.FromRgb(0xED, 0x7D, 0x31);
         }
 
         return null;

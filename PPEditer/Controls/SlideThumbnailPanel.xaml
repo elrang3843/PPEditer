@@ -8,15 +8,20 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,0,0,1">
-            <TextBlock Text="  슬라이드" VerticalAlignment="Center"
-                       FontSize="11" Foreground="#444444"/>
+        <Border Grid.Row="0"
+                Background="{DynamicResource PanelHeaderBg}"
+                BorderBrush="{DynamicResource PanelHeaderBg}"
+                BorderThickness="0,0,0,1">
+            <TextBlock Text="{DynamicResource Tb_SlidePanel}"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource PanelHeaderFg}"/>
         </Border>
 
         <!-- Thumbnail list -->
         <ListView x:Name="ThumbnailList"
                   Grid.Row="1"
-                  Background="#E8E8E8"
+                  Background="{DynamicResource PanelBg}"
                   BorderThickness="0"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                   SelectionChanged="ThumbnailList_SelectionChanged"
@@ -55,7 +60,7 @@
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Vertical" Width="160">
-                        <!-- Shadow -->
+                        <!-- Shadow + slide thumbnail -->
                         <Grid>
                             <Border Background="#80000000" Margin="2,2,-2,-2"/>
                             <Border BorderBrush="#BBBBBB" BorderThickness="1">
@@ -64,7 +69,8 @@
                             </Border>
                         </Grid>
                         <TextBlock Text="{Binding Number}" TextAlignment="Center"
-                                   FontSize="10" Margin="0,3,0,0" Foreground="#333333"/>
+                                   FontSize="10" Margin="0,3,0,0"
+                                   Foreground="{DynamicResource ThumbFg}"/>
                     </StackPanel>
                 </DataTemplate>
             </ListView.ItemTemplate>

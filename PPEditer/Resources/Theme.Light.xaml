@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ══ Named brushes ════════════════════════════════════════════════ -->
+    <SolidColorBrush x:Key="CanvasBg"       Color="#646464"/>
+    <SolidColorBrush x:Key="PanelHeaderBg"  Color="#F0F0F0"/>
+    <SolidColorBrush x:Key="PanelHeaderFg"  Color="#444444"/>
+    <SolidColorBrush x:Key="PanelBg"        Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="ThumbFg"        Color="#333333"/>
+    <SolidColorBrush x:Key="AppFg"          Color="#000000"/>
+    <SolidColorBrush x:Key="StatusBg"       Color="#007ACC"/>
+    <SolidColorBrush x:Key="StatusFg"       Color="White"/>
+
+    <!-- ══ Implicit styles — light uses WPF defaults, only StatusBar overridden ══ -->
+    <Style TargetType="StatusBar">
+        <Setter Property="Background" Value="{StaticResource StatusBg}"/>
+        <Setter Property="Foreground" Value="{StaticResource StatusFg}"/>
+    </Style>
+
+</ResourceDictionary>

@@ -3,92 +3,175 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:PPEditer.Controls"
         Title="PPEditer"
-        Height="760" Width="1280"
-        MinHeight="480" MinWidth="800"
+        Height="760" Width="1360"
+        MinHeight="480" MinWidth="900"
         Closing="Window_Closing">
     <DockPanel>
 
-        <!-- ══ Menu bar ══════════════════════════════════════════════ -->
+        <!-- ══ Menu bar ══════════════════════════════════════════════════ -->
         <Menu DockPanel.Dock="Top" FontFamily="맑은 고딕, Segoe UI">
-            <!-- 파일 -->
-            <MenuItem Header="파일(_F)">
-                <MenuItem Header="새로 만들기(_N)" InputGestureText="Ctrl+N" Click="OnNew"/>
-                <MenuItem Header="열기(_O)..."     InputGestureText="Ctrl+O" Click="OnOpen"/>
-                <MenuItem x:Name="RecentMenu" Header="최근 파일(_R)"/>
+
+            <MenuItem Header="{DynamicResource Ms_File}">
+                <MenuItem Header="{DynamicResource Ms_New}"     InputGestureText="Ctrl+N" Click="OnNew"/>
+                <MenuItem Header="{DynamicResource Ms_Open}"    InputGestureText="Ctrl+O" Click="OnOpen"/>
+                <MenuItem x:Name="RecentMenu" Header="{DynamicResource Ms_Recent}"/>
                 <Separator/>
-                <MenuItem x:Name="MenuSave"   Header="저장(_S)"                     InputGestureText="Ctrl+S"       Click="OnSave"/>
-                <MenuItem x:Name="MenuSaveAs" Header="다른 이름으로 저장(_A)..."    InputGestureText="Ctrl+Shift+S" Click="OnSaveAs"/>
+                <MenuItem x:Name="MenuSave"   Header="{DynamicResource Ms_Save}"     InputGestureText="Ctrl+S"       Click="OnSave"/>
+                <MenuItem x:Name="MenuSaveAs" Header="{DynamicResource Ms_SaveAs}"   InputGestureText="Ctrl+Shift+S" Click="OnSaveAs"/>
                 <Separator/>
-                <MenuItem x:Name="MenuExportPdf" Header="PDF로 내보내기(_E)..."     InputGestureText="Ctrl+Shift+E" Click="OnExportPdf"/>
+                <MenuItem x:Name="MenuExportPdf" Header="{DynamicResource Ms_ExportPdf}" InputGestureText="Ctrl+Shift+E" Click="OnExportPdf"/>
                 <Separator/>
-                <MenuItem Header="끝내기(_X)" InputGestureText="Alt+F4" Click="OnExit"/>
+                <MenuItem Header="{DynamicResource Ms_Exit}" InputGestureText="Alt+F4" Click="OnExit"/>
             </MenuItem>
 
-            <!-- 편집 -->
-            <MenuItem Header="편집(_E)">
-                <MenuItem x:Name="MenuUndo" Header="실행 취소(_Z)" InputGestureText="Ctrl+Z" Click="OnUndo"/>
-                <MenuItem x:Name="MenuRedo" Header="다시 실행(_Y)" InputGestureText="Ctrl+Y" Click="OnRedo"/>
+            <MenuItem Header="{DynamicResource Ms_Edit}">
+                <MenuItem x:Name="MenuUndo" Header="{DynamicResource Ms_Undo}" InputGestureText="Ctrl+Z" Click="OnUndo"/>
+                <MenuItem x:Name="MenuRedo" Header="{DynamicResource Ms_Redo}" InputGestureText="Ctrl+Y" Click="OnRedo"/>
                 <Separator/>
-                <MenuItem Header="잘라내기(_T)"  InputGestureText="Ctrl+X"
-                          Command="ApplicationCommands.Cut"/>
-                <MenuItem Header="복사(_C)"      InputGestureText="Ctrl+C"
-                          Command="ApplicationCommands.Copy"/>
-                <MenuItem Header="붙여넣기(_P)"  InputGestureText="Ctrl+V"
-                          Command="ApplicationCommands.Paste"/>
+                <MenuItem Header="{DynamicResource Ms_Cut}"       InputGestureText="Ctrl+X" Command="ApplicationCommands.Cut"/>
+                <MenuItem Header="{DynamicResource Ms_Copy}"      InputGestureText="Ctrl+C" Command="ApplicationCommands.Copy"/>
+                <MenuItem Header="{DynamicResource Ms_Paste}"     InputGestureText="Ctrl+V" Command="ApplicationCommands.Paste"/>
                 <Separator/>
-                <MenuItem Header="모두 선택(_A)" InputGestureText="Ctrl+A"
-                          Command="ApplicationCommands.SelectAll"/>
+                <MenuItem Header="{DynamicResource Ms_SelectAll}" InputGestureText="Ctrl+A" Command="ApplicationCommands.SelectAll"/>
+                <Separator/>
+                <MenuItem x:Name="MenuDocInfo" Header="{DynamicResource Ms_DocInfo}"
+                          InputGestureText="Ctrl+Shift+I" Click="OnDocInfo"/>
+                <Separator/>
+                <MenuItem x:Name="MenuGroup"   Header="{DynamicResource Ms_Group}"
+                          InputGestureText="Ctrl+G"       Click="OnGroup"   IsEnabled="False"/>
+                <MenuItem x:Name="MenuUngroup" Header="{DynamicResource Ms_Ungroup}"
+                          InputGestureText="Ctrl+Shift+G" Click="OnUngroup" IsEnabled="False"/>
+                <Separator/>
+                <MenuItem x:Name="MenuCharProps" Header="{DynamicResource Ms_CharProps}"
+                          InputGestureText="Ctrl+Shift+F" Click="OnCharProperties" IsEnabled="False"/>
             </MenuItem>
 
-            <!-- 보기 -->
-            <MenuItem Header="보기(_V)">
-                <MenuItem Header="확대(_I)"    InputGestureText="Ctrl+="  Click="OnZoomIn"/>
-                <MenuItem Header="축소(_O)"    InputGestureText="Ctrl+-"  Click="OnZoomOut"/>
-                <MenuItem Header="창 맞춤(_F)" InputGestureText="Ctrl+0"  Click="OnZoomFit"/>
+            <MenuItem Header="{DynamicResource Ms_View}">
+                <MenuItem Header="{DynamicResource Ms_ZoomIn}"    InputGestureText="Ctrl+="  Click="OnZoomIn"/>
+                <MenuItem Header="{DynamicResource Ms_ZoomOut}"   InputGestureText="Ctrl+-"  Click="OnZoomOut"/>
+                <MenuItem Header="{DynamicResource Ms_ZoomFit}"   InputGestureText="Ctrl+0"  Click="OnZoomFit"/>
                 <Separator/>
-                <MenuItem x:Name="MenuTogglePanel" Header="슬라이드 패널(_P)"
-                          IsCheckable="True" IsChecked="True" Click="OnTogglePanel"/>
-                <MenuItem x:Name="MenuToggleStatus" Header="상태 표시줄(_S)"
-                          IsCheckable="True" IsChecked="True" Click="OnToggleStatus"/>
+                <MenuItem x:Name="MenuTogglePanel"  Header="{DynamicResource Ms_SlidePanel}" IsCheckable="True" IsChecked="True" Click="OnTogglePanel"/>
+                <MenuItem x:Name="MenuToggleStatus" Header="{DynamicResource Ms_StatusBar}"  IsCheckable="True" IsChecked="True" Click="OnToggleStatus"/>
             </MenuItem>
 
-            <!-- 슬라이드 -->
-            <MenuItem Header="슬라이드(_L)">
-                <MenuItem x:Name="MenuAddSlide" Header="새 슬라이드(_N)"
-                          InputGestureText="Ctrl+M" Click="OnAddSlide"/>
-                <MenuItem x:Name="MenuDupSlide" Header="슬라이드 복제(_D)"
-                          InputGestureText="Ctrl+D" Click="OnDupSlide"/>
-                <MenuItem x:Name="MenuDelSlide" Header="슬라이드 삭제(_X)"
-                          InputGestureText="Ctrl+Shift+Delete" Click="OnDelSlide"/>
+            <MenuItem Header="{DynamicResource Ms_Insert}">
+                <MenuItem x:Name="MenuInsertTextBox" Header="{DynamicResource Ms_InsertTextBox}"
+                          InputGestureText="Ctrl+Shift+T" Click="OnInsertTextBox"/>
                 <Separator/>
-                <MenuItem x:Name="MenuSlideUp"   Header="위로 이동(_U)"
-                          InputGestureText="Ctrl+Shift+Up"   Click="OnSlideUp"/>
-                <MenuItem x:Name="MenuSlideDown" Header="아래로 이동(_W)"
-                          InputGestureText="Ctrl+Shift+Down" Click="OnSlideDown"/>
+                <MenuItem x:Name="MenuInsertImage" Header="{DynamicResource Ms_InsertImage}" Click="OnInsertImage"/>
+                <MenuItem x:Name="MenuInsertVideo" Header="{DynamicResource Ms_InsertVideo}" Click="OnInsertVideo"/>
+                <MenuItem x:Name="MenuInsertAudio" Header="{DynamicResource Ms_InsertAudio}" Click="OnInsertAudio"/>
+                <MenuItem x:Name="MenuInsertShape" Header="{DynamicResource Ms_InsertShape}">
+                    <MenuItem Header="{DynamicResource Ms_Shape_Lines}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Line}"       Click="OnDrawShape" Tag="Line"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_SplineLine}" Click="OnDrawShape" Tag="SplineLine"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_PolyLine}"   Click="OnDrawShape" Tag="PolyLine"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Rects}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Rect}"          Click="OnDrawShape" Tag="Rect"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Square}"        Click="OnDrawShape" Tag="Square"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Trapezoid}"     Click="OnDrawShape" Tag="Trapezoid"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Parallelogram}" Click="OnDrawShape" Tag="Parallelogram"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Triangles}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_EqTriangle}"    Click="OnDrawShape" Tag="EqTriangle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_IsoTriangle}"   Click="OnDrawShape" Tag="IsoTriangle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_RightTriangle}" Click="OnDrawShape" Tag="RightTriangle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Scalene}"       Click="OnDrawShape" Tag="ScaleneTriangle"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Circles}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Circle}"  Click="OnDrawShape" Tag="Circle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Ellipse}" Click="OnDrawShape" Tag="Ellipse"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Arc}"     Click="OnDrawShape" Tag="Arc"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Filled}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Polygon}"       Click="OnDrawShape" Tag="Polygon"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_SplinePolygon}" Click="OnDrawShape" Tag="SplinePolygon"/>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Arrow}" Click="OnDrawShape" Tag="Arrow"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem x:Name="MenuInsertMath"    Header="{DynamicResource Ms_InsertMath}"
+                          InputGestureText="Ctrl+Shift+M" Click="OnInsertMath"/>
+                <MenuItem x:Name="MenuInsertCharMap" Header="{DynamicResource Ms_InsertCharMap}"
+                          InputGestureText="Ctrl+Shift+K" Click="OnInsertCharMap"/>
+                <MenuItem x:Name="MenuInsertEmoji"   Header="{DynamicResource Ms_InsertEmoji}"
+                          InputGestureText="Ctrl+Shift+J" Click="OnInsertEmoji"/>
             </MenuItem>
 
-            <!-- 도움말 -->
-            <MenuItem Header="도움말(_H)">
-                <MenuItem Header="PPEditer 정보(_A)..." Click="OnAbout"/>
+            <MenuItem Header="{DynamicResource Ms_Slide}">
+                <MenuItem x:Name="MenuAddSlide" Header="{DynamicResource Ms_AddSlide}" InputGestureText="Ctrl+M"            Click="OnAddSlide"/>
+                <MenuItem x:Name="MenuDupSlide" Header="{DynamicResource Ms_DupSlide}" InputGestureText="Ctrl+D"            Click="OnDupSlide"/>
+                <MenuItem x:Name="MenuDelSlide" Header="{DynamicResource Ms_DelSlide}" InputGestureText="Ctrl+Shift+Delete" Click="OnDelSlide"/>
+                <Separator/>
+                <MenuItem x:Name="MenuSlideUp"   Header="{DynamicResource Ms_SlideUp}"   InputGestureText="Ctrl+Shift+Up"   Click="OnSlideUp"/>
+                <MenuItem x:Name="MenuSlideDown" Header="{DynamicResource Ms_SlideDown}" InputGestureText="Ctrl+Shift+Down" Click="OnSlideDown"/>
             </MenuItem>
+
+            <!-- ── 설정 메뉴 ────────────────────────────────────────────── -->
+            <MenuItem Header="{DynamicResource Ms_Settings}">
+
+                <!-- 글꼴 라이선스 필터 -->
+                <MenuItem x:Name="MenuFontFilter"
+                          Header="{DynamicResource Ms_FontFilter}"
+                          IsCheckable="True"
+                          Click="OnFontFilterToggle"/>
+
+                <Separator/>
+
+                <!-- 언어 선택 -->
+                <MenuItem Header="{DynamicResource Ms_Language}">
+                    <MenuItem x:Name="MenuLangKo"
+                              Header="{DynamicResource Ms_LangKo}"
+                              IsCheckable="True"
+                              Click="OnLangKo"/>
+                    <MenuItem x:Name="MenuLangEn"
+                              Header="{DynamicResource Ms_LangEn}"
+                              IsCheckable="True"
+                              Click="OnLangEn"/>
+                </MenuItem>
+
+                <!-- 테마 선택 -->
+                <MenuItem Header="{DynamicResource Ms_Theme}">
+                    <MenuItem x:Name="MenuThemeLight"
+                              Header="{DynamicResource Ms_ThemeLight}"
+                              IsCheckable="True"
+                              Click="OnThemeLight"/>
+                    <MenuItem x:Name="MenuThemeDark"
+                              Header="{DynamicResource Ms_ThemeDark}"
+                              IsCheckable="True"
+                              Click="OnThemeDark"/>
+                </MenuItem>
+
+            </MenuItem>
+
+            <MenuItem Header="{DynamicResource Ms_Help}">
+                <MenuItem Header="{DynamicResource Ms_About}" Click="OnAbout"/>
+            </MenuItem>
+
         </Menu>
 
-        <!-- ══ Toolbar ═══════════════════════════════════════════════ -->
+        <!-- ══ Toolbars ══════════════════════════════════════════════════ -->
         <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
+
+            <!-- Row 1: File / Slide / Zoom -->
             <ToolBar Band="1" BandIndex="1" FontFamily="맑은 고딕, Segoe UI" FontSize="12">
-                <Button ToolTip="새로 만들기 (Ctrl+N)"  Click="OnNew">새로 만들기</Button>
-                <Button ToolTip="열기 (Ctrl+O)"         Click="OnOpen">열기</Button>
-                <Button x:Name="TbSave" ToolTip="저장 (Ctrl+S)"  Click="OnSave" IsEnabled="False">저장</Button>
+                <Button Content="{DynamicResource Tb_New}"  ToolTip="{DynamicResource Tt_New}"  Click="OnNew"/>
+                <Button Content="{DynamicResource Tb_Open}" ToolTip="{DynamicResource Tt_Open}" Click="OnOpen"/>
+                <Button x:Name="TbSave" Content="{DynamicResource Tb_Save}" ToolTip="{DynamicResource Tt_Save}" Click="OnSave" IsEnabled="False"/>
                 <Separator/>
-                <Button x:Name="TbUndo" ToolTip="실행 취소 (Ctrl+Z)" Click="OnUndo" IsEnabled="False">↩ 취소</Button>
-                <Button x:Name="TbRedo" ToolTip="다시 실행 (Ctrl+Y)" Click="OnRedo" IsEnabled="False">↪ 재실행</Button>
+                <Button x:Name="TbUndo" Content="{DynamicResource Tb_Undo}" Click="OnUndo" IsEnabled="False" ToolTip="{DynamicResource Tt_Undo}"/>
+                <Button x:Name="TbRedo" Content="{DynamicResource Tb_Redo}" Click="OnRedo" IsEnabled="False" ToolTip="{DynamicResource Tt_Redo}"/>
                 <Separator/>
-                <Button x:Name="TbAddSlide" ToolTip="새 슬라이드 (Ctrl+M)" Click="OnAddSlide" IsEnabled="False">+ 슬라이드</Button>
-                <Button x:Name="TbDelSlide" ToolTip="슬라이드 삭제"         Click="OnDelSlide" IsEnabled="False">− 슬라이드</Button>
+                <Button x:Name="TbAddSlide"    Content="{DynamicResource Tb_AddSlide}"  Click="OnAddSlide"      IsEnabled="False" ToolTip="{DynamicResource Tt_AddSlide}"/>
+                <Button x:Name="TbDelSlide"    Content="{DynamicResource Tb_DelSlide}"  Click="OnDelSlide"      IsEnabled="False" ToolTip="{DynamicResource Tt_DelSlide}"/>
+                <Button x:Name="TbInsertTxBox" Content="{DynamicResource Tb_TextBox}"   Click="OnInsertTextBox" IsEnabled="False" ToolTip="{DynamicResource Tt_TextBox}"/>
                 <Separator/>
-                <Button x:Name="TbExportPdf" ToolTip="PDF 내보내기 (Ctrl+Shift+E)" Click="OnExportPdf" IsEnabled="False">PDF 내보내기</Button>
+                <Button x:Name="TbExportPdf"   Content="{DynamicResource Tb_ExportPdf}" Click="OnExportPdf"     IsEnabled="False" ToolTip="{DynamicResource Tt_ExportPdf}"/>
                 <Separator/>
-                <Label VerticalAlignment="Center">확대/축소:</Label>
+                <Label VerticalAlignment="Center" Content="{DynamicResource Tb_ZoomLabel}"/>
                 <ComboBox x:Name="ZoomCombo" Width="72" IsEditable="True"
                           SelectionChanged="ZoomCombo_SelectionChanged"
                           LostFocus="ZoomCombo_LostFocus">
@@ -99,24 +182,125 @@
                     <ComboBoxItem Content="150%"/>
                     <ComboBoxItem Content="200%"/>
                 </ComboBox>
-                <Button ToolTip="창 맞춤 (Ctrl+0)" Click="OnZoomFit">창 맞춤</Button>
+                <Button Content="{DynamicResource Tb_ZoomFit}" Click="OnZoomFit" ToolTip="{DynamicResource Tt_ZoomFit}"/>
+            </ToolBar>
+
+            <!-- Row 2: Text Formatting (enabled while a shape is being edited) -->
+            <ToolBar x:Name="FormatToolBar" Band="2" BandIndex="1"
+                     FontFamily="맑은 고딕, Segoe UI" FontSize="12" IsEnabled="False">
+
+                <!-- Open-source fonts only toggle -->
+                <CheckBox x:Name="ChkOpenFontsOnly"
+                          Content="{DynamicResource Tb_OpenFontsOnly}"
+                          IsChecked="True"
+                          VerticalAlignment="Center"
+                          Margin="4,0"
+                          ToolTip="{DynamicResource Tt_OpenFontsOnly}"
+                          Checked="FontFilterChanged" Unchecked="FontFilterChanged"/>
+
+                <!-- Font family -->
+                <ComboBox x:Name="FontFamilyCombo" Width="180" IsEditable="True"
+                          ToolTip="{DynamicResource Tt_FontFamily}"
+                          SelectionChanged="FontFamilyCombo_SelectionChanged"
+                          LostFocus="FontFamilyCombo_LostFocus">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Name}"
+                                           FontFamily="{Binding Name}"
+                                           Width="130" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding LicenseLabel}"
+                                           Foreground="#888888" FontSize="10"
+                                           Margin="4,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <!-- Font size -->
+                <ComboBox x:Name="FontSizeCombo" Width="56" IsEditable="True"
+                          ToolTip="{DynamicResource Tt_FontSize}"
+                          SelectionChanged="FontSizeCombo_SelectionChanged"
+                          LostFocus="FontSizeCombo_LostFocus">
+                    <ComboBoxItem Content="8"/>
+                    <ComboBoxItem Content="9"/>
+                    <ComboBoxItem Content="10"/>
+                    <ComboBoxItem Content="11"/>
+                    <ComboBoxItem Content="12"/>
+                    <ComboBoxItem Content="14"/>
+                    <ComboBoxItem Content="16"/>
+                    <ComboBoxItem Content="18"/>
+                    <ComboBoxItem Content="20"/>
+                    <ComboBoxItem Content="24"/>
+                    <ComboBoxItem Content="28"/>
+                    <ComboBoxItem Content="32"/>
+                    <ComboBoxItem Content="36"/>
+                    <ComboBoxItem Content="40"/>
+                    <ComboBoxItem Content="48"/>
+                    <ComboBoxItem Content="60"/>
+                    <ComboBoxItem Content="72"/>
+                    <ComboBoxItem Content="96"/>
+                </ComboBox>
+
+                <Separator/>
+
+                <!-- Bold / Italic / Underline -->
+                <ToggleButton x:Name="TbBold"      Width="28" ToolTip="{DynamicResource Tt_Bold}"
+                              FontWeight="Bold" Click="OnBoldClick">B</ToggleButton>
+                <ToggleButton x:Name="TbItalic"    Width="28" ToolTip="{DynamicResource Tt_Italic}"
+                              FontStyle="Italic" Click="OnItalicClick"><Italic>I</Italic></ToggleButton>
+                <ToggleButton x:Name="TbUnderline" Width="28" ToolTip="{DynamicResource Tt_Underline}"
+                              Click="OnUnderlineClick">
+                    <TextBlock TextDecorations="Underline">U</TextBlock>
+                </ToggleButton>
+
+                <Separator/>
+
+                <!-- Alignment -->
+                <Button Width="28" ToolTip="{DynamicResource Tt_AlignLeft}"
+                        Command="EditingCommands.AlignLeft"
+                        CommandTarget="{Binding ElementName=EditorCanvas}">≡</Button>
+                <Button Width="28" ToolTip="{DynamicResource Tt_AlignCenter}"
+                        Command="EditingCommands.AlignCenter"
+                        CommandTarget="{Binding ElementName=EditorCanvas}">≡</Button>
+                <Button Width="28" ToolTip="{DynamicResource Tt_AlignRight}"
+                        Command="EditingCommands.AlignRight"
+                        CommandTarget="{Binding ElementName=EditorCanvas}">≡</Button>
+
+                <Separator/>
+
+                <!-- Text color -->
+                <Button x:Name="TbTextColor" Width="60" Click="OnTextColorClick"
+                        ToolTip="{DynamicResource Tt_TextColor}">
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="A" HorizontalAlignment="Center" FontWeight="Bold"/>
+                        <Rectangle x:Name="ColorBar" Height="4" Width="20"
+                                   Fill="Black" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <Separator/>
+                <Button Content="{DynamicResource Tb_CommitEdit}" Click="OnCommitEdit" ToolTip="{DynamicResource Tt_CommitEdit}"/>
             </ToolBar>
         </ToolBarTray>
 
-        <!-- ══ Status bar ════════════════════════════════════════════ -->
+        <!-- ══ Status bar ════════════════════════════════════════════════ -->
         <StatusBar x:Name="AppStatusBar" DockPanel.Dock="Bottom">
             <StatusBarItem>
-                <TextBlock x:Name="StatusMsg" Text="준비"/>
+                <TextBlock x:Name="StatusMsg" Text="준비"
+                           Foreground="{DynamicResource StatusFg}"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock x:Name="SlideInfoText"/>
+                <TextBlock x:Name="SlideInfoText"
+                           Foreground="{DynamicResource StatusFg}"/>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock x:Name="ZoomText" Text="100%"/>
+                <TextBlock x:Name="ZoomText" Text="100%"
+                           Foreground="{DynamicResource StatusFg}"/>
             </StatusBarItem>
         </StatusBar>
 
-        <!-- ══ Main content ══════════════════════════════════════════ -->
+        <!-- ══ Main content ══════════════════════════════════════════════ -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="PanelCol" Width="200" MinWidth="120" MaxWidth="320"/>
@@ -124,16 +308,15 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left: slide thumbnail panel -->
             <controls:SlideThumbnailPanel x:Name="SlidePanel"
                                           Grid.Column="0"
-                                          BorderBrush="#CCCCCC" BorderThickness="0,0,1,0"/>
+                                          BorderBrush="{DynamicResource PanelHeaderBg}"
+                                          BorderThickness="0,0,1,0"/>
 
-            <GridSplitter Grid.Column="1"
-                          Width="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <GridSplitter Grid.Column="1" Width="4"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           Background="#DDDDDD" ShowsPreview="True"/>
 
-            <!-- Right: slide editor canvas -->
             <controls:SlideEditorCanvas x:Name="EditorCanvas" Grid.Column="2"/>
         </Grid>
     </DockPanel>

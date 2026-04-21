@@ -1,0 +1,28 @@
+<Window x:Class="PPEditer.Dialogs.EmojiPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource Dlg_Emoji}"
+        Width="500" Height="400"
+        MinWidth="360" MinHeight="280"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Loaded="Window_Loaded">
+    <DockPanel Margin="8">
+
+        <!-- Bottom: close -->
+        <Button DockPanel.Dock="Bottom"
+                Content="{DynamicResource Btn_Close}"
+                Width="80" HorizontalAlignment="Right"
+                Margin="0,6,0,0" Click="OnClose"/>
+
+        <!-- Category selector row -->
+        <StackPanel x:Name="CatBar" DockPanel.Dock="Top"
+                    Orientation="Horizontal" Margin="0,0,0,6"/>
+
+        <!-- Emoji grid -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <WrapPanel x:Name="EmojiPanel" Margin="4"/>
+        </ScrollViewer>
+
+    </DockPanel>
+</Window>
