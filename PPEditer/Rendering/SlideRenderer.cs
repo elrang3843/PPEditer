@@ -223,7 +223,7 @@ public static class SlideRenderer
     private static double ReadAdj(A.PresetGeometry? pg, int index, double defaultVal)
     {
         var guides = pg?.GetFirstChild<A.AdjustValueList>()
-                       ?.Elements<A.Guide>().ToList();
+                       ?.Elements<A.ShapeGuide>().ToList();
         if (guides is null || index >= guides.Count) return defaultVal;
         var fmla = guides[index].Formula?.Value ?? "";
         if (fmla.StartsWith("val ") && long.TryParse(fmla[4..], out long v))
