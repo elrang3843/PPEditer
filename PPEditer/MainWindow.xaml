@@ -162,6 +162,8 @@
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Help}">
+                <MenuItem Header="{DynamicResource Ms_UserManual}" Click="OnUserManual"/>
+                <Separator/>
                 <MenuItem Header="{DynamicResource Ms_About}" Click="OnAbout"/>
             </MenuItem>
 

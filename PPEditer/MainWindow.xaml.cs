@@ -369,6 +369,7 @@ public partial class MainWindow : Window
         => AppStatusBar.Visibility = MenuToggleStatus.IsChecked
             ? Visibility.Visible : Visibility.Collapsed;
 
+    private void OnUserManual(object s, RoutedEventArgs e) => new UserManualDialog { Owner = this }.ShowDialog();
     private void OnAbout(object? _ = null) => new AboutDialog { Owner = this }.ShowDialog();
 
     // ── Zoom combo ────────────────────────────────────────────────────
