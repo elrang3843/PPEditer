@@ -501,7 +501,7 @@ public partial class MainWindow : Window
 
     // ── Group / Ungroup ───────────────────────────────────────────────
 
-    private void OnGroup(object? _ = null)
+    private void OnGroup(object? _ = null, System.Windows.RoutedEventArgs? __ = null)
     {
         if (!_model.IsOpen) return;
         var indices = EditorCanvas.SelectedTreeIndices;
@@ -509,7 +509,7 @@ public partial class MainWindow : Window
         OnShapesGroupRequested(_currentSlide, indices);
     }
 
-    private void OnUngroup(object? _ = null)
+    private void OnUngroup(object? _ = null, System.Windows.RoutedEventArgs? __ = null)
     {
         if (!_model.IsOpen) return;
         int treeIdx = EditorCanvas.SelectedTreeIndex;

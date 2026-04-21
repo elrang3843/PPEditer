@@ -538,8 +538,8 @@ public sealed class PresentationModel : IDisposable
         bool isLineType = tool is DrawTool.Line or DrawTool.PolyLine or DrawTool.SplineLine;
         bool isFilled   = !isLineType;
 
-        A.OpenXmlElement geom;
-        A.Transform2D   xfrm;
+        OpenXmlElement geom;
+        A.Transform2D  xfrm;
 
         if (tool is DrawTool.Line)
         {
@@ -574,7 +574,7 @@ public sealed class PresentationModel : IDisposable
                 DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
                 DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
                 DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
-                DrawTool.IsoTriangle                => A.ShapeTypeValues.IsoscelesTriangle,
+                DrawTool.IsoTriangle                => new A.ShapeTypeValues("isoTri"),
                 DrawTool.RightTriangle              => A.ShapeTypeValues.RightTriangle,
                 DrawTool.Trapezoid                  => A.ShapeTypeValues.Trapezoid,
                 DrawTool.Parallelogram              => A.ShapeTypeValues.Parallelogram,
@@ -778,7 +778,7 @@ public sealed class PresentationModel : IDisposable
                 if      (dash == A.PresetLineDashValues.Dash)       style.OutlineKind = OutlineKind.Dash;
                 else if (dash == A.PresetLineDashValues.Dot)        style.OutlineKind = OutlineKind.Dot;
                 else if (dash == A.PresetLineDashValues.DashDot)    style.OutlineKind = OutlineKind.DashDot;
-                else if (dash == A.PresetLineDashValues.DashDotDot) style.OutlineKind = OutlineKind.DashDotDot;
+                else if (dash == A.PresetLineDashValues.LargeDashDotDot) style.OutlineKind = OutlineKind.DashDotDot;
                 else                                                 style.OutlineKind = OutlineKind.Solid;
             }
         }
@@ -851,7 +851,7 @@ public sealed class PresentationModel : IDisposable
                 var dv = style.OutlineKind == OutlineKind.Dash       ? A.PresetLineDashValues.Dash :
                          style.OutlineKind == OutlineKind.Dot        ? A.PresetLineDashValues.Dot  :
                          style.OutlineKind == OutlineKind.DashDot    ? A.PresetLineDashValues.DashDot :
-                                                                        A.PresetLineDashValues.DashDotDot;
+                                                                        A.PresetLineDashValues.LargeDashDotDot;
                 ol.Append(new A.PresetDash { Val = dv });
             }
             spPr.Append(ol);
