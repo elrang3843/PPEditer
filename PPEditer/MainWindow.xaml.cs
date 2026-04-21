@@ -53,6 +53,7 @@ public partial class MainWindow : Window
 
     private void PopulateFontCombo(bool openOnly)
     {
+        if (FontFamilyCombo is null) return;   // guard: called before InitializeComponent finishes
         _suppressFormatEvents = true;
         FontFamilyCombo.ItemsSource = openOnly
             ? FontService.GetRecommendedFonts()

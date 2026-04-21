@@ -177,7 +177,8 @@ public static class FontService
 
         _allCache = Fonts.SystemFontFamilies
             .Select(f => f.Source)
-            .OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)
+            .Where(n => !string.IsNullOrEmpty(n))    // anonymous composite fonts may have null Source
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .Select(name => KnownOpenFonts.TryGetValue(name, out var lic)
                 ? new FontInfo(name, lic)
                 : new FontInfo(name, FontLicense.System))
