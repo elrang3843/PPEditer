@@ -162,12 +162,28 @@ public static class SlideRenderer
         }
         else
         {
-            geomShape = new System.Windows.Shapes.Rectangle
+            var pg         = spPr?.GetFirstChild<A.PresetGeometry>();
+            var presetGeom = BuildPresetGeometry(pg, width, height);
+            if (presetGeom is not null)
             {
-                Width  = width,
-                Height = height,
-                Fill   = fillBrush ?? Brushes.Transparent,
-            };
+                geomShape = new System.Windows.Shapes.Path
+                {
+                    Data    = presetGeom,
+                    Width   = width,
+                    Height  = height,
+                    Stretch = Stretch.None,
+                    Fill    = fillBrush ?? Brushes.Transparent,
+                };
+            }
+            else
+            {
+                geomShape = new System.Windows.Shapes.Rectangle
+                {
+                    Width  = width,
+                    Height = height,
+                    Fill   = fillBrush ?? Brushes.Transparent,
+                };
+            }
         }
 
         ApplyStroke(geomShape, shape, slidePart);
@@ -181,6 +197,96 @@ public static class SlideRenderer
         Canvas.SetLeft(container, left);
         Canvas.SetTop(container, top);
         return container;
+    }
+
+    // ── Preset geometry ───────────────────────────────────────────────
+
+    private static Geometry? BuildPresetGeometry(A.PresetGeometry? pg, double w, double h)
+    {
+        var name = pg?.Preset?.InnerText ?? "";
+        double a1 = ReadAdj(pg, 0, 25000) / 100000.0;
+        double a2 = ReadAdj(pg, 1, 50000) / 100000.0;
+
+        return name switch
+        {
+            "trap"          => Polygon((a1 * w, 0), (w - a1 * w, 0), (w, h), (0, h)),
+            "parallelogram" => Polygon((a1 * w, 0), (w, 0), (w - a1 * w, h), (0, h)),
+            "triangle"      => Polygon((w / 2, 0), (w, h), (0, h)),
+            "isoTri"        => Polygon((w / 2, 0), (w, h), (0, h)),
+            "rtTriangle"    => Polygon((0, 0), (w, h), (0, h)),
+            "rightArrow"    => BuildArrow(w, h, a1, a2),
+            "arc"           => BuildArc(w, h, pg),
+            _               => null,
+        };
+    }
+
+    private static double ReadAdj(A.PresetGeometry? pg, int index, double defaultVal)
+    {
+        var guides = pg?.GetFirstChild<A.AdjustValueList>()
+                       ?.Elements<A.Guide>().ToList();
+        if (guides is null || index >= guides.Count) return defaultVal;
+        var fmla = guides[index].Formula?.Value ?? "";
+        if (fmla.StartsWith("val ") && long.TryParse(fmla[4..], out long v))
+            return v;
+        return defaultVal;
+    }
+
+    private static PathGeometry Polygon(params (double x, double y)[] pts)
+    {
+        var fig = new PathFigure
+        {
+            IsClosed = true, IsFilled = true,
+            StartPoint = new System.Windows.Point(pts[0].x, pts[0].y),
+        };
+        foreach (var (x, y) in pts.Skip(1))
+            fig.Segments.Add(new LineSegment(new System.Windows.Point(x, y), isStroked: true));
+        return new PathGeometry([fig]);
+    }
+
+    private static PathGeometry BuildArrow(double w, double h, double adj1, double adj2)
+    {
+        // adj1 = shaft height ratio (default 0.5 → half of h each side of center)
+        // adj2 = head start x ratio (default 0.5 → halfway)
+        double dy1 = h * adj1 / 2.0;  // shaft half-height
+        double dx1 = w * adj2;         // head starts here
+        double y1  = dy1;
+        double y2  = h - dy1;
+        return Polygon(
+            (0,   y1),  (dx1, y1), (dx1, 0),
+            (w,   h / 2),
+            (dx1, h),   (dx1, y2), (0,   y2));
+    }
+
+    private static PathGeometry BuildArc(double w, double h, A.PresetGeometry? pg)
+    {
+        // Default PPTX arc: start 270° (top), swing 90° (clockwise to right)
+        long raw1 = (long)ReadAdj(pg, 0, 16200000);
+        long raw2 = (long)ReadAdj(pg, 1, 5400000);
+        double startDeg = raw1 / 60000.0;
+        double swingDeg = raw2 / 60000.0;
+
+        double cx = w / 2, cy = h / 2, rx = w / 2, ry = h / 2;
+        double startRad = startDeg * Math.PI / 180.0;
+        double endRad   = (startDeg + swingDeg) * Math.PI / 180.0;
+
+        double sx = cx + rx * Math.Cos(startRad);
+        double sy = cy + ry * Math.Sin(startRad);
+        double ex = cx + rx * Math.Cos(endRad);
+        double ey = cy + ry * Math.Sin(endRad);
+        bool largeArc = swingDeg > 180.0;
+
+        var fig = new PathFigure
+        {
+            StartPoint = new System.Windows.Point(sx, sy),
+            IsClosed   = false, IsFilled = false,
+        };
+        fig.Segments.Add(new ArcSegment(
+            new System.Windows.Point(ex, ey),
+            new System.Windows.Size(rx, ry),
+            0, largeArc,
+            SweepDirection.Clockwise,
+            isStroked: true));
+        return new PathGeometry([fig]);
     }
 
     private static PathGeometry BuildPathGeometry(A.CustomGeometry custGeom, double wpfW, double wpfH)
