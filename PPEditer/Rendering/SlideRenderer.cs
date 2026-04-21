@@ -134,18 +134,46 @@ public static class SlideRenderer
         var (left, top, width, height) = GetTransform(shape.ShapeProperties);
         if (width <= 0 || height <= 0) return null;
 
-        var container = new Grid { Width = width, Height = height, ClipToBounds = true };
-
+        var spPr      = shape.ShapeProperties;
         var fillBrush = GetShapeFill(shape, slidePart);
-        // Always create rect so ApplyBorder runs even when fill = None/transparent
-        var rect = new System.Windows.Shapes.Rectangle
+
+        System.Windows.Shapes.Shape geomShape;
+
+        var custGeom = spPr?.GetFirstChild<A.CustomGeometry>();
+        if (custGeom is not null)
         {
-            Width  = width,
-            Height = height,
-            Fill   = fillBrush ?? Brushes.Transparent,
-        };
-        ApplyBorder(rect, shape, slidePart);
-        container.Children.Add(rect);
+            geomShape = new System.Windows.Shapes.Path
+            {
+                Data    = BuildPathGeometry(custGeom, width, height),
+                Width   = width,
+                Height  = height,
+                Stretch = Stretch.None,
+                Fill    = fillBrush ?? Brushes.Transparent,
+            };
+        }
+        else if (spPr?.GetFirstChild<A.PresetGeometry>()?.Preset?.InnerText == "ellipse")
+        {
+            geomShape = new System.Windows.Shapes.Ellipse
+            {
+                Width  = width,
+                Height = height,
+                Fill   = fillBrush ?? Brushes.Transparent,
+            };
+        }
+        else
+        {
+            geomShape = new System.Windows.Shapes.Rectangle
+            {
+                Width  = width,
+                Height = height,
+                Fill   = fillBrush ?? Brushes.Transparent,
+            };
+        }
+
+        ApplyStroke(geomShape, shape, slidePart);
+
+        var container = new Grid { Width = width, Height = height, ClipToBounds = true };
+        container.Children.Add(geomShape);
 
         if (shape.TextBody is not null)
             container.Children.Add(BuildTextBlock(shape.TextBody, width, height));
@@ -154,6 +182,74 @@ public static class SlideRenderer
         Canvas.SetTop(container, top);
         return container;
     }
+
+    private static PathGeometry BuildPathGeometry(A.CustomGeometry custGeom, double wpfW, double wpfH)
+    {
+        var pathList = custGeom.GetFirstChild<A.PathList>();
+        if (pathList is null) return new PathGeometry();
+
+        var geometry = new PathGeometry();
+        foreach (var aPath in pathList.Elements<A.Path>())
+        {
+            long rawW  = aPath.Width?.Value  ?? 0L;
+            long rawH  = aPath.Height?.Value ?? 0L;
+            double pW  = rawW > 0 ? EmuToPx(rawW) : wpfW;
+            double pH  = rawH > 0 ? EmuToPx(rawH) : wpfH;
+            double sx  = pW > 0 ? wpfW / pW : 1;
+            double sy  = pH > 0 ? wpfH / pH : 1;
+
+            var figure  = new PathFigure { IsClosed = false, IsFilled = true };
+            bool started = false;
+
+            foreach (var el in aPath.ChildElements)
+            {
+                if (el is A.MoveTo moveTo)
+                {
+                    var pt = moveTo.Point;
+                    if (pt is null) continue;
+                    double px = EmuToPx(ParsePtVal(pt.X)) * sx;
+                    double py = EmuToPx(ParsePtVal(pt.Y)) * sy;
+                    if (started)
+                    {
+                        geometry.Figures.Add(figure);
+                        figure = new PathFigure { IsClosed = false, IsFilled = true };
+                    }
+                    figure.StartPoint = new System.Windows.Point(px, py);
+                    started = true;
+                }
+                else if (el is A.LineTo lineTo)
+                {
+                    var pt = lineTo.Point;
+                    if (pt is null) continue;
+                    figure.Segments.Add(new LineSegment(
+                        new System.Windows.Point(EmuToPx(ParsePtVal(pt.X)) * sx,
+                                                 EmuToPx(ParsePtVal(pt.Y)) * sy),
+                        isStroked: true));
+                }
+                else if (el is A.CubicBezierCurveTo cubicBez)
+                {
+                    var pts = cubicBez.Elements<A.Point>().ToList();
+                    if (pts.Count < 3) continue;
+                    figure.Segments.Add(new BezierSegment(
+                        new System.Windows.Point(EmuToPx(ParsePtVal(pts[0].X)) * sx, EmuToPx(ParsePtVal(pts[0].Y)) * sy),
+                        new System.Windows.Point(EmuToPx(ParsePtVal(pts[1].X)) * sx, EmuToPx(ParsePtVal(pts[1].Y)) * sy),
+                        new System.Windows.Point(EmuToPx(ParsePtVal(pts[2].X)) * sx, EmuToPx(ParsePtVal(pts[2].Y)) * sy),
+                        isStroked: true));
+                }
+                else if (el is A.CloseShapePath)
+                {
+                    figure.IsClosed = true;
+                }
+            }
+
+            if (started) geometry.Figures.Add(figure);
+        }
+
+        return geometry;
+    }
+
+    private static long ParsePtVal(StringValue? val) =>
+        val?.HasValue == true && long.TryParse(val.Value, out var n) ? n : 0L;
 
     private static Brush? GetShapeFill(Shape shape, SlidePart slidePart)
     {
@@ -171,16 +267,16 @@ public static class SlideRenderer
         return null;
     }
 
-    private static void ApplyBorder(System.Windows.Shapes.Rectangle rect,
-                                    Shape shape, SlidePart slidePart)
+    private static void ApplyStroke(System.Windows.Shapes.Shape shape,
+                                    Shape xmlShape, SlidePart slidePart)
     {
-        var ln    = shape.ShapeProperties?.GetFirstChild<A.Outline>();
+        var ln    = xmlShape.ShapeProperties?.GetFirstChild<A.Outline>();
         var solid = ln?.GetFirstChild<A.SolidFill>();
         if (solid is null) return;
         var c = ResolveColor(solid, slidePart);
         if (!c.HasValue) return;
-        rect.Stroke          = new SolidColorBrush(c.Value);
-        rect.StrokeThickness = ln?.Width?.Value is int thick ? EmuToPx((long)thick) : 1;
+        shape.Stroke          = new SolidColorBrush(c.Value);
+        shape.StrokeThickness = ln?.Width?.Value is int thick ? EmuToPx((long)thick) : 1;
     }
 
     // ── Text body ─────────────────────────────────────────────────────
