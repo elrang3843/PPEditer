@@ -1106,6 +1106,7 @@ public partial class MainWindow : Window
     private void OnInsertEmoji(object s, RoutedEventArgs e)   => OnInsertEmoji();
     private void OnCharProperties(object s, RoutedEventArgs e) => OnCharProperties();
     private void OnParaProperties(object s, RoutedEventArgs e) => OnParaProperties();
+    private void OnParaPropsClick(object s, RoutedEventArgs e) => OnParaProperties();
 }
 
 // ── Tiny relay command ─────────────────────────────────────────────────────────

@@ -1232,8 +1232,12 @@ public partial class SlideEditorCanvas : UserControl
 
             if (style.LineSpacePct > 0 && !double.IsNaN(style.LineSpacePct))
             {
-                double defaultPx = 14.0 * 96.0 / 72.0;
-                block.LineHeight = defaultPx * style.LineSpacePct / 100.0;
+                double fontPx = block.Inlines.OfType<Run>()
+                    .Select(r => r.FontSize)
+                    .Where(s => s > 0)
+                    .DefaultIfEmpty(14.0 * 96.0 / 72.0)
+                    .Max();
+                block.LineHeight = fontPx * style.LineSpacePct / 100.0;
             }
             else
                 block.LineHeight = double.NaN;

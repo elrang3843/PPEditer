@@ -120,6 +120,8 @@
     <sys:String x:Key="Tt_AlignLeft">왼쪽 맞춤 (Ctrl+L)</sys:String>
     <sys:String x:Key="Tt_AlignCenter">가운데 맞춤 (Ctrl+E)</sys:String>
     <sys:String x:Key="Tt_AlignRight">오른쪽 맞춤 (Ctrl+R)</sys:String>
+    <sys:String x:Key="Tt_AlignJustify">균형 맞춤 (Ctrl+J)</sys:String>
+    <sys:String x:Key="Tt_ParaProps">문단 속성 (Ctrl+Shift+P)</sys:String>
     <sys:String x:Key="Tt_TextColor">글자 색</sys:String>
     <sys:String x:Key="Tt_OpenFontsOnly">체크 시 라이선스가 명확한 오픈소스 글꼴만 표시합니다.</sys:String>
     <sys:String x:Key="Tt_CommitEdit">편집 완료 (Esc)</sys:String>

@@ -120,6 +120,8 @@
     <sys:String x:Key="Tt_AlignLeft">Align Left (Ctrl+L)</sys:String>
     <sys:String x:Key="Tt_AlignCenter">Center (Ctrl+E)</sys:String>
     <sys:String x:Key="Tt_AlignRight">Align Right (Ctrl+R)</sys:String>
+    <sys:String x:Key="Tt_AlignJustify">Justify (Ctrl+J)</sys:String>
+    <sys:String x:Key="Tt_ParaProps">Paragraph Properties (Ctrl+Shift+P)</sys:String>
     <sys:String x:Key="Tt_TextColor">Text color</sys:String>
     <sys:String x:Key="Tt_OpenFontsOnly">Show only open-source fonts with clear licenses.</sys:String>
     <sys:String x:Key="Tt_CommitEdit">Finish editing (Esc)</sys:String>
