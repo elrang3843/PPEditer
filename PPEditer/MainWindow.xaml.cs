@@ -365,6 +365,7 @@ public partial class MainWindow : Window
 
     private void ApplyZoomText(string text)
     {
+        if (EditorCanvas is null) return;
         if (double.TryParse(text.TrimEnd('%'), out double pct))
             EditorCanvas.SetZoom(pct / 100.0);
         UpdateZoomDisplay();
@@ -715,6 +716,7 @@ public partial class MainWindow : Window
 
     private void UpdateZoomDisplay()
     {
+        if (EditorCanvas is null) return;
         _suppressZoomEvents = true;
         int pct = (int)(EditorCanvas.ZoomFactor * 100);
         ZoomText.Text  = $"{pct}%";
