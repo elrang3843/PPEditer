@@ -1041,7 +1041,7 @@ public partial class SlideEditorCanvas : UserControl
         _editingTreeIdx = treeIdx;
         canvas.Children.Add(_editor);
         _editor.Focus();
-        _editor.SelectAll();
+        _editor.CaretPosition = _editor.Document.ContentEnd;
 
         // Add context menu for character/paragraph properties
         var charCtx  = new ContextMenu();

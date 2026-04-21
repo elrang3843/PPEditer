@@ -103,6 +103,32 @@ public static class PptxConverter
                     para.Margin = new Thickness(para.Margin.Left, para.Margin.Top, 0, px);
             }
 
+            // Paragraph default run properties (a:defRPr) — applied as Paragraph-level
+            // formatting so new runs inherit them without explicit a:rPr
+            var defRPr = pPr?.GetFirstChild<A.DefaultRunProperties>();
+            if (defRPr is not null)
+            {
+                if (defRPr.FontSize?.HasValue == true && defRPr.FontSize.Value > 0)
+                    para.FontSize = defRPr.FontSize.Value / 100.0 * WpfDpi / PointPerInch;
+
+                var defEa = defRPr.GetFirstChild<A.EastAsianFont>()?.Typeface;
+                var defLt = defRPr.GetFirstChild<A.LatinFont>()?.Typeface;
+                var defFf = defEa ?? defLt;
+                if (defFf is not null && defFf != "+mj-lt" && defFf != "+mn-lt" &&
+                    defFf != "+mj-ea" && defFf != "+mn-ea")
+                    para.FontFamily = new FontFamily(defFf);
+
+                if (defRPr.Bold?.Value   == true) para.FontWeight = FontWeights.Bold;
+                if (defRPr.Italic?.Value == true) para.FontStyle  = FontStyles.Italic;
+
+                var defSolid = defRPr.GetFirstChild<A.SolidFill>();
+                if (defSolid is not null)
+                {
+                    var dc = ResolveHexColor(defSolid);
+                    if (dc.HasValue) para.Foreground = new SolidColorBrush(dc.Value);
+                }
+            }
+
             bool hasRuns = false;
             foreach (var aRun in aPara.Elements<A.Run>())
             {
@@ -246,13 +272,15 @@ public static class PptxConverter
             var runs = new List<PptxRun>();
             foreach (var inline in block.Inlines.OfType<Run>())
             {
-                double? sizeWpf = inline.FontSize > 0 ? inline.FontSize : (double?)null;
+                bool hasLocalSize = inline.ReadLocalValue(TextElement.FontSizeProperty) != DependencyProperty.UnsetValue;
+                double? sizeWpf = hasLocalSize && inline.FontSize > 0 ? inline.FontSize : (double?)null;
                 double? sizePt  = sizeWpf.HasValue
                     ? sizeWpf.Value * PointPerInch / WpfDpi
                     : null;
 
                 Color? color = null;
-                if (inline.Foreground is SolidColorBrush scb)
+                if (inline.ReadLocalValue(TextElement.ForegroundProperty) != DependencyProperty.UnsetValue &&
+                    inline.Foreground is SolidColorBrush scb)
                     color = scb.Color;
 
                 Color? backColor = null;
@@ -260,7 +288,8 @@ public static class PptxConverter
                     backColor = bgb.Color;
 
                 string? family = null;
-                try { family = inline.FontFamily?.Source; } catch { }
+                if (inline.ReadLocalValue(TextElement.FontFamilyProperty) != DependencyProperty.UnsetValue)
+                    try { family = inline.FontFamily?.Source; } catch { }
 
                 var decos = inline.TextDecorations;
                 bool hasUnderline  = decos?.Any(d => d.Location == TextDecorationLocation.Underline)     == true;
@@ -284,12 +313,15 @@ public static class PptxConverter
                                                 ex.UnderlineColor.Value.B);
                 }
 
+                bool hasLocalWeight = inline.ReadLocalValue(TextElement.FontWeightProperty) != DependencyProperty.UnsetValue;
+                bool hasLocalStyle  = inline.ReadLocalValue(TextElement.FontStyleProperty)  != DependencyProperty.UnsetValue;
+
                 runs.Add(new PptxRun(
                     inline.Text,
                     string.IsNullOrEmpty(family) ? null : family,
                     sizePt,
-                    inline.FontWeight == FontWeights.Bold,
-                    inline.FontStyle  == FontStyles.Italic,
+                    hasLocalWeight && inline.FontWeight == FontWeights.Bold,
+                    hasLocalStyle  && inline.FontStyle  == FontStyles.Italic,
                     hasUnderline,
                     hasStrike,
                     script,
