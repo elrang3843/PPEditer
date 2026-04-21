@@ -324,6 +324,11 @@ public partial class SlideEditorCanvas : UserControl
 
         menu.Items.Add(new Separator());
 
+        // ── Z-order ──────────────────────────────────────────────────
+        var frontItem = new MenuItem { Header = Res("Ctx_BringToFront", "맨 앞으로 가져오기") };
+        frontItem.Click += (_, _) => ShapeOrderChanged?.Invoke(_slideIndex, _selectedTreeIdx, 2);
+        menu.Items.Add(frontItem);
+
         var fwdItem = new MenuItem { Header = Res("Ctx_BringForward", "앞으로 가져오기") };
         fwdItem.Click += (_, _) => ShapeOrderChanged?.Invoke(_slideIndex, _selectedTreeIdx, 1);
         menu.Items.Add(fwdItem);
@@ -331,6 +336,10 @@ public partial class SlideEditorCanvas : UserControl
         var bkdItem = new MenuItem { Header = Res("Ctx_SendBackward", "뒤로 보내기") };
         bkdItem.Click += (_, _) => ShapeOrderChanged?.Invoke(_slideIndex, _selectedTreeIdx, -1);
         menu.Items.Add(bkdItem);
+
+        var backItem = new MenuItem { Header = Res("Ctx_SendToBack", "맨 뒤로 보내기") };
+        backItem.Click += (_, _) => ShapeOrderChanged?.Invoke(_slideIndex, _selectedTreeIdx, -2);
+        menu.Items.Add(backItem);
 
         menu.Items.Add(new Separator());
 

@@ -124,8 +124,10 @@
     <sys:String x:Key="Dlg_Math_Cat6">Super/Subscript</sys:String>
     <sys:String x:Key="Dlg_Math_Cat7">Formula Templates</sys:String>
     <sys:String x:Key="Ctx_ShapeProperties">Object Properties...</sys:String>
+    <sys:String x:Key="Ctx_BringToFront">Bring to Front</sys:String>
     <sys:String x:Key="Ctx_BringForward">Bring Forward</sys:String>
     <sys:String x:Key="Ctx_SendBackward">Send Backward</sys:String>
+    <sys:String x:Key="Ctx_SendToBack">Send to Back</sys:String>
     <sys:String x:Key="Ctx_Delete">Delete</sys:String>
     <sys:String x:Key="Dlg_ShapeProps">Object Properties</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_Name">Name:</sys:String>

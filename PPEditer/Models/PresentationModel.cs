@@ -443,6 +443,55 @@ public sealed class PresentationModel : IDisposable
         return shapeTreeIndex - 1;
     }
 
+    /// <summary>Move a shape to the very front (top) of the shape tree. Returns new tree index.</summary>
+    public int BringShapeToFront(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return shapeTreeIndex;
+
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return shapeTreeIndex;
+
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        int last = elements.Count - 1;
+        if (shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count || shapeTreeIndex == last)
+            return shapeTreeIndex;
+
+        PushUndo();
+        var elem = elements[shapeTreeIndex];
+        elem.Remove();
+        tree.Append(elem);
+        slidePart.Slide.Save();
+        _modified = true;
+        return last;
+    }
+
+    /// <summary>Move a shape to the very back (bottom content position) of the shape tree. Returns new tree index.</summary>
+    public int SendShapeToBack(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return shapeTreeIndex;
+
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return shapeTreeIndex;
+
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        if (shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return shapeTreeIndex;
+
+        // Find the first actual content element (Shape or Picture) — don't go before structural nodes
+        int firstContent = elements.FindIndex(e => e is Shape or Picture);
+        if (firstContent < 0 || shapeTreeIndex == firstContent) return shapeTreeIndex;
+
+        PushUndo();
+        var elem    = elements[shapeTreeIndex];
+        var anchor  = elements[firstContent];
+        elem.Remove();
+        anchor.InsertBeforeSelf(elem);
+        slidePart.Slide.Save();
+        _modified = true;
+        return firstContent;
+    }
+
     /// <summary>Delete a shape identified by its shape-tree index.</summary>
     public void DeleteShape(int slideIndex, int shapeTreeIndex)
     {

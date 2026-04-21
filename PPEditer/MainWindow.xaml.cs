@@ -441,9 +441,14 @@ public partial class MainWindow : Window
 
     private void OnShapeOrderChanged(int slideIdx, int treeIdx, int delta)
     {
-        int newIdx = delta > 0
-            ? _model.BringShapeForward(slideIdx, treeIdx)
-            : _model.SendShapeBackward(slideIdx, treeIdx);
+        int newIdx = delta switch
+        {
+             2 => _model.BringShapeToFront(slideIdx, treeIdx),
+             1 => _model.BringShapeForward(slideIdx, treeIdx),
+            -1 => _model.SendShapeBackward(slideIdx, treeIdx),
+            -2 => _model.SendShapeToBack(slideIdx, treeIdx),
+            _  => treeIdx,
+        };
         EditorCanvas.Invalidate(newIdx);
         SlidePanel.RefreshSingle(slideIdx);
         UpdateTitle();

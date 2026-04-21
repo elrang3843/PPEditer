@@ -124,8 +124,10 @@
     <sys:String x:Key="Dlg_Math_Cat6">위/아래 첨자</sys:String>
     <sys:String x:Key="Dlg_Math_Cat7">공식 템플릿</sys:String>
     <sys:String x:Key="Ctx_ShapeProperties">개체 속성 편집...</sys:String>
+    <sys:String x:Key="Ctx_BringToFront">맨 앞으로 가져오기</sys:String>
     <sys:String x:Key="Ctx_BringForward">앞으로 가져오기</sys:String>
     <sys:String x:Key="Ctx_SendBackward">뒤로 보내기</sys:String>
+    <sys:String x:Key="Ctx_SendToBack">맨 뒤로 보내기</sys:String>
     <sys:String x:Key="Ctx_Delete">삭제</sys:String>
     <sys:String x:Key="Dlg_ShapeProps">개체 속성</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_Name">이름:</sys:String>
