@@ -605,22 +605,33 @@ public sealed class PresentationModel : IDisposable
         }
         else
         {
-            // Preset geometry
-            A.ShapeTypeValues preset = tool switch
-            {
-                DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
-                DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
-                DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
-                DrawTool.IsoTriangle                => new A.ShapeTypeValues("isoTri"),
-                DrawTool.RightTriangle              => A.ShapeTypeValues.RightTriangle,
-                DrawTool.Trapezoid                  => A.ShapeTypeValues.Trapezoid,
-                DrawTool.Parallelogram              => A.ShapeTypeValues.Parallelogram,
-                DrawTool.Arc                        => A.ShapeTypeValues.Arc,
-                DrawTool.Arrow                      => A.ShapeTypeValues.RightArrow,
-                _                                   => A.ShapeTypeValues.Rectangle,
-            };
             xfrm = MakeXfrm(left, top, w, h);
-            geom = new A.PresetGeometry(new A.AdjustValueList()) { Preset = preset };
+
+            if (tool == DrawTool.IsoTriangle)
+            {
+                // "isoTri" is not a member of ShapeTypeValues in SDK v3 (struct validates known values);
+                // set the prst attribute directly on the element to avoid ArgumentOutOfRangeException.
+                var pg = new A.PresetGeometry(new A.AdjustValueList());
+                pg.SetAttribute(new OpenXmlAttribute("prst", string.Empty, "isoTri"));
+                geom = pg;
+            }
+            else
+            {
+                // Preset geometry
+                A.ShapeTypeValues preset = tool switch
+                {
+                    DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
+                    DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
+                    DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
+                    DrawTool.RightTriangle              => A.ShapeTypeValues.RightTriangle,
+                    DrawTool.Trapezoid                  => A.ShapeTypeValues.Trapezoid,
+                    DrawTool.Parallelogram              => A.ShapeTypeValues.Parallelogram,
+                    DrawTool.Arc                        => A.ShapeTypeValues.Arc,
+                    DrawTool.Arrow                      => A.ShapeTypeValues.RightArrow,
+                    _                                   => A.ShapeTypeValues.Rectangle,
+                };
+                geom = new A.PresetGeometry(new A.AdjustValueList()) { Preset = preset };
+            }
         }
 
         var spPr = new ShapeProperties();
