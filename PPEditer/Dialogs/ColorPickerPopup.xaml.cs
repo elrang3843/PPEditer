@@ -20,8 +20,9 @@ public partial class ColorPickerPopup : Window
     public ColorPickerPopup(RgbColor initial)
     {
         InitializeComponent();
-        SelectedColor = initial;
-        TbHex.Text    = initial.ToHex();
+        SelectedColor            = initial;
+        TbHex.Text               = initial.ToHex();
+        PreviewSwatch.Background = new SolidColorBrush(Color.FromRgb(initial.R, initial.G, initial.B));
 
         foreach (var hex in PaletteHex)
         {
@@ -38,8 +39,28 @@ public partial class ColorPickerPopup : Window
                 ToolTip         = $"#{hex}",
             };
             string h = hex;
-            btn.Click += (_, _) => TbHex.Text = h;
+            // Clicking a palette cell immediately confirms the color and closes the picker.
+            // The hex text box + OK button remain available for manual hex entry.
+            btn.Click += (_, _) =>
+            {
+                SelectedColor = RgbColor.FromHex(h);
+                TbHex.Text    = h;
+                DialogResult  = true;
+            };
             ColorGrid.Children.Add(btn);
+        }
+    }
+
+    private void OnHexTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (TbHex.Text.Length == 6)
+        {
+            try
+            {
+                var c = RgbColor.FromHex(TbHex.Text);
+                PreviewSwatch.Background = new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));
+            }
+            catch { }
         }
     }
 
