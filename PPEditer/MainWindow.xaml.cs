@@ -832,7 +832,7 @@ public partial class MainWindow : Window
 
 internal sealed class RelayCommand(Action<object?> execute) : ICommand
 {
-    public event EventHandler? CanExecuteChanged;
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
     public bool CanExecute(object? p) => true;
     public void Execute(object? p)    => execute(p);
 }

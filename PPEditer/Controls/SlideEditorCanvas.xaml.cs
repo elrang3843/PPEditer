@@ -21,8 +21,6 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<RichTextBox>? EditingStarted;
     /// <summary>User committed a text edit. (slideIdx, shapeTreeIdx, paragraphs)</summary>
     public event Action<int, int, IReadOnlyList<PptxConverter.PptxParagraph>>? TextCommitted;
-    /// <summary>Fired when the canvas wants MainWindow to add a text box at default position.</summary>
-    public event Action? AddTextBoxRequested;
 
     // ── State ──────────────────────────────────────────────────────────
 

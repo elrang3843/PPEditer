@@ -455,8 +455,8 @@ public sealed class PresentationModel : IDisposable
 
         // Presentation
         pp.Presentation = new Presentation(
-            new SlideSize { Cx = 9144000L, Cy = 5143500L },
-            new NotesSize  { Cx = 6858000L, Cy = 9144000L },
+            new SlideSize { Cx = 9144000, Cy = 5143500 },
+            new NotesSize  { Cx = 6858000, Cy = 9144000 },
             new SlideMasterIdList(
                 new SlideMasterId { Id = 2048, RelationshipId = pp.GetIdOfPart(masterPart) }),
             new SlideIdList(
