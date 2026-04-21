@@ -40,13 +40,14 @@ public static class PptxConverter
 
             var pPr = aPara.ParagraphProperties;
 
-            // Horizontal alignment — SDK v3 struct enum: must use == not switch
-            var av = pPr?.Alignment?.Value;
+            // Horizontal alignment — SDK v3 struct enum: use .Value for named values, .InnerText on EnumValue for others
+            var avEnum = pPr?.Alignment;
+            var av     = avEnum?.Value;
             if (av == A.TextAlignmentTypeValues.Center)
                 para.TextAlignment = TextAlignment.Center;
             else if (av == A.TextAlignmentTypeValues.Right)
                 para.TextAlignment = TextAlignment.Right;
-            else if (av?.InnerText == "dist" || av?.InnerText == "just" || av?.InnerText == "thaiDist")
+            else if (avEnum?.InnerText == "dist" || avEnum?.InnerText == "just" || avEnum?.InnerText == "thaiDist")
                 para.TextAlignment = TextAlignment.Justify;
             else
                 para.TextAlignment = TextAlignment.Left;
