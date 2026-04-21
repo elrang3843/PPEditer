@@ -200,6 +200,11 @@
     <sys:String x:Key="Ctx_SendBackward">뒤로 보내기</sys:String>
     <sys:String x:Key="Ctx_SendToBack">맨 뒤로 보내기</sys:String>
     <sys:String x:Key="Ctx_Delete">삭제</sys:String>
+    <sys:String x:Key="Ctx_RotateCW">시계 방향으로 90° 회전</sys:String>
+    <sys:String x:Key="Ctx_RotateCCW">반시계 방향으로 90° 회전</sys:String>
+    <sys:String x:Key="Ctx_RotateCustom">각도 지정 회전...</sys:String>
+    <sys:String x:Key="Dlg_RotateTitle">각도 지정 회전</sys:String>
+    <sys:String x:Key="Dlg_RotateAngle">회전 각도 (°):</sys:String>
     <sys:String x:Key="Dlg_ShapeProps">개체 속성</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_Name">이름:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_X">X 위치:</sys:String>

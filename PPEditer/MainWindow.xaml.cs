@@ -41,6 +41,7 @@ public partial class MainWindow : Window
         EditorCanvas.CharPropertiesRequested  += (_, _) => OnCharProperties();
         EditorCanvas.ParaPropertiesRequested  += (_, _) => OnParaProperties();
         EditorCanvas.TextBoxDrawn             += OnTextBoxDrawn;
+        EditorCanvas.ShapeRotated             += OnShapeRotated;
         EditorCanvas.SelectionChanged         += UpdateActions;
 
         RegisterKeyBindings();
@@ -431,6 +432,15 @@ public partial class MainWindow : Window
     {
         _model.ResizeShape(slideIdx, treeIdx, leftEmu, topEmu, widthEmu, heightEmu);
         EditorCanvas.Invalidate();
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+    }
+
+    private void OnShapeRotated(int slideIdx, int treeIdx, double angleDelta)
+    {
+        _model.RotateShape(slideIdx, treeIdx, angleDelta);
+        EditorCanvas.Invalidate(treeIdx);
         SlidePanel.RefreshSingle(slideIdx);
         UpdateTitle();
         UpdateActions();

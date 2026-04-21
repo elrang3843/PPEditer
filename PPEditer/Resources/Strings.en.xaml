@@ -200,6 +200,11 @@
     <sys:String x:Key="Ctx_SendBackward">Send Backward</sys:String>
     <sys:String x:Key="Ctx_SendToBack">Send to Back</sys:String>
     <sys:String x:Key="Ctx_Delete">Delete</sys:String>
+    <sys:String x:Key="Ctx_RotateCW">Rotate 90° Clockwise</sys:String>
+    <sys:String x:Key="Ctx_RotateCCW">Rotate 90° Counterclockwise</sys:String>
+    <sys:String x:Key="Ctx_RotateCustom">Rotate by Angle...</sys:String>
+    <sys:String x:Key="Dlg_RotateTitle">Rotate by Angle</sys:String>
+    <sys:String x:Key="Dlg_RotateAngle">Rotation angle (°):</sys:String>
     <sys:String x:Key="Dlg_ShapeProps">Object Properties</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_Name">Name:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_X">X Position:</sys:String>

@@ -45,6 +45,8 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int>? ParaPropertiesRequested;
     /// <summary>User finished drawing a text box. (slideIdx, leftEmu, topEmu, widthEmu, heightEmu)</summary>
     public event Action<int, long, long, long, long>? TextBoxDrawn;
+    /// <summary>User rotated a shape. (slideIdx, treeIdx, angleDeltaDeg)</summary>
+    public event Action<int, int, double>? ShapeRotated;
 
     public event Action? SelectionChanged;
 
@@ -505,8 +507,69 @@ public partial class SlideEditorCanvas : UserControl
         };
         menu.Items.Add(delItem);
 
+        menu.Items.Add(new Separator());
+
+        var cwItem = new MenuItem { Header = Res("Ctx_RotateCW", "시계 방향으로 90° 회전") };
+        cwItem.Click += (_, _) => ShapeRotated?.Invoke(_slideIndex, _selectedTreeIdx, 90.0);
+        menu.Items.Add(cwItem);
+
+        var ccwItem = new MenuItem { Header = Res("Ctx_RotateCCW", "반시계 방향으로 90° 회전") };
+        ccwItem.Click += (_, _) => ShapeRotated?.Invoke(_slideIndex, _selectedTreeIdx, -90.0);
+        menu.Items.Add(ccwItem);
+
+        var customRotItem = new MenuItem { Header = Res("Ctx_RotateCustom", "각도 지정 회전...") };
+        customRotItem.Click += (_, _) => ShowRotateDialog(_slideIndex, _selectedTreeIdx);
+        menu.Items.Add(customRotItem);
+
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse;
         menu.IsOpen    = true;
+    }
+
+    private void ShowRotateDialog(int slideIdx, int treeIdx)
+    {
+        string Res(string key, string fb) =>
+            Application.Current.TryFindResource(key) is string s ? s : fb;
+
+        var sp  = new StackPanel { Margin = new Thickness(12) };
+        var lbl = new TextBlock
+        {
+            Text         = Res("Dlg_RotateAngle", "회전 각도 (°):"),
+            Margin       = new Thickness(0, 0, 0, 4),
+        };
+        var tb  = new TextBox { Text = "0" };
+        var btn = new Button
+        {
+            Content             = "확인",
+            IsDefault           = true,
+            Margin              = new Thickness(0, 8, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+        sp.Children.Add(lbl);
+        sp.Children.Add(tb);
+        sp.Children.Add(btn);
+
+        var dlg = new Window
+        {
+            Title                 = Res("Dlg_RotateTitle", "각도 지정 회전"),
+            Width                 = 280,
+            SizeToContent         = System.Windows.SizeToContent.Height,
+            WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner,
+            Owner                 = Window.GetWindow(this),
+            ResizeMode            = ResizeMode.NoResize,
+            ShowInTaskbar         = false,
+            Content               = sp,
+        };
+        btn.Click += (_, _) => { dlg.DialogResult = true; dlg.Close(); };
+        tb.Loaded += (_, _) => { tb.SelectAll(); tb.Focus(); };
+
+        if (dlg.ShowDialog() == true &&
+            double.TryParse(tb.Text,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.CurrentCulture,
+                out double angle))
+        {
+            ShapeRotated?.Invoke(slideIdx, treeIdx, angle);
+        }
     }
 
     // ── Drawing mode ────────────────────────────────────────────────────

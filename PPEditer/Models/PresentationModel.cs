@@ -428,6 +428,34 @@ public sealed class PresentationModel : IDisposable
         _modified = true;
     }
 
+    /// <summary>Rotate a shape by <paramref name="angleDeltaDeg"/> degrees (positive = CW).</summary>
+    public void RotateShape(int slideIndex, int shapeTreeIndex, double angleDeltaDeg)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return;
+
+        A.Transform2D? xfrm = elements[shapeTreeIndex] switch
+        {
+            Shape s   => s.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+            Picture p => p.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+            _         => null,
+        };
+        if (xfrm is null) return;
+
+        long current = xfrm.Rotation?.Value ?? 0L;
+        long delta   = (long)Math.Round(angleDeltaDeg * 60000.0);
+        long newRot  = ((current + delta) % 21600000L + 21600000L) % 21600000L;
+
+        PushUndo();
+        xfrm.Rotation = (int)newRot;
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
     /// <summary>Get position and size of a shape in EMU. Returns null if the shape has no transform.</summary>
     public (long x, long y, long cx, long cy)? GetShapeTransform(int slideIndex, int shapeTreeIndex)
     {

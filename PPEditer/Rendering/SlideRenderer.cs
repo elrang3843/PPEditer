@@ -197,6 +197,13 @@ public static class SlideRenderer
         if (shape.TextBody is not null)
             container.Children.Add(BuildTextBlock(shape.TextBody, width, height));
 
+        double rotDeg = GetRotationDeg(spPr);
+        if (rotDeg != 0.0)
+        {
+            container.RenderTransformOrigin = new Point(0.5, 0.5);
+            container.RenderTransform       = new RotateTransform(rotDeg);
+        }
+
         Canvas.SetLeft(container, left);
         Canvas.SetTop(container, top);
         return container;
@@ -542,12 +549,26 @@ public static class SlideRenderer
             Stretch = Stretch.Fill,
             Source  = bmp,
         };
+        double rotDeg = GetRotationDeg(picture.ShapeProperties);
+        if (rotDeg != 0.0)
+        {
+            img.RenderTransformOrigin = new Point(0.5, 0.5);
+            img.RenderTransform       = new RotateTransform(rotDeg);
+        }
+
         Canvas.SetLeft(img, left);
         Canvas.SetTop(img, top);
         return img;
     }
 
     // ── Transform helpers ─────────────────────────────────────────────
+
+    private static double GetRotationDeg(OpenXmlCompositeElement? spPr)
+    {
+        var xfrm = spPr?.GetFirstChild<A.Transform2D>();
+        int rot  = xfrm?.Rotation?.Value ?? 0;
+        return rot / 60000.0;
+    }
 
     // Accepts Presentation.ShapeProperties or Drawing.ShapeProperties (both OpenXmlCompositeElement)
     private static (double left, double top, double width, double height)
