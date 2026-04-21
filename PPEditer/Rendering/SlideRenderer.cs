@@ -188,7 +188,10 @@ public static class SlideRenderer
 
         ApplyStroke(geomShape, shape, slidePart);
 
-        var container = new Grid { Width = width, Height = height, ClipToBounds = true };
+        // Custom geometry (splines) may have bezier control points outside the bounding box;
+        // disabling ClipToBounds lets the curves render fully.
+        bool clip = spPr?.GetFirstChild<A.CustomGeometry>() is null;
+        var container = new Grid { Width = width, Height = height, ClipToBounds = clip };
         container.Children.Add(geomShape);
 
         if (shape.TextBody is not null)
