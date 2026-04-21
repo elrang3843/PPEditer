@@ -812,6 +812,14 @@ public partial class SlideEditorCanvas : UserControl
         var target = _nativeCanvas.Children[_selectedIdx] as FrameworkElement;
         if (target is null) return;
 
+        if (e.ClickCount == 2)
+        {
+            // Double-click on selected shape → enter edit mode
+            StartEdit(_nativeCanvas, _selectedIdx);
+            e.Handled = true;
+            return;
+        }
+
         _dragMode  = DragMode.Move;
         _dragStart = e.GetPosition(_nativeCanvas);
         _dOrigL    = Canvas.GetLeft(target);
