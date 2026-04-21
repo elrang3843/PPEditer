@@ -3,6 +3,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using DocumentFormat.OpenXml;
 using A = DocumentFormat.OpenXml.Drawing;
+using PPEditer.Models;
 
 namespace PPEditer.Services;
 
@@ -77,12 +78,28 @@ public static class PptxConverter
 
         if (rProps.Bold?.Value == true)    run.FontWeight = FontWeights.Bold;
         if (rProps.Italic?.Value == true)  run.FontStyle  = FontStyles.Italic;
+
         // SDK v3: Underline is EnumValue<TextUnderlineValues>, not bool — compare via InnerText
         var uv = rProps.Underline?.InnerText;
-        if (uv is { Length: > 0 } && uv != "none")
-            run.TextDecorations = TextDecorations.Underline;
+        bool hasUnderline = uv is { Length: > 0 } && uv != "none";
 
-        // Color
+        // Strikethrough: check strike InnerText
+        var sv = rProps.Strike?.InnerText;
+        bool hasStrike = sv is "sngStrike" or "dblStrike";
+
+        // Build text decorations
+        var decos = new TextDecorationCollection();
+        if (hasUnderline) decos.Add(TextDecorations.Underline[0]);
+        if (hasStrike)    decos.Add(TextDecorations.Strikethrough[0]);
+
+        // Check for outline (overline stored as a:ln on rProps in some editors)
+        // We store outline info in extra props; overline is WPF-only and not in PPTX
+        bool hasOutline = rProps.GetFirstChild<A.Outline>() is not null;
+
+        if (decos.Count > 0)
+            run.TextDecorations = decos;
+
+        // Color (foreground)
         var solid = rProps.GetFirstChild<A.SolidFill>();
         if (solid is not null)
         {
@@ -90,13 +107,64 @@ public static class PptxConverter
             if (c.HasValue) run.Foreground = new SolidColorBrush(c.Value);
         }
 
+        // Background highlight
+        var highlight = rProps.GetFirstChild<A.Highlight>();
+        if (highlight is not null)
+        {
+            var hx = highlight.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
+            if (hx is not null && hx.Length >= 6)
+            {
+                var hc = Color.FromRgb(
+                    Convert.ToByte(hx[..2], 16),
+                    Convert.ToByte(hx[2..4], 16),
+                    Convert.ToByte(hx[4..6], 16));
+                run.Background = new SolidColorBrush(hc);
+            }
+        }
+
+        // Script (superscript/subscript via baseline attribute)
+        if (rProps.Baseline?.HasValue == true)
+        {
+            int baseline = rProps.Baseline.Value;
+            if (baseline > 0)
+                System.Windows.Documents.Typography.SetVariants(run, FontVariants.Superscript);
+            else if (baseline < 0)
+                System.Windows.Documents.Typography.SetVariants(run, FontVariants.Subscript);
+        }
+
+        // Spacing, underline color, outline → store in Tag
+        int spacing = rProps.Spacing?.Value ?? 0;
+        RgbColor? ulColor = null;
+        var ulFill = rProps.GetFirstChild<A.UnderlineFill>()?.GetFirstChild<A.SolidFill>();
+        if (ulFill is not null)
+        {
+            var ux = ulFill.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
+            if (ux is not null && ux.Length >= 6)
+                ulColor = new RgbColor(
+                    Convert.ToByte(ux[..2], 16),
+                    Convert.ToByte(ux[2..4], 16),
+                    Convert.ToByte(ux[4..6], 16));
+        }
+
+        run.Tag = new CharExtraProps
+        {
+            SpacingPt100   = spacing,
+            UnderlineColor = ulColor,
+            HasOutline     = hasOutline,
+            HasOverline    = false,   // overline has no PPTX representation
+        };
+
         return run;
     }
 
     // ── FlowDocument → PptxParagraph list ────────────────────────────
 
-    public record PptxRun(string Text, string? FontFamily, double? FontSizePt,
-                          bool Bold, bool Italic, bool Underline, Color? Color);
+    public record PptxRun(
+        string Text, string? FontFamily, double? FontSizePt,
+        bool Bold, bool Italic, bool Underline,
+        bool Strikethrough, ScriptKind Script, int SpacingPt100,
+        Color? Color, Color? BackColor, Color? UnderlineColor, bool HasOutline);
+
     public record PptxParagraph(TextAlignment Alignment, IReadOnlyList<PptxRun> Runs);
 
     public static List<PptxParagraph> FromFlowDocument(FlowDocument doc)
@@ -117,8 +185,37 @@ public static class PptxConverter
                 if (inline.Foreground is SolidColorBrush scb)
                     color = scb.Color;
 
+                Color? backColor = null;
+                if (inline.Background is SolidColorBrush bgb && bgb.Color.A > 0)
+                    backColor = bgb.Color;
+
                 string? family = null;
                 try { family = inline.FontFamily?.Source; } catch { }
+
+                // Text decorations
+                var decos = inline.TextDecorations;
+                bool hasUnderline  = decos?.Any(d => d.Location == TextDecorationLocation.Underline)     == true;
+                bool hasStrike     = decos?.Any(d => d.Location == TextDecorationLocation.Strikethrough) == true;
+
+                // Script kind
+                var fv = inline.GetValue(Typography.VariantsProperty) is FontVariants variants
+                    ? variants : FontVariants.Normal;
+                var script = fv == FontVariants.Superscript ? ScriptKind.Superscript :
+                             fv == FontVariants.Subscript   ? ScriptKind.Subscript   : ScriptKind.None;
+
+                // Extra props from Tag
+                int spacing = 0;
+                Color? ulColor = null;
+                bool hasOutline = false;
+                if (inline.Tag is CharExtraProps ex)
+                {
+                    spacing    = ex.SpacingPt100;
+                    hasOutline = ex.HasOutline;
+                    if (ex.UnderlineColor.HasValue)
+                        ulColor = Color.FromRgb(ex.UnderlineColor.Value.R,
+                                                ex.UnderlineColor.Value.G,
+                                                ex.UnderlineColor.Value.B);
+                }
 
                 runs.Add(new PptxRun(
                     inline.Text,
@@ -126,8 +223,14 @@ public static class PptxConverter
                     sizePt,
                     inline.FontWeight == FontWeights.Bold,
                     inline.FontStyle  == FontStyles.Italic,
-                    inline.TextDecorations?.Any() == true,
-                    color == Colors.Black ? null : color));
+                    hasUnderline,
+                    hasStrike,
+                    script,
+                    spacing,
+                    color == Colors.Black ? null : color,
+                    backColor,
+                    ulColor,
+                    hasOutline));
             }
             result.Add(new PptxParagraph(block.TextAlignment, runs));
         }
@@ -156,4 +259,15 @@ public static class PptxConverter
     }
 
     private static double EmuToWpf(long emu) => emu / 914400.0 * WpfDpi;
+
+    // ── Extra character properties (stored as Run.Tag) ─────────────────
+
+    /// <summary>Extra run properties that cannot be expressed via WPF Run properties.</summary>
+    public sealed class CharExtraProps
+    {
+        public int       SpacingPt100   { get; set; }
+        public RgbColor? UnderlineColor { get; set; }
+        public bool      HasOutline     { get; set; }
+        public bool      HasOverline    { get; set; }
+    }
 }
