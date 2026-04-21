@@ -9,12 +9,13 @@ namespace PPEditer.Services;
 
 /// <summary>
 /// Bi-directional conversion between PPTX TextBody and WPF FlowDocument.
-/// Preserves font family, size, bold, italic, underline, colour, and paragraph alignment.
 /// </summary>
 public static class PptxConverter
 {
-    private const double WpfDpi    = 96.0;
+    private const double WpfDpi      = 96.0;
     private const double PointPerInch = 72.0;
+    private const double EmuPerInch   = 914400.0;
+    private const double EmuPerCm     = EmuPerInch / 2.54;
 
     // ── PPTX → FlowDocument ───────────────────────────────────────────
 
@@ -23,20 +24,74 @@ public static class PptxConverter
     {
         var doc = new FlowDocument { FontFamily = new FontFamily("맑은 고딕") };
 
+        // Read body vertical anchor and store in doc.Tag
+        var bodyPr = body.GetFirstChild<A.BodyProperties>();
+        var anchor = bodyPr?.Anchor?.InnerText switch
+        {
+            "ctr" => VertAnchor.Middle,
+            "b"   => VertAnchor.Bottom,
+            _     => VertAnchor.Top,
+        };
+        doc.Tag = anchor;
+
         foreach (var aPara in body.Elements<A.Paragraph>())
         {
             var para = new Paragraph { Margin = new Thickness(0) };
 
-            // Alignment — SDK v3 struct enum: cannot use switch case, must use ==
-            var av = aPara.ParagraphProperties?.Alignment?.Value;
+            var pPr = aPara.ParagraphProperties;
+
+            // Horizontal alignment — SDK v3 struct enum: must use == not switch
+            var av = pPr?.Alignment?.Value;
             if (av == A.TextAlignmentTypeValues.Center)
                 para.TextAlignment = TextAlignment.Center;
             else if (av == A.TextAlignmentTypeValues.Right)
                 para.TextAlignment = TextAlignment.Right;
+            else if (av?.InnerText == "dist" || av?.InnerText == "just" || av?.InnerText == "thaiDist")
+                para.TextAlignment = TextAlignment.Justify;
             else
                 para.TextAlignment = TextAlignment.Left;
 
-            // SpaceBefore spacing intentionally omitted (SDK v3 child type unavailable)
+            // Left indent (marL in EMU → WPF px)
+            if (pPr?.LeftMargin?.HasValue == true)
+            {
+                double leftPx = pPr.LeftMargin.Value / EmuPerInch * WpfDpi;
+                para.Margin = new Thickness(leftPx, para.Margin.Top, 0, para.Margin.Bottom);
+            }
+
+            // First-line indent (indent in EMU → WPF px, negative = hanging)
+            if (pPr?.Indent?.HasValue == true)
+                para.TextIndent = pPr.Indent.Value / EmuPerInch * WpfDpi;
+
+            // Line spacing
+            var lnSpc = pPr?.GetFirstChild<A.LineSpacing>();
+            if (lnSpc?.SpacingPercent?.Val?.HasValue == true)
+            {
+                double pct = lnSpc.SpacingPercent.Val.Value / 1000.0;  // val is 1/1000 of %
+                if (pct > 0)
+                    para.LineHeight = para.FontSize > 0
+                        ? para.FontSize * pct / 100.0
+                        : double.NaN;
+                // Store raw pct in Tag (overrides VertAnchor tag - use ExtraParaProps instead)
+                para.Tag = pct;
+            }
+
+            // Space before (spcPts val = 1/100 pt)
+            var spcBef = pPr?.GetFirstChild<A.SpaceBefore>();
+            if (spcBef?.SpacingPoints?.Val?.HasValue == true)
+            {
+                double ptVal = spcBef.SpacingPoints.Val.Value / 100.0;
+                double px = ptVal * WpfDpi / PointPerInch;
+                para.Margin = new Thickness(para.Margin.Left, px, 0, para.Margin.Bottom);
+            }
+
+            // Space after (spcPts val = 1/100 pt)
+            var spcAft = pPr?.GetFirstChild<A.SpaceAfter>();
+            if (spcAft?.SpacingPoints?.Val?.HasValue == true)
+            {
+                double ptVal = spcAft.SpacingPoints.Val.Value / 100.0;
+                double px = ptVal * WpfDpi / PointPerInch;
+                para.Margin = new Thickness(para.Margin.Left, para.Margin.Top, 0, px);
+            }
 
             bool hasRuns = false;
             foreach (var aRun in aPara.Elements<A.Run>())
@@ -87,13 +142,10 @@ public static class PptxConverter
         var sv = rProps.Strike?.InnerText;
         bool hasStrike = sv is "sngStrike" or "dblStrike";
 
-        // Build text decorations
         var decos = new TextDecorationCollection();
         if (hasUnderline) decos.Add(TextDecorations.Underline[0]);
         if (hasStrike)    decos.Add(TextDecorations.Strikethrough[0]);
 
-        // Check for outline (overline stored as a:ln on rProps in some editors)
-        // We store outline info in extra props; overline is WPF-only and not in PPTX
         bool hasOutline = rProps.GetFirstChild<A.Outline>() is not null;
 
         if (decos.Count > 0)
@@ -151,7 +203,7 @@ public static class PptxConverter
             SpacingPt100   = spacing,
             UnderlineColor = ulColor,
             HasOutline     = hasOutline,
-            HasOverline    = false,   // overline has no PPTX representation
+            HasOverline    = false,
         };
 
         return run;
@@ -165,7 +217,15 @@ public static class PptxConverter
         bool Strikethrough, ScriptKind Script, int SpacingPt100,
         Color? Color, Color? BackColor, Color? UnderlineColor, bool HasOutline);
 
-    public record PptxParagraph(TextAlignment Alignment, IReadOnlyList<PptxRun> Runs);
+    /// <summary>Carries both paragraph-level formatting and runs.</summary>
+    public record PptxParagraph(
+        TextAlignment Alignment,
+        int    MarginLeftEmu,      // a:pPr @marL
+        int    TextIndentEmu,      // a:pPr @indent (negative = hanging)
+        int    LineSpacePct1000,   // a:lnSpc/spcPct @val  (0 = auto)
+        int    SpaceBeforePt100,   // a:spcBef/spcPts @val (0 = auto)
+        int    SpaceAfterPt100,    // a:spcAft/spcPts @val (0 = auto)
+        IReadOnlyList<PptxRun> Runs);
 
     public static List<PptxParagraph> FromFlowDocument(FlowDocument doc)
     {
@@ -192,18 +252,15 @@ public static class PptxConverter
                 string? family = null;
                 try { family = inline.FontFamily?.Source; } catch { }
 
-                // Text decorations
                 var decos = inline.TextDecorations;
                 bool hasUnderline  = decos?.Any(d => d.Location == TextDecorationLocation.Underline)     == true;
                 bool hasStrike     = decos?.Any(d => d.Location == TextDecorationLocation.Strikethrough) == true;
 
-                // Script kind
                 var fv = inline.GetValue(Typography.VariantsProperty) is FontVariants variants
                     ? variants : FontVariants.Normal;
                 var script = fv == FontVariants.Superscript ? ScriptKind.Superscript :
                              fv == FontVariants.Subscript   ? ScriptKind.Subscript   : ScriptKind.None;
 
-                // Extra props from Tag
                 int spacing = 0;
                 Color? ulColor = null;
                 bool hasOutline = false;
@@ -232,7 +289,29 @@ public static class PptxConverter
                     ulColor,
                     hasOutline));
             }
-            result.Add(new PptxParagraph(block.TextAlignment, runs));
+
+            // Paragraph-level properties
+            int marLeftEmu  = (int)Math.Round(block.Margin.Left  / WpfDpi * EmuPerInch);
+            int indentEmu   = (int)Math.Round(block.TextIndent   / WpfDpi * EmuPerInch);
+            int spcBefPt100 = (int)Math.Round(block.Margin.Top   * PointPerInch / WpfDpi * 100);
+            int spcAftPt100 = (int)Math.Round(block.Margin.Bottom * PointPerInch / WpfDpi * 100);
+
+            // Line spacing: stored in Paragraph.Tag as pct double
+            int lnSpcPct1000 = 0;
+            if (block.Tag is double lsPct && lsPct > 0)
+                lnSpcPct1000 = (int)Math.Round(lsPct * 1000);
+            else if (block.LineHeight > 0 && !double.IsNaN(block.LineHeight))
+            {
+                // approximate: compare LineHeight to default (assume 14pt baseline)
+                double defaultPx = 14.0 * WpfDpi / PointPerInch;
+                lnSpcPct1000 = (int)Math.Round(block.LineHeight / defaultPx * 100000);
+            }
+
+            result.Add(new PptxParagraph(
+                block.TextAlignment,
+                marLeftEmu, indentEmu,
+                lnSpcPct1000, spcBefPt100, spcAftPt100,
+                runs));
         }
 
         return result;
@@ -245,7 +324,7 @@ public static class PptxConverter
         var first = para.Elements<A.Run>().FirstOrDefault();
         if (first?.RunProperties?.FontSize?.Value is int sz)
             return sz / 100.0 * WpfDpi / PointPerInch;
-        return 18.0 * WpfDpi / PointPerInch; // 18pt default
+        return 18.0 * WpfDpi / PointPerInch;
     }
 
     private static Color? ResolveHexColor(A.SolidFill fill)
@@ -257,8 +336,6 @@ public static class PptxConverter
             Convert.ToByte(hex[2..4], 16),
             Convert.ToByte(hex[4..6], 16));
     }
-
-    private static double EmuToWpf(long emu) => emu / 914400.0 * WpfDpi;
 
     // ── Extra character properties (stored as Run.Tag) ─────────────────
 

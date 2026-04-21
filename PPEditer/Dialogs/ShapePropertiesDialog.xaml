@@ -33,6 +33,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0"
@@ -56,14 +57,20 @@
                     <TextBlock Grid.Row="3" Grid.Column="0"
                                Text="{DynamicResource Dlg_ShapeProps_W}"
                                VerticalAlignment="Center" Margin="0,6,10,6"/>
-                    <TextBox x:Name="TbCx" Grid.Row="3" Grid.Column="1" Margin="0,6,6,6"/>
+                    <TextBox x:Name="TbCx" Grid.Row="3" Grid.Column="1" Margin="0,6,6,6"
+                             TextChanged="TbCx_TextChanged"/>
                     <TextBlock Grid.Row="3" Grid.Column="2" Text="cm" VerticalAlignment="Center"/>
 
                     <TextBlock Grid.Row="4" Grid.Column="0"
                                Text="{DynamicResource Dlg_ShapeProps_H}"
                                VerticalAlignment="Center" Margin="0,6,10,6"/>
-                    <TextBox x:Name="TbCy" Grid.Row="4" Grid.Column="1" Margin="0,6,6,6"/>
+                    <TextBox x:Name="TbCy" Grid.Row="4" Grid.Column="1" Margin="0,6,6,6"
+                             TextChanged="TbCy_TextChanged"/>
                     <TextBlock Grid.Row="4" Grid.Column="2" Text="cm" VerticalAlignment="Center"/>
+
+                    <CheckBox x:Name="ChkLockAspect" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3"
+                              Content="{DynamicResource Dlg_ShapeProps_LockAspect}"
+                              Margin="0,8,0,4"/>
                 </Grid>
             </TabItem>
 

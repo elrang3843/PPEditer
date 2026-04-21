@@ -59,8 +59,8 @@
     <sys:String x:Key="Msg_ShapeDrawn">도형이 추가되었습니다.</sys:String>
     <sys:String x:Key="Ms_Group">그룹으로 묶기(_G)</sys:String>
     <sys:String x:Key="Ms_Ungroup">그룹 해제(_U)</sys:String>
-    <sys:String x:Key="Ms_CharProps">문자 속성(_F)...</sys:String>
-    <sys:String x:Key="Ctx_CharProperties">문자 속성...</sys:String>
+    <sys:String x:Key="Ms_CharProps">글자 속성(_F)...</sys:String>
+    <sys:String x:Key="Ctx_CharProperties">글자 속성...</sys:String>
     <sys:String x:Key="Ctx_Group">그룹으로 묶기</sys:String>
     <sys:String x:Key="Ctx_Ungroup">그룹 해제</sys:String>
     <sys:String x:Key="Msg_Grouped">개체를 그룹으로 묶었습니다.</sys:String>
@@ -171,6 +171,7 @@
     <sys:String x:Key="Dlg_ShapeProps_W">너비:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_H">높이:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_InvalidInput">올바른 숫자 값을 입력하세요.</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_LockAspect">비율 고정</sys:String>
     <sys:String x:Key="Msg_ShapePropsSaved">개체 속성이 변경되었습니다.</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Pos">위치/크기</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Fill">채우기</sys:String>
@@ -262,8 +263,8 @@
     <sys:String x:Key="Dlg_DocInfo_PwdEmpty">암호를 입력하세요.</sys:String>
     <sys:String x:Key="St_DocInfoSaved">문서 정보가 저장되었습니다.</sys:String>
 
-    <!-- ══ 문자 속성 대화상자 ════════════════════════════════════════════════ -->
-    <sys:String x:Key="Dlg_CharProps">문자 속성</sys:String>
+    <!-- ══ 글자 속성 대화상자 ════════════════════════════════════════════════ -->
+    <sys:String x:Key="Dlg_CharProps">글자 속성</sys:String>
     <sys:String x:Key="Dlg_Char_Tab_Font">글꼴</sys:String>
     <sys:String x:Key="Dlg_Char_Tab_Style">스타일</sys:String>
     <sys:String x:Key="Dlg_Char_Font">글꼴:</sys:String>
@@ -284,5 +285,26 @@
     <sys:String x:Key="Dlg_Char_Sub">아래첨자</sys:String>
     <sys:String x:Key="Dlg_Char_OverlineNote">※ 윗줄은 WPF 화면에서만 표시되며 PPTX 파일에 저장되지 않습니다.</sys:String>
     <sys:String x:Key="Dlg_Char_NoColor">(없음)</sys:String>
+
+    <!-- ══ 문단 속성 대화상자 ════════════════════════════════════════════════ -->
+    <sys:String x:Key="Ms_ParaProps">문단 속성(_P)...</sys:String>
+    <sys:String x:Key="Ctx_ParaProperties">문단 속성...</sys:String>
+    <sys:String x:Key="Dlg_ParaProps">문단 속성</sys:String>
+    <sys:String x:Key="Dlg_Para_HorzAlign">가로 정렬:</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignLeft">왼쪽</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignCenter">가운데</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignRight">오른쪽</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignJustify">균형</sys:String>
+    <sys:String x:Key="Dlg_Para_VertAnchor">세로 정렬:</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorTop">위</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorMiddle">가운데</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorBottom">아래</sys:String>
+    <sys:String x:Key="Dlg_Para_Indent">들여쓰기 (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_Hanging">내어쓰기 (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_LineSpacing">줄 간격 (%):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceBefore">문단 앞 간격 (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceAfter">문단 뒤 간격 (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_InvalidInput">올바른 숫자 값을 입력하세요.</sys:String>
+    <sys:String x:Key="Msg_ParaPropsSaved">문단 속성이 변경되었습니다.</sys:String>
 
 </ResourceDictionary>

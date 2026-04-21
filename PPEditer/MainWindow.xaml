@@ -44,6 +44,8 @@
                 <Separator/>
                 <MenuItem x:Name="MenuCharProps" Header="{DynamicResource Ms_CharProps}"
                           InputGestureText="Ctrl+Shift+F" Click="OnCharProperties" IsEnabled="False"/>
+                <MenuItem x:Name="MenuParaProps" Header="{DynamicResource Ms_ParaProps}"
+                          InputGestureText="Ctrl+Shift+P" Click="OnParaProperties" IsEnabled="False"/>
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_View}">

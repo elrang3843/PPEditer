@@ -256,14 +256,24 @@ public sealed class PresentationModel : IDisposable
         {
             var aPara = new A.Paragraph();
 
-            // Paragraph alignment
+            // Paragraph-level properties
             var alignVal = para.Alignment switch
             {
-                System.Windows.TextAlignment.Center => A.TextAlignmentTypeValues.Center,
-                System.Windows.TextAlignment.Right  => A.TextAlignmentTypeValues.Right,
-                _                                   => A.TextAlignmentTypeValues.Left,
+                System.Windows.TextAlignment.Center  => A.TextAlignmentTypeValues.Center,
+                System.Windows.TextAlignment.Right   => A.TextAlignmentTypeValues.Right,
+                System.Windows.TextAlignment.Justify => new A.TextAlignmentTypeValues("just"),
+                _                                    => A.TextAlignmentTypeValues.Left,
             };
-            aPara.ParagraphProperties = new A.ParagraphProperties { Alignment = alignVal };
+            var pPr = new A.ParagraphProperties { Alignment = alignVal };
+            if (para.MarginLeftEmu  != 0) pPr.LeftMargin = para.MarginLeftEmu;
+            if (para.TextIndentEmu  != 0) pPr.Indent     = para.TextIndentEmu;
+            if (para.LineSpacePct1000 > 0)
+                pPr.Append(new A.LineSpacing(new A.SpacingPercent { Val = para.LineSpacePct1000 }));
+            if (para.SpaceBeforePt100 > 0)
+                pPr.Append(new A.SpaceBefore(new A.SpacingPoints { Val = para.SpaceBeforePt100 }));
+            if (para.SpaceAfterPt100 > 0)
+                pPr.Append(new A.SpaceAfter(new A.SpacingPoints { Val = para.SpaceAfterPt100 }));
+            aPara.ParagraphProperties = pPr;
 
             foreach (var run in para.Runs)
             {
@@ -364,6 +374,33 @@ public sealed class PresentationModel : IDisposable
 
         // Return the index of the new element in the ShapeTree
         return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(newShape);
+    }
+
+    /// <summary>Update the vertical anchor of a text body shape.</summary>
+    public void UpdateBodyVertAnchor(int slideIndex, int shapeTreeIndex, VertAnchor anchor)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex >= elements.Count) return;
+        if (elements[shapeTreeIndex] is not Shape shape) return;
+        if (shape.TextBody is null) return;
+
+        PushUndo();
+
+        var bodyPr = shape.TextBody.GetFirstChild<A.BodyProperties>();
+        if (bodyPr is null) { bodyPr = new A.BodyProperties(); shape.TextBody.InsertAt(bodyPr, 0); }
+
+        bodyPr.Anchor = anchor switch
+        {
+            VertAnchor.Middle => A.TextAnchoringTypeValues.Center,
+            VertAnchor.Bottom => A.TextAnchoringTypeValues.Bottom,
+            _                 => A.TextAnchoringTypeValues.Top,
+        };
+
+        slidePart.Slide.Save();
+        _modified = true;
     }
 
     /// <summary>Move a shape by <paramref name="deltaXEmu"/> / <paramref name="deltaYEmu"/> EMU.</summary>

@@ -39,6 +39,8 @@ public partial class MainWindow : Window
         EditorCanvas.ShapesGroupRequested     += OnShapesGroupRequested;
         EditorCanvas.ShapeUngroupRequested    += OnShapeUngroupRequested;
         EditorCanvas.CharPropertiesRequested  += (_, _) => OnCharProperties();
+        EditorCanvas.ParaPropertiesRequested  += (_, _) => OnParaProperties();
+        EditorCanvas.TextBoxDrawn             += OnTextBoxDrawn;
 
         RegisterKeyBindings();
         InitSettings();
@@ -99,6 +101,7 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(_ => OnGroup()),   Key.G, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(_ => OnUngroup()), Key.G, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnCharProperties), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnParaProperties), Key.P, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     // ── File commands ─────────────────────────────────────────────────
@@ -333,15 +336,18 @@ public partial class MainWindow : Window
     private void OnInsertTextBox(object? _ = null)
     {
         if (!_model.IsOpen) return;
-        long cx = _model.SlideWidth;
-        long cy = _model.SlideHeight;
-        long w  = 4572000L;            // 5 in
-        long h  = 914400L;             // 1 in
-        long l  = (cx - w) / 2;
-        long t  = (cy - h) / 2;
-        _model.AddTextBox(_currentSlide, l, t, w, h);
+        EditorCanvas.ActiveTool = DrawTool.TextBox;
+        SetStatus(S("St_DrawHint_Drag"));
+    }
+
+    private void OnTextBoxDrawn(int slideIdx, long leftEmu, long topEmu, long widthEmu, long heightEmu)
+    {
+        int treeIdx = _model.AddTextBox(slideIdx, leftEmu, topEmu, widthEmu, heightEmu);
         RefreshAll();
         SetStatus(S("Msg_TextBoxAdded"));
+        if (treeIdx >= 0)
+            EditorCanvas.StartEditByTreeIndex(treeIdx);
+        UpdateActions();
     }
 
     // ── View commands ─────────────────────────────────────────────────
@@ -550,6 +556,24 @@ public partial class MainWindow : Window
         try { if (dlg.ShowDialog() != true) return; }
         finally { EditorCanvas.SuppressLostFocusCommit = false; }
         EditorCanvas.ApplyEditorCharStyle(dlg.Result);
+    }
+
+    // ── Paragraph properties ──────────────────────────────────────────
+
+    private void OnParaProperties(object? _ = null)
+    {
+        if (!_model.IsOpen || !EditorCanvas.IsEditing) return;
+        var style = EditorCanvas.GetEditorParaStyle();
+        var dlg   = new PPEditer.Dialogs.ParaPropertiesDialog(style) { Owner = this };
+        EditorCanvas.SuppressLostFocusCommit = true;
+        try { if (dlg.ShowDialog() != true) return; }
+        finally { EditorCanvas.SuppressLostFocusCommit = false; }
+        EditorCanvas.ApplyEditorParaStyle(dlg.Result);
+        // Apply VertAnchor to PPTX model immediately
+        int treeIdx = EditorCanvas.SelectedTreeIndex;
+        if (treeIdx >= 0)
+            _model.UpdateBodyVertAnchor(_currentSlide, treeIdx, dlg.Result.VertAnchor);
+        SetStatus(S("Msg_ParaPropsSaved"));
     }
 
     // ── Insert media ──────────────────────────────────────────────────
@@ -973,6 +997,7 @@ public partial class MainWindow : Window
         MenuGroup.IsEnabled     = hasMulti;
         MenuUngroup.IsEnabled   = isGroup;
         MenuCharProps.IsEnabled = has && editing;
+        MenuParaProps.IsEnabled = has && editing;
     }
 
     private void SetStatus(string msg) => StatusMsg.Text = msg;
@@ -1080,6 +1105,7 @@ public partial class MainWindow : Window
     private void OnInsertCharMap(object s, RoutedEventArgs e) => OnInsertCharMap();
     private void OnInsertEmoji(object s, RoutedEventArgs e)   => OnInsertEmoji();
     private void OnCharProperties(object s, RoutedEventArgs e) => OnCharProperties();
+    private void OnParaProperties(object s, RoutedEventArgs e) => OnParaProperties();
 }
 
 // ── Tiny relay command ─────────────────────────────────────────────────────────

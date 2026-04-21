@@ -32,4 +32,7 @@ public enum DrawTool
 
     // 화살표
     Arrow,            // 오른쪽 화살표
+
+    // 텍스트 상자
+    TextBox,          // 텍스트 상자 (드래그)
 }

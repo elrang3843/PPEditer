@@ -171,6 +171,7 @@
     <sys:String x:Key="Dlg_ShapeProps_W">Width:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_H">Height:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_InvalidInput">Please enter valid numeric values.</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_LockAspect">Lock aspect ratio</sys:String>
     <sys:String x:Key="Msg_ShapePropsSaved">Object properties updated.</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Pos">Position/Size</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Fill">Fill</sys:String>
@@ -284,5 +285,26 @@
     <sys:String x:Key="Dlg_Char_Sub">Subscript</sys:String>
     <sys:String x:Key="Dlg_Char_OverlineNote">Note: Overline is displayed in WPF only and is not saved to PPTX.</sys:String>
     <sys:String x:Key="Dlg_Char_NoColor">(none)</sys:String>
+
+    <!-- ══ Paragraph Properties dialog ════════════════════════════════════ -->
+    <sys:String x:Key="Ms_ParaProps">Paragraph Properties(_P)...</sys:String>
+    <sys:String x:Key="Ctx_ParaProperties">Paragraph Properties...</sys:String>
+    <sys:String x:Key="Dlg_ParaProps">Paragraph Properties</sys:String>
+    <sys:String x:Key="Dlg_Para_HorzAlign">Horizontal Alignment:</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignLeft">Left</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignCenter">Center</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignRight">Right</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignJustify">Justify</sys:String>
+    <sys:String x:Key="Dlg_Para_VertAnchor">Vertical Anchor:</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorTop">Top</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorMiddle">Middle</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorBottom">Bottom</sys:String>
+    <sys:String x:Key="Dlg_Para_Indent">First-line indent (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_Hanging">Hanging indent (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_LineSpacing">Line spacing (%):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceBefore">Space before (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceAfter">Space after (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_InvalidInput">Please enter valid numeric values.</sys:String>
+    <sys:String x:Key="Msg_ParaPropsSaved">Paragraph properties updated.</sys:String>
 
 </ResourceDictionary>

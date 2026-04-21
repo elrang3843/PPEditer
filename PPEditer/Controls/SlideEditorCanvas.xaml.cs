@@ -41,6 +41,10 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int>? ShapeUngroupRequested;
     /// <summary>User requested character properties while editing. (slideIdx, treeIdx)</summary>
     public event Action<int, int>? CharPropertiesRequested;
+    /// <summary>User requested paragraph properties while editing. (slideIdx, treeIdx)</summary>
+    public event Action<int, int>? ParaPropertiesRequested;
+    /// <summary>User finished drawing a text box. (slideIdx, leftEmu, topEmu, widthEmu, heightEmu)</summary>
+    public event Action<int, long, long, long, long>? TextBoxDrawn;
 
     // ── Public properties ──────────────────────────────────────────────
 
@@ -165,6 +169,20 @@ public partial class SlideEditorCanvas : UserControl
     public void SetZoom(double z) { _zoom = Math.Clamp(z, 0.25, 3.0); ApplyZoom(); }
     public double ZoomFactor  => _zoom;
     public bool   IsEditing   => _editor is not null;
+
+    /// <summary>Start editing the shape with the specified tree index (if it has a TextBody).</summary>
+    public void StartEditByTreeIndex(int treeIdx)
+    {
+        if (_nativeCanvas is null) return;
+        for (int i = 0; i < _nativeCanvas.Children.Count; i++)
+        {
+            if (_nativeCanvas.Children[i] is FrameworkElement fe && fe.Tag is int t && t == treeIdx)
+            {
+                StartEdit(_nativeCanvas, i);
+                return;
+            }
+        }
+    }
 
     /// <summary>Insert text at the active editor's caret (used by CharMap / Emoji dialogs).</summary>
     public void InsertText(string text)
@@ -494,7 +512,7 @@ public partial class SlideEditorCanvas : UserControl
         DrawTool.Ellipse or DrawTool.Circle or DrawTool.EqTriangle or
         DrawTool.IsoTriangle or DrawTool.RightTriangle or
         DrawTool.Trapezoid or DrawTool.Parallelogram or
-        DrawTool.Arc or DrawTool.Arrow;
+        DrawTool.Arc or DrawTool.Arrow or DrawTool.TextBox;
 
     private static bool IsClickTool(DrawTool t) => t is
         DrawTool.PolyLine or DrawTool.SplineLine or
@@ -560,8 +578,24 @@ public partial class SlideEditorCanvas : UserControl
         _activeTool = DrawTool.Select;
         if (_nativeCanvas is not null)
             _nativeCanvas.Cursor = Cursors.Arrow;
-        if (pts.Length >= 2)
+        if (pts.Length < 2) return;
+
+        if (tool == DrawTool.TextBox)
+        {
+            // Fire TextBoxDrawn with EMU bounds
+            double l = Math.Min(pts[0].X, pts[1].X);
+            double t = Math.Min(pts[0].Y, pts[1].Y);
+            double w = Math.Abs(pts[1].X - pts[0].X);
+            double h = Math.Abs(pts[1].Y - pts[0].Y);
+            if (w < 10) w = 200;
+            if (h < 10) h = 40;
+            TextBoxDrawn?.Invoke(_slideIndex,
+                PxToEmu(l), PxToEmu(t), PxToEmu(w), PxToEmu(h));
+        }
+        else
+        {
             ShapeDrawn?.Invoke(_slideIndex, tool, pts);
+        }
     }
 
     private void CancelDrawing()
@@ -993,16 +1027,22 @@ public partial class SlideEditorCanvas : UserControl
         _editor.Focus();
         _editor.SelectAll();
 
-        // Add context menu for character properties
+        // Add context menu for character/paragraph properties
         var charCtx  = new ContextMenu();
-        var cpItem   = new MenuItem
-        {
-            Header = Application.Current.TryFindResource("Ctx_CharProperties") as string ?? "문자 속성...",
-        };
         int capturedSlideIdx = _slideIndex;
         int capturedTreeIdx  = treeIdx;
+        var cpItem = new MenuItem
+        {
+            Header = Application.Current.TryFindResource("Ctx_CharProperties") as string ?? "글자 속성...",
+        };
         cpItem.Click += (_, _) => CharPropertiesRequested?.Invoke(capturedSlideIdx, capturedTreeIdx);
         charCtx.Items.Add(cpItem);
+        var ppItem = new MenuItem
+        {
+            Header = Application.Current.TryFindResource("Ctx_ParaProperties") as string ?? "문단 속성...",
+        };
+        ppItem.Click += (_, _) => ParaPropertiesRequested?.Invoke(capturedSlideIdx, capturedTreeIdx);
+        charCtx.Items.Add(ppItem);
         _editor.ContextMenu = charCtx;
 
         EditingStarted?.Invoke(_editor);
@@ -1103,6 +1143,95 @@ public partial class SlideEditorCanvas : UserControl
             HighlightColor = back,
             UnderlineColor = ulColor,
         };
+    }
+
+    // ── Paragraph style (GetEditorParaStyle / ApplyEditorParaStyle) ────
+
+    public ParagraphStyle GetEditorParaStyle()
+    {
+        if (_editor is null) return new ParagraphStyle();
+
+        // Read VertAnchor from FlowDocument.Tag (set during ToFlowDocument)
+        var vertAnchor = _editor.Document.Tag is VertAnchor va ? va : VertAnchor.Top;
+
+        // Find the paragraph at the caret
+        var caretPara = _editor.CaretPosition.Paragraph
+                        ?? _editor.Document.Blocks.OfType<Paragraph>().FirstOrDefault();
+        if (caretPara is null) return new ParagraphStyle { VertAnchor = vertAnchor };
+
+        var horzAlign = caretPara.TextAlignment switch
+        {
+            TextAlignment.Center  => HorzAlign.Center,
+            TextAlignment.Right   => HorzAlign.Right,
+            TextAlignment.Justify => HorzAlign.Justify,
+            _                     => HorzAlign.Left,
+        };
+
+        double marginLeftCm  = caretPara.Margin.Left  / 96.0 * 2.54;
+        double textIndentCm  = caretPara.TextIndent    / 96.0 * 2.54;
+        double spaceBeforePt = caretPara.Margin.Top    * 72.0 / 96.0;
+        double spaceAfterPt  = caretPara.Margin.Bottom * 72.0 / 96.0;
+
+        double lineSpacePct = 100.0;
+        if (caretPara.Tag is double pct && pct > 0)
+            lineSpacePct = pct;
+
+        return new ParagraphStyle
+        {
+            HorzAlign     = horzAlign,
+            VertAnchor    = vertAnchor,
+            MarginLeftCm  = Math.Max(0, marginLeftCm),
+            TextIndentCm  = textIndentCm,  // negative = hanging
+            LineSpacePct  = lineSpacePct,
+            SpaceBeforePt = Math.Max(0, spaceBeforePt),
+            SpaceAfterPt  = Math.Max(0, spaceAfterPt),
+        };
+    }
+
+    public void ApplyEditorParaStyle(ParagraphStyle style)
+    {
+        if (_editor is null) return;
+
+        // Update VertAnchor on document tag (written to PPTX on commit via UpdateBodyVertAnchor)
+        _editor.Document.Tag = style.VertAnchor;
+
+        // Apply to selected paragraphs (or all if no selection spans paragraphs)
+        var sel = _editor.Selection;
+        var startPara = sel.Start.Paragraph ?? _editor.Document.Blocks.OfType<Paragraph>().FirstOrDefault();
+        var endPara   = sel.End.Paragraph   ?? startPara;
+
+        foreach (var block in _editor.Document.Blocks.OfType<Paragraph>())
+        {
+            if (block.ContentEnd.CompareTo(sel.Start) < 0) continue;
+            if (block.ContentStart.CompareTo(sel.End) > 0) break;
+
+            block.TextAlignment = style.HorzAlign switch
+            {
+                HorzAlign.Center  => TextAlignment.Center,
+                HorzAlign.Right   => TextAlignment.Right,
+                HorzAlign.Justify => TextAlignment.Justify,
+                _                 => TextAlignment.Left,
+            };
+
+            double leftPx  = style.MarginLeftCm  * 96.0 / 2.54;
+            double indentPx = style.TextIndentCm  * 96.0 / 2.54;  // negative = hanging
+            double topPx   = style.SpaceBeforePt * 96.0 / 72.0;
+            double botPx   = style.SpaceAfterPt  * 96.0 / 72.0;
+
+            block.Margin      = new Thickness(leftPx, topPx, 0, botPx);
+            block.TextIndent  = indentPx;
+            block.Tag         = style.LineSpacePct;
+
+            if (style.LineSpacePct > 0 && !double.IsNaN(style.LineSpacePct))
+            {
+                double defaultPx = 14.0 * 96.0 / 72.0;
+                block.LineHeight = defaultPx * style.LineSpacePct / 100.0;
+            }
+            else
+                block.LineHeight = double.NaN;
+        }
+
+        _editor.Focus();
     }
 
     public void ApplyEditorCharStyle(CharStyle style)
