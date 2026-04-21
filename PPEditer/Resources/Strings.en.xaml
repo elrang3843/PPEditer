@@ -56,6 +56,7 @@
     <sys:String x:Key="St_DrawHint_Drag">Drag to draw the shape. (Esc = cancel)</sys:String>
     <sys:String x:Key="St_DrawHint_Click">Click to add points, double-click to finish. (Esc = cancel)</sys:String>
     <sys:String x:Key="St_DrawHint_3Click">Click 3 points to draw the triangle. (Esc = cancel)</sys:String>
+    <sys:String x:Key="St_DrawHint_4Click">Click 4 points to draw the trapezoid. (Esc = cancel)</sys:String>
     <sys:String x:Key="Msg_ShapeDrawn">Shape added.</sys:String>
     <sys:String x:Key="Ms_Group">_Group</sys:String>
     <sys:String x:Key="Ms_Ungroup">_Ungroup</sys:String>

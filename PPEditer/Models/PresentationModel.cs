@@ -593,8 +593,9 @@ public sealed class PresentationModel : IDisposable
             xfrm = MakeXfrm(left, top, w, h);
             geom = BuildSplinePath(lx, ly, w, h, closed: false);
         }
-        else if (tool is DrawTool.ScaleneTriangle or DrawTool.Polygon)
+        else if (tool is DrawTool.ScaleneTriangle or DrawTool.Polygon or DrawTool.Trapezoid)
         {
+            // Trapezoid: user clicked 4 points; stored as a closed custom polygon
             xfrm = MakeXfrm(left, top, w, h);
             geom = BuildPolyPath(lx, ly, w, h, closed: true);
         }
@@ -602,6 +603,48 @@ public sealed class PresentationModel : IDisposable
         {
             xfrm = MakeXfrm(left, top, w, h);
             geom = BuildSplinePath(lx, ly, w, h, closed: true);
+        }
+        else if (tool is DrawTool.RightTriangle)
+        {
+            // Right angle is placed at the drag-start corner
+            bool fH = xs[0] > xs[1]; // started from right side
+            bool fV = ys[0] > ys[1]; // started from bottom
+            long rax = fH ? w : 0L,  ray = fV ? h : 0L;  // right-angle vertex
+            long p1x = fH ? w : 0L,  p1y = fV ? 0L : h;  // along the vertical leg
+            long p2x = fH ? 0L : w,  p2y = fV ? h : 0L;  // along the horizontal leg
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildPolyPath([rax, p1x, p2x], [ray, p1y, p2y], w, h, closed: true);
+        }
+        else if (tool is DrawTool.Parallelogram)
+        {
+            // Lean direction follows horizontal drag direction
+            bool fH = xs[0] > xs[1]; // started from right → lean left
+            long off = w / 4;
+            long[] px = fH ? [0L, w - off, w,   off]
+                           : [off, w,      w - off, 0L];
+            long[] py = [0L, 0L, h, h];
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildPolyPath(px, py, w, h, closed: true);
+        }
+        else if (tool is DrawTool.Arc)
+        {
+            // The arc bulges toward the drag-start corner
+            bool fH = xs[0] > xs[1];
+            bool fV = ys[0] > ys[1];
+            // adj1 = start angle (60000ths of a degree); adj2 = swing = 90°
+            long adj1 = (fH, fV) switch
+            {
+                (false, false) => 10800000L, // TL start → bulges TL (180°)
+                (true,  false) => 16200000L, // TR start → bulges TR (270°, PPTX default)
+                (false, true)  =>  5400000L, // BL start → bulges BL (90°)
+                (true,  true)  =>        0L, // BR start → bulges BR (0°)
+            };
+            const long adj2 = 5400000L; // 90° sweep
+            xfrm = MakeXfrm(left, top, w, h);
+            var adjList = new A.AdjustValueList(
+                new A.ShapeGuide { Name = "adj1", Formula = $"val {adj1}" },
+                new A.ShapeGuide { Name = "adj2", Formula = $"val {adj2}" });
+            geom = new A.PresetGeometry(adjList) { Preset = A.ShapeTypeValues.Arc };
         }
         else
         {
@@ -617,16 +660,11 @@ public sealed class PresentationModel : IDisposable
             }
             else
             {
-                // Preset geometry
                 A.ShapeTypeValues preset = tool switch
                 {
                     DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
                     DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
                     DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
-                    DrawTool.RightTriangle              => A.ShapeTypeValues.RightTriangle,
-                    DrawTool.Trapezoid                  => A.ShapeTypeValues.Trapezoid,
-                    DrawTool.Parallelogram              => A.ShapeTypeValues.Parallelogram,
-                    DrawTool.Arc                        => A.ShapeTypeValues.Arc,
                     DrawTool.Arrow                      => A.ShapeTypeValues.RightArrow,
                     _                                   => A.ShapeTypeValues.Rectangle,
                 };

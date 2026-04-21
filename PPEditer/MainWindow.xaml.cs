@@ -489,6 +489,7 @@ public partial class MainWindow : Window
         string hint = tool switch
         {
             DrawTool.ScaleneTriangle                                    => S("St_DrawHint_3Click"),
+            DrawTool.Trapezoid                                          => S("St_DrawHint_4Click"),
             DrawTool.PolyLine or DrawTool.SplineLine or
             DrawTool.Polygon  or DrawTool.SplinePolygon                 => S("St_DrawHint_Click"),
             _                                                           => S("St_DrawHint_Drag"),

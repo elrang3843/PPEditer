@@ -56,6 +56,7 @@
     <sys:String x:Key="St_DrawHint_Drag">드래그하여 도형을 그리세요. (Esc = 취소)</sys:String>
     <sys:String x:Key="St_DrawHint_Click">클릭으로 점을 추가하고 더블클릭으로 완료합니다. (Esc = 취소)</sys:String>
     <sys:String x:Key="St_DrawHint_3Click">3점을 클릭하여 삼각형을 그립니다. (Esc = 취소)</sys:String>
+    <sys:String x:Key="St_DrawHint_4Click">4점을 클릭하여 사다리꼴을 그립니다. (Esc = 취소)</sys:String>
     <sys:String x:Key="Msg_ShapeDrawn">도형이 추가되었습니다.</sys:String>
     <sys:String x:Key="Ms_Group">그룹으로 묶기(_G)</sys:String>
     <sys:String x:Key="Ms_Ungroup">그룹 해제(_U)</sys:String>

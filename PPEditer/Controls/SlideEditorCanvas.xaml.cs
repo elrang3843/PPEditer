@@ -515,13 +515,12 @@ public partial class SlideEditorCanvas : UserControl
         DrawTool.Line or DrawTool.Square or DrawTool.Rect or
         DrawTool.Ellipse or DrawTool.Circle or DrawTool.EqTriangle or
         DrawTool.IsoTriangle or DrawTool.RightTriangle or
-        DrawTool.Trapezoid or DrawTool.Parallelogram or
-        DrawTool.Arc or DrawTool.Arrow or DrawTool.TextBox;
+        DrawTool.Parallelogram or DrawTool.Arc or DrawTool.Arrow or DrawTool.TextBox;
 
     private static bool IsClickTool(DrawTool t) => t is
         DrawTool.PolyLine or DrawTool.SplineLine or
         DrawTool.Polygon or DrawTool.SplinePolygon or
-        DrawTool.ScaleneTriangle;
+        DrawTool.ScaleneTriangle or DrawTool.Trapezoid;
 
     private void HandleDrawMouseDown(Canvas canvas, Point pos, int clickCount)
     {
@@ -566,7 +565,8 @@ public partial class SlideEditorCanvas : UserControl
         {
             _drawPoints.Add(pos);
             UpdateClickPreview(canvas);
-            if (_activeTool == DrawTool.ScaleneTriangle && _drawPoints.Count == 3)
+            if ((_activeTool == DrawTool.ScaleneTriangle && _drawPoints.Count == 3) ||
+                (_activeTool == DrawTool.Trapezoid        && _drawPoints.Count == 4))
                 FinalizeDrawing(canvas);
         }
     }
@@ -682,7 +682,7 @@ public partial class SlideEditorCanvas : UserControl
 
     private void CreateClickPreview(Canvas canvas)
     {
-        bool closed = _activeTool is DrawTool.Polygon or DrawTool.SplinePolygon or DrawTool.ScaleneTriangle;
+        bool closed = _activeTool is DrawTool.Polygon or DrawTool.SplinePolygon or DrawTool.ScaleneTriangle or DrawTool.Trapezoid;
         UIElement preview;
         if (closed)
         {
