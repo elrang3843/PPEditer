@@ -692,7 +692,9 @@ public partial class MainWindow : Window
         IReadOnlyList<PptxConverter.PptxParagraph> paragraphs)
     {
         _model.UpdateShapeContent(slideIdx, treeIdx, paragraphs);
-        SlidePanel.RefreshSingle(treeIdx >= 0 ? slideIdx : _currentSlide);
+        // Rebuild canvas so the updated text is rendered (editor state is already null here).
+        EditorCanvas.Invalidate(treeIdx);
+        SlidePanel.RefreshSingle(slideIdx >= 0 ? slideIdx : _currentSlide);
         UpdateTitle();
         UpdateActions();
         FormatToolBar.IsEnabled = false;

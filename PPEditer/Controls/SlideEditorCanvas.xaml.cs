@@ -1080,21 +1080,27 @@ public partial class SlideEditorCanvas : UserControl
     {
         if (_editor is null || _nativeCanvas is null) return;
 
-        if (save && _editingTreeIdx >= 0)
-        {
-            var paragraphs = PptxConverter.FromFlowDocument(_editor.Document);
-            TextCommitted?.Invoke(_slideIndex, _editingTreeIdx, paragraphs);
-        }
+        // Capture content and refs before nulling state, so the event handler
+        // (which may call Invalidate → CommitEdit again) finds _editor already null.
+        var editorDoc   = _editor.Document;
+        var editorRef   = _editor;
+        var treeIdx     = _editingTreeIdx;
+        var hiddenRef   = _hiddenShape;
 
-        _nativeCanvas.Children.Remove(_editor);
         _editor         = null;
         _editingTreeIdx = -1;
+        _hiddenShape    = null;
 
-        // Restore the hidden shape
-        if (_hiddenShape is not null)
+        _nativeCanvas.Children.Remove(editorRef);
+
+        if (hiddenRef is not null)
+            hiddenRef.Visibility = Visibility.Visible;
+
+        // Fire AFTER canvas is clean so handlers can safely rebuild the canvas.
+        if (save && treeIdx >= 0)
         {
-            _hiddenShape.Visibility = Visibility.Visible;
-            _hiddenShape = null;
+            var paragraphs = PptxConverter.FromFlowDocument(editorDoc);
+            TextCommitted?.Invoke(_slideIndex, treeIdx, paragraphs);
         }
     }
 
