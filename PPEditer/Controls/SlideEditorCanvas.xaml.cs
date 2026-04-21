@@ -108,8 +108,9 @@ public partial class SlideEditorCanvas : UserControl
         {
             if (!_editor.Selection.IsEmpty)
                 _editor.Selection.Text = "";
-            var newCaret = _editor.CaretPosition.InsertTextInRun(text);
-            _editor.CaretPosition = newCaret;
+            _editor.CaretPosition.InsertTextInRun(text);
+            var newPos = _editor.CaretPosition.GetPositionAtOffset(text.Length);
+            if (newPos != null) _editor.CaretPosition = newPos;
         }
         catch
         {
@@ -501,7 +502,7 @@ public partial class SlideEditorCanvas : UserControl
         var elements = _slidePart?.Slide.CommonSlideData?.ShapeTree?
             .Elements<OpenXmlCompositeElement>().ToList();
         if (elements is null || treeIdx >= elements.Count) return;
-        if (elements[treeIdx] is not Shape shape || shape.TextBody is null) return;
+        if (elements[treeIdx] is not DocumentFormat.OpenXml.Presentation.Shape shape || shape.TextBody is null) return;
 
         CommitEdit(save: false);
         SelectShape(canvas, canvasIdx);
