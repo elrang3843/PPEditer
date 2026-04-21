@@ -121,7 +121,7 @@ public sealed class PresentationModel : IDisposable
                     new DocumentFormat.OpenXml.Drawing.TransformGroup()))),
             new ColorMapOverride(new DocumentFormat.OpenXml.Drawing.MasterColorMapping()))
             .Save(slidePart);
-        slidePart.AddPart(layout);
+        if (layout is not null) slidePart.AddPart(layout);
 
         var idList = pp.Presentation.SlideIdList ?? (pp.Presentation.SlideIdList = new SlideIdList());
         uint maxId = idList.Elements<SlideId>().Select(s => s.Id?.Value ?? 0u).DefaultIfEmpty(255u).Max();
@@ -251,17 +251,16 @@ public sealed class PresentationModel : IDisposable
             // Paragraph alignment
             var alignVal = para.Alignment switch
             {
-                System.Windows.TextAlignment.Center  => A.TextAlignmentTypeValues.Center,
-                System.Windows.TextAlignment.Right   => A.TextAlignmentTypeValues.Right,
-                System.Windows.TextAlignment.Justify => A.TextAlignmentTypeValues.Justify,
-                _                                    => A.TextAlignmentTypeValues.Left,
+                System.Windows.TextAlignment.Center => A.TextAlignmentTypeValues.Center,
+                System.Windows.TextAlignment.Right  => A.TextAlignmentTypeValues.Right,
+                _                                   => A.TextAlignmentTypeValues.Left,
             };
             aPara.ParagraphProperties = new A.ParagraphProperties { Alignment = alignVal };
 
             foreach (var run in para.Runs)
             {
                 var aRun  = new A.Run();
-                var rProps = new A.RunProperties { Language = "ko-KR", DirtyFont = false };
+                var rProps = new A.RunProperties { Language = "ko-KR" };
 
                 if (!string.IsNullOrEmpty(run.FontFamily))
                 {
@@ -280,8 +279,7 @@ public sealed class PresentationModel : IDisposable
                     }));
 
                 aRun.RunProperties = rProps;
-                aRun.Text = new A.Text(run.Text)
-                    { Space = SpaceProcessingModeValues.Preserve };
+                aRun.Text = new A.Text(run.Text);
                 aPara.Append(aRun);
             }
 
@@ -325,11 +323,11 @@ public sealed class PresentationModel : IDisposable
             new TextBody(
                 new A.BodyProperties
                 {
-                    Wrap         = A.TextWrappingValues.Square,
-                    LeftInset    = 91440L,
-                    TopInset     = 45720L,
-                    RightInset   = 91440L,
-                    BottomInset  = 45720L,
+                    Wrap        = A.TextWrappingValues.Square,
+                    LeftInset   = 91440,
+                    TopInset    = 45720,
+                    RightInset  = 91440,
+                    BottomInset = 45720,
                 },
                 new A.ListStyle(),
                 new A.Paragraph(

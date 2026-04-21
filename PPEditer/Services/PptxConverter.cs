@@ -36,8 +36,9 @@ public static class PptxConverter
                 para.TextAlignment = TextAlignment.Left;
 
             // Spacing
-            if (aPara.ParagraphProperties?.SpaceBefore is A.SpaceBefore sb)
-                para.Margin = para.Margin with { Top = EmuToWpf(sb.SpacePercent?.Val ?? 0) };
+            if (aPara.ParagraphProperties?.SpaceBefore?.GetFirstChild<A.SpacePercent>() is A.SpacePercent sp
+                && sp.Val?.Value is int spv)
+                para.Margin = para.Margin with { Top = spv / 100000.0 * 16.0 };
 
             bool hasRuns = false;
             foreach (var aRun in aPara.Elements<A.Run>())
@@ -74,8 +75,8 @@ public static class PptxConverter
             run.FontFamily = new FontFamily(ff);
 
         // Font size (hundredths of a point)
-        if (rProps.FontSize.HasValue)
-            run.FontSize = rProps.FontSize.Value / 100.0 * WpfDpi / PointPerInch;
+        if (rProps.FontSize?.HasValue == true)
+            run.FontSize = rProps.FontSize!.Value / 100.0 * WpfDpi / PointPerInch;
 
         if (rProps.Bold?.Value == true)    run.FontWeight = FontWeights.Bold;
         if (rProps.Italic?.Value == true)  run.FontStyle  = FontStyles.Italic;
@@ -142,7 +143,7 @@ public static class PptxConverter
     private static double DefaultFontSize(A.Paragraph para)
     {
         var first = para.Elements<A.Run>().FirstOrDefault();
-        if (first?.RunProperties?.FontSize is int sz)
+        if (first?.RunProperties?.FontSize?.Value is int sz)
             return sz / 100.0 * WpfDpi / PointPerInch;
         return 18.0 * WpfDpi / PointPerInch; // 18pt default
     }

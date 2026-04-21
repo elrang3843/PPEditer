@@ -155,7 +155,7 @@ public static class SlideRenderer
         var c = ResolveColor(solid, slidePart);
         if (!c.HasValue) return;
         rect.Stroke          = new SolidColorBrush(c.Value);
-        rect.StrokeThickness = ln!.Width.HasValue ? EmuToPx(ln.Width.Value) : 1;
+        rect.StrokeThickness = ln?.Width?.Value is long thick ? EmuToPx(thick) : 1;
     }
 
     // ── Text body ─────────────────────────────────────────────────────
@@ -222,8 +222,8 @@ public static class SlideRenderer
         if (latin?.Typeface is not null && latin.Typeface != "+mj-lt" && latin.Typeface != "+mn-lt")
             inline.FontFamily = new FontFamily(latin.Typeface);
 
-        if (rProps.FontSize.HasValue)
-            inline.FontSize = rProps.FontSize.Value / 100.0 * WpfDpi / 72.0;
+        if (rProps.FontSize?.HasValue == true)
+            inline.FontSize = rProps.FontSize!.Value / 100.0 * WpfDpi / 72.0;
 
         if (rProps.Bold?.Value   == true) inline.FontWeight = FontWeights.Bold;
         if (rProps.Italic?.Value == true) inline.FontStyle  = FontStyles.Italic;
