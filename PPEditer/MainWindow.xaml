@@ -114,6 +114,16 @@
                 <MenuItem x:Name="MenuSlideShow" Header="{DynamicResource Ms_SlideShow}" InputGestureText="F5" Click="OnSlideShow"/>
             </MenuItem>
 
+            <!-- ── 효과 메뉴 ────────────────────────────────────────────── -->
+            <MenuItem Header="{DynamicResource Ms_Effects}">
+                <MenuItem x:Name="MenuSlideTransition"
+                          Header="{DynamicResource Ms_SlideTransition}"
+                          Click="OnSlideTransition"/>
+                <MenuItem x:Name="MenuShapeAnimation"
+                          Header="{DynamicResource Ms_ShapeAnimation}"
+                          Click="OnShapeAnimation"/>
+            </MenuItem>
+
             <!-- ── 설정 메뉴 ────────────────────────────────────────────── -->
             <MenuItem Header="{DynamicResource Ms_Settings}">
 

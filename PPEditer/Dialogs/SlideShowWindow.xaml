@@ -12,7 +12,5 @@
         KeyDown="OnKeyDown"
         MouseLeftButtonDown="OnMouseLeft"
         MouseRightButtonDown="OnMouseRight">
-    <Grid Background="Black">
-        <Viewbox x:Name="SlideViewbox" Stretch="Uniform"/>
-    </Grid>
+    <Grid x:Name="SlideContainer" Background="Black"/>
 </Window>

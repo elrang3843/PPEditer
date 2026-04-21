@@ -977,7 +977,9 @@ public partial class MainWindow : Window
         MenuDelSlide.IsEnabled  = has && _model.SlideCount > 1;
         MenuSlideUp.IsEnabled   = has && _currentSlide > 0;
         MenuSlideDown.IsEnabled = has && _currentSlide < _model.SlideCount - 1;
-        MenuSlideShow.IsEnabled = has;
+        MenuSlideShow.IsEnabled      = has;
+        MenuSlideTransition.IsEnabled = has;
+        MenuShapeAnimation.IsEnabled  = has && EditorCanvas.SelectedTreeIndex >= 0;
         MenuUndo.IsEnabled      = _model.CanUndo;
         MenuRedo.IsEnabled      = _model.CanRedo;
         MenuInsertTextBox.IsEnabled  = has;
@@ -1089,6 +1091,34 @@ public partial class MainWindow : Window
     private void OnExit(object s, RoutedEventArgs e)          => OnExit();
     private void OnUndo(object s, RoutedEventArgs e)          => OnUndo();
     private void OnRedo(object s, RoutedEventArgs e)          => OnRedo();
+    // ── Effects ───────────────────────────────────────────────────────
+
+    private void OnSlideTransition(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        var current = _model.GetSlideTransition(_currentSlide).Kind;
+        var dlg     = new Dialogs.TransitionDialog(current) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        _model.SetSlideTransition(_currentSlide,
+            new Models.SlideTransition { Kind = dlg.SelectedKind },
+            dlg.ApplyToAll);
+        UpdateActions();
+        SetStatus(S("Msg_TransitionSet"));
+    }
+
+    private void OnShapeAnimation(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        int treeIdx = EditorCanvas.SelectedTreeIndex;
+        if (treeIdx < 0) return;
+        var current = _model.GetShapeAnimationKind(_currentSlide, treeIdx);
+        var dlg     = new Dialogs.AnimationDialog(current) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        _model.SetShapeAnimation(_currentSlide, treeIdx, dlg.SelectedKind);
+        UpdateActions();
+        SetStatus(S("Msg_AnimationSet"));
+    }
+
     // ── Slide show ────────────────────────────────────────────────────
 
     private void OnSlideShow(object? _ = null)
@@ -1101,7 +1131,9 @@ public partial class MainWindow : Window
 
     // ── XAML event bridges ────────────────────────────────────────────
 
-    private void OnSlideShow(object s, RoutedEventArgs e)     => OnSlideShow();
+    private void OnSlideTransition(object s, RoutedEventArgs e) => OnSlideTransition();
+    private void OnShapeAnimation(object s, RoutedEventArgs e)  => OnShapeAnimation();
+    private void OnSlideShow(object s, RoutedEventArgs e)       => OnSlideShow();
     private void OnAddSlide(object s, RoutedEventArgs e)      => OnAddSlide();
     private void OnDupSlide(object s, RoutedEventArgs e)      => OnDupSlide();
     private void OnDelSlide(object s, RoutedEventArgs e)      => OnDelSlide();

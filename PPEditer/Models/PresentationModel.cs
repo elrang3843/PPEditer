@@ -1621,6 +1621,144 @@ public sealed class PresentationModel : IDisposable
         return (Convert.ToBase64String(saltBytes), Convert.ToBase64String(h));
     }
 
+    // ── Slide transitions (stored in p:transition) ──────────────────────
+
+    public SlideTransition GetSlideTransition(int slideIndex)
+    {
+        var part = GetSlidePart(slideIndex);
+        if (part is null) return new SlideTransition();
+
+        var tr = part.Slide.GetFirstChild<Transition>();
+        if (tr is null) return new SlideTransition { Kind = TransitionKind.None };
+
+        TransitionKind kind;
+        if      (tr.GetFirstChild<PushTransition>()     is not null) kind = TransitionKind.Push;
+        else if (tr.GetFirstChild<WipeTransition>()     is not null) kind = TransitionKind.Wipe;
+        else if (tr.GetFirstChild<CoverTransition>()    is not null) kind = TransitionKind.Flip;
+        else if (tr.GetFirstChild<NewsflashTransition>() is not null) kind = TransitionKind.Crumple;
+        else if (tr.GetFirstChild<FadeTransition>()     is not null) kind = TransitionKind.Fade;
+        else                                                          kind = TransitionKind.None;
+
+        // Recover in-memory Morph override if set
+        if (_morphSlides.Contains(slideIndex)) kind = TransitionKind.Morph;
+
+        return new SlideTransition { Kind = kind };
+    }
+
+    public void SetSlideTransition(int slideIndex, SlideTransition tr, bool allSlides = false)
+    {
+        int count = allSlides ? SlideCount : 1;
+        int start = allSlides ? 0 : slideIndex;
+
+        PushUndo();
+        for (int i = start; i < start + count; i++)
+            ApplyTransitionToSlide(i, tr);
+        _modified = true;
+    }
+
+    private void ApplyTransitionToSlide(int slideIndex, SlideTransition tr)
+    {
+        var part = GetSlidePart(slideIndex);
+        if (part is null) return;
+
+        // Remove existing
+        var existing = part.Slide.GetFirstChild<Transition>();
+        if (existing is not null) part.Slide.RemoveChild(existing);
+
+        if (tr.Kind == TransitionKind.Morph)
+        {
+            // Morph: store Fade in PPTX, remember in-memory
+            _morphSlides.Add(slideIndex);
+            var fade = new Transition();
+            fade.SetAttribute(new OpenXmlAttribute("spd", "", "med"));
+            fade.Append(new FadeTransition());
+            InsertTransition(part.Slide, fade);
+        }
+        else
+        {
+            _morphSlides.Remove(slideIndex);
+        }
+
+        if (tr.Kind is TransitionKind.None or TransitionKind.Morph)
+        {
+            part.Slide.Save();
+            return;
+        }
+
+        var pTr = new Transition();
+        pTr.SetAttribute(new OpenXmlAttribute("spd", "", "med"));
+
+        OpenXmlElement child = tr.Kind switch
+        {
+            TransitionKind.Fade    => new FadeTransition(),
+            TransitionKind.Push    => MakePushTr(),
+            TransitionKind.Wipe    => MakeWipeTr(),
+            TransitionKind.Flip    => MakeCoverTr(),
+            TransitionKind.Crumple => new NewsflashTransition(),
+            _                      => new FadeTransition(),
+        };
+        pTr.Append(child);
+        InsertTransition(part.Slide, pTr);
+        part.Slide.Save();
+    }
+
+    private static void InsertTransition(Slide slide, Transition tr)
+    {
+        var timing = slide.GetFirstChild<Timing>();
+        if (timing is not null) slide.InsertBefore(tr, timing);
+        else                    slide.Append(tr);
+    }
+
+    private static PushTransition MakePushTr()
+    {
+        var p = new PushTransition();
+        p.SetAttribute(new OpenXmlAttribute("dir", "", "l"));
+        return p;
+    }
+
+    private static WipeTransition MakeWipeTr()
+    {
+        var w = new WipeTransition();
+        w.SetAttribute(new OpenXmlAttribute("dir", "", "l"));
+        return w;
+    }
+
+    private static CoverTransition MakeCoverTr()
+    {
+        var c = new CoverTransition();
+        c.SetAttribute(new OpenXmlAttribute("dir", "", "u"));
+        return c;
+    }
+
+    private readonly HashSet<int> _morphSlides = new();
+
+    // ── Object animations (in-memory only) ──────────────────────────────
+
+    private readonly Dictionary<int, List<ShapeAnimation>> _slideAnimations = new();
+
+    public List<ShapeAnimation> GetSlideAnimations(int slideIndex) =>
+        _slideAnimations.TryGetValue(slideIndex, out var list)
+            ? new List<ShapeAnimation>(list)
+            : new List<ShapeAnimation>();
+
+    public AnimationKind GetShapeAnimationKind(int slideIndex, int treeIndex)
+    {
+        if (!_slideAnimations.TryGetValue(slideIndex, out var list)) return AnimationKind.None;
+        return list.FirstOrDefault(a => a.TreeIndex == treeIndex)?.Kind ?? AnimationKind.None;
+    }
+
+    public void SetShapeAnimation(int slideIndex, int treeIndex, AnimationKind kind,
+                                   double durationMs = 500)
+    {
+        if (!_slideAnimations.TryGetValue(slideIndex, out var list))
+            _slideAnimations[slideIndex] = list = new List<ShapeAnimation>();
+
+        list.RemoveAll(a => a.TreeIndex == treeIndex);
+        if (kind != AnimationKind.None)
+            list.Add(new ShapeAnimation { TreeIndex = treeIndex, Kind = kind, DurationMs = durationMs });
+        _modified = true;
+    }
+
     // ── IDisposable ─────────────────────────────────────────────────────
 
     public void Dispose()
