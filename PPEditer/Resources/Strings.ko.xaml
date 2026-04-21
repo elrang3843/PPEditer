@@ -18,6 +18,7 @@
     <sys:String x:Key="Ms_Copy">복사(_C)</sys:String>
     <sys:String x:Key="Ms_Paste">붙여넣기(_P)</sys:String>
     <sys:String x:Key="Ms_SelectAll">모두 선택(_A)</sys:String>
+    <sys:String x:Key="Ms_DocInfo">문서 정보(_I)...</sys:String>
     <sys:String x:Key="Ms_View">보기(_V)</sys:String>
     <sys:String x:Key="Ms_ZoomIn">확대(_I)</sys:String>
     <sys:String x:Key="Ms_ZoomOut">축소(_O)</sys:String>
@@ -132,5 +133,32 @@
     <sys:String x:Key="Lbl_FileNotFound">파일 없음</sys:String>
     <sys:String x:Key="Lbl_UnsavedChanges">저장되지 않은 변경사항</sys:String>
     <sys:String x:Key="Lbl_PdfFailed">오류</sys:String>
+
+    <!-- ══ 문서 정보 대화상자 ════════════════════════════════════════════════ -->
+    <sys:String x:Key="Dlg_DocInfo">문서 정보</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabGeneral">일반</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabSecurity">보안</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TitleLbl">제목:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_SubjectLbl">주제:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_AuthorLbl">작성자:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_LastModLbl">수정자:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_CreatedLbl">생성 날짜:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ModifiedLbl">수정 날짜:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_RevisionLbl">수정 횟수:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ManagerLbl">관리자:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_CompanyLbl">회사:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_WriteProtect">수정 제한 암호</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_StatusLbl">상태:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_Protected">설정됨</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_NotProtected">설정 안 됨</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_NewPwd">새 암호:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ConfirmPwd">암호 확인:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_SetPwd">암호 설정</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ChangePwd">암호 변경</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_RemovePwd">암호 해제</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_OpenPwd">파일 열기 암호</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_OpenPwdNote">파일 열기 암호(OLE 암호화)는 현재 버전에서 지원하지 않습니다. 향후 업데이트에서 지원할 예정입니다.</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_PwdEmpty">암호를 입력하세요.</sys:String>
+    <sys:String x:Key="St_DocInfoSaved">문서 정보가 저장되었습니다.</sys:String>
 
 </ResourceDictionary>

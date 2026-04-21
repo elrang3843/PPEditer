@@ -1,4 +1,7 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Xml.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
@@ -36,6 +39,9 @@ public sealed class PresentationModel : IDisposable
 
     public long SlideWidth  => _doc?.PresentationPart?.Presentation.SlideSize?.Cx ?? 9144000L;
     public long SlideHeight => _doc?.PresentationPart?.Presentation.SlideSize?.Cy ?? 5143500L;
+
+    public bool HasWriteProtection
+        => _doc?.PresentationPart?.Presentation.GetFirstChild<ModifyVerifier>() is not null;
 
     public int SlideCount
     {
@@ -82,6 +88,7 @@ public sealed class PresentationModel : IDisposable
         if (string.IsNullOrEmpty(_filePath))
             throw new InvalidOperationException("저장 경로가 없습니다.");
 
+        UpdateSaveMetadata();
         _doc.Save();
         _stream!.Position = 0;
         using var fs = File.Create(_filePath);
@@ -478,6 +485,311 @@ public sealed class PresentationModel : IDisposable
         })
             cm.SetAttribute(new OpenXmlAttribute(name, string.Empty, val));
         return cm;
+    }
+
+    // ── Document info ────────────────────────────────────────────────────
+
+    public DocProperties GetDocProperties()
+    {
+        var p = new DocProperties();
+        if (_doc is null) return p;
+
+        // Core properties
+        var corePart = _doc.CoreFilePropertiesPart;
+        if (corePart is not null)
+        {
+            try
+            {
+                XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
+                XNamespace dc      = "http://purl.org/dc/elements/1.1/";
+                XNamespace dcterms = "http://purl.org/dc/terms/";
+
+                var xdoc = XDocument.Load(corePart.GetStream());
+                var root = xdoc.Root!;
+
+                p.Title          = root.Element(dc      + "title")?.Value          ?? string.Empty;
+                p.Subject        = root.Element(dc      + "subject")?.Value        ?? string.Empty;
+                p.Author         = root.Element(dc      + "creator")?.Value        ?? string.Empty;
+                p.LastModifiedBy = root.Element(cp      + "lastModifiedBy")?.Value ?? string.Empty;
+
+                if (int.TryParse(root.Element(cp + "revision")?.Value, out int rev))
+                    p.Revision = rev;
+
+                if (DateTime.TryParse(root.Element(dcterms + "created")?.Value,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.RoundtripKind, out var created))
+                    p.Created = created;
+                if (DateTime.TryParse(root.Element(dcterms + "modified")?.Value,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.RoundtripKind, out var modified))
+                    p.Modified = modified;
+            }
+            catch { }
+        }
+
+        // Extended properties (Manager, Company)
+        var extPart = _doc.ExtendedFilePropertiesPart;
+        if (extPart is not null)
+        {
+            try
+            {
+                XNamespace ep   = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties";
+                var xdoc        = XDocument.Load(extPart.GetStream());
+                var root        = xdoc.Root!;
+                p.Manager       = root.Element(ep + "Manager")?.Value ?? string.Empty;
+                p.Company       = root.Element(ep + "Company")?.Value ?? string.Empty;
+            }
+            catch { }
+        }
+
+        return p;
+    }
+
+    public void UpdateDocInfo(DocProperties props,
+        bool setProtection, string? newPassword, bool removeProtection)
+    {
+        if (_doc is null) return;
+        PushUndo();
+
+        SaveCorePropertiesFull(props);
+        SaveExtendedProperties(props);
+
+        var presentation = _doc.PresentationPart?.Presentation;
+        if (presentation is not null)
+        {
+            var existing = presentation.GetFirstChild<ModifyVerifier>();
+            if (removeProtection)
+            {
+                if (existing is not null)
+                {
+                    presentation.RemoveChild(existing);
+                    presentation.Save();
+                }
+            }
+            else if (setProtection && !string.IsNullOrEmpty(newPassword))
+            {
+                if (existing is not null) presentation.RemoveChild(existing);
+                presentation.Append(BuildModifyVerifier(newPassword!));
+                presentation.Save();
+            }
+        }
+
+        _modified = true;
+    }
+
+    private void SaveCorePropertiesFull(DocProperties props)
+    {
+        XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
+        XNamespace dc      = "http://purl.org/dc/elements/1.1/";
+        XNamespace dcterms = "http://purl.org/dc/terms/";
+        XNamespace xsi     = "http://www.w3.org/2001/XMLSchema-instance";
+
+        var corePart = _doc!.CoreFilePropertiesPart;
+        XDocument xdoc;
+
+        if (corePart is null)
+        {
+            corePart = _doc.AddCoreFilePropertiesPart();
+            xdoc = new XDocument(
+                new XElement(cp + "coreProperties",
+                    new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
+                    new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
+                    new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
+                    new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
+        }
+        else
+        {
+            try   { xdoc = XDocument.Load(corePart.GetStream()); }
+            catch
+            {
+                xdoc = new XDocument(
+                    new XElement(cp + "coreProperties",
+                        new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
+                        new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
+                        new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
+                        new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
+            }
+        }
+
+        var root = xdoc.Root!;
+        var now  = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+        XmlSetOrCreate(root, dc      + "title",          props.Title);
+        XmlSetOrCreate(root, dc      + "subject",        props.Subject);
+        XmlSetOrCreate(root, dc      + "creator",        props.Author);
+        XmlSetOrCreate(root, cp      + "lastModifiedBy", Environment.UserName);
+        XmlSetOrCreate(root, dcterms + "modified",       now, xsi + "type", "dcterms:W3CDTF");
+
+        if (root.Element(dcterms + "created") is null)
+            XmlSetOrCreate(root, dcterms + "created", now, xsi + "type", "dcterms:W3CDTF");
+
+        var revEl = root.Element(cp + "revision");
+        int rev   = revEl is not null && int.TryParse(revEl.Value, out int r) ? r + 1 : 1;
+        XmlSetOrCreate(root, cp + "revision", rev.ToString());
+
+        try
+        {
+            using var ws = corePart.GetStream(FileMode.Create, FileAccess.Write);
+            xdoc.Save(ws);
+        }
+        catch { }
+    }
+
+    private void SaveExtendedProperties(DocProperties props)
+    {
+        XNamespace ep = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties";
+
+        var part = _doc!.ExtendedFilePropertiesPart;
+        XDocument xdoc;
+
+        if (part is null)
+        {
+            part  = _doc.AddExtendedFilePropertiesPart();
+            xdoc  = new XDocument(
+                new XElement(ep + "Properties",
+                    new XAttribute("xmlns", ep.NamespaceName)));
+        }
+        else
+        {
+            try   { xdoc = XDocument.Load(part.GetStream()); }
+            catch { xdoc = new XDocument(new XElement(ep + "Properties",
+                        new XAttribute("xmlns", ep.NamespaceName))); }
+        }
+
+        var root = xdoc.Root!;
+
+        XmlSetOrRemove(root, ep + "Manager", props.Manager);
+        XmlSetOrRemove(root, ep + "Company", props.Company);
+
+        try
+        {
+            using var ws = part.GetStream(FileMode.Create, FileAccess.Write);
+            xdoc.Save(ws);
+        }
+        catch { }
+    }
+
+    private void UpdateSaveMetadata()
+    {
+        if (_doc is null) return;
+
+        XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
+        XNamespace dc      = "http://purl.org/dc/elements/1.1/";
+        XNamespace dcterms = "http://purl.org/dc/terms/";
+        XNamespace xsi     = "http://www.w3.org/2001/XMLSchema-instance";
+
+        var corePart = _doc.CoreFilePropertiesPart;
+        XDocument xdoc;
+
+        if (corePart is null)
+        {
+            try { corePart = _doc.AddCoreFilePropertiesPart(); }
+            catch { return; }
+            xdoc = new XDocument(
+                new XElement(cp + "coreProperties",
+                    new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
+                    new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
+                    new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
+                    new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
+        }
+        else
+        {
+            try   { xdoc = XDocument.Load(corePart.GetStream()); }
+            catch { return; }
+        }
+
+        var root = xdoc.Root!;
+        var now  = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+
+        XmlSetOrCreate(root, cp      + "lastModifiedBy", Environment.UserName);
+        XmlSetOrCreate(root, dcterms + "modified",       now, xsi + "type", "dcterms:W3CDTF");
+
+        if (root.Element(dcterms + "created") is null)
+            XmlSetOrCreate(root, dcterms + "created", now, xsi + "type", "dcterms:W3CDTF");
+
+        var revEl = root.Element(cp + "revision");
+        int rev   = revEl is not null && int.TryParse(revEl.Value, out int r) ? r + 1 : 1;
+        XmlSetOrCreate(root, cp + "revision", rev.ToString());
+
+        try
+        {
+            using var ws = corePart.GetStream(FileMode.Create, FileAccess.Write);
+            xdoc.Save(ws);
+        }
+        catch { }
+    }
+
+    // ── XML helpers ─────────────────────────────────────────────────────
+
+    private static void XmlSetOrCreate(XElement root, XName name, string value,
+        XName? attrName = null, string? attrValue = null)
+    {
+        var el = root.Element(name);
+        if (el is null)
+        {
+            el = new XElement(name, value);
+            if (attrName is not null && attrValue is not null)
+                el.Add(new XAttribute(attrName, attrValue));
+            root.Add(el);
+        }
+        else
+        {
+            el.Value = value;
+        }
+    }
+
+    private static void XmlSetOrRemove(XElement root, XName name, string value)
+    {
+        var el = root.Element(name);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            if (el is null) root.Add(new XElement(name, value));
+            else            el.Value = value;
+        }
+        else
+        {
+            el?.Remove();
+        }
+    }
+
+    // ── Write protection ─────────────────────────────────────────────────
+
+    private static ModifyVerifier BuildModifyVerifier(string password)
+    {
+        var (salt, hash) = ComputePasswordHash(password);
+        var mv = new ModifyVerifier();
+        mv.SetAttribute(new OpenXmlAttribute("cryptProviderType",   string.Empty, "rsaAES"));
+        mv.SetAttribute(new OpenXmlAttribute("cryptAlgorithmClass", string.Empty, "hash"));
+        mv.SetAttribute(new OpenXmlAttribute("cryptAlgorithmType",  string.Empty, "typeAny"));
+        mv.SetAttribute(new OpenXmlAttribute("cryptAlgorithmSid",   string.Empty, "12"));
+        mv.SetAttribute(new OpenXmlAttribute("spinCount",           string.Empty, "100000"));
+        mv.SetAttribute(new OpenXmlAttribute("saltValue",           string.Empty, salt));
+        mv.SetAttribute(new OpenXmlAttribute("hashValue",           string.Empty, hash));
+        return mv;
+    }
+
+    private static (string salt, string hash) ComputePasswordHash(string password,
+        int spinCount = 100000)
+    {
+        var saltBytes = RandomNumberGenerator.GetBytes(16);
+        var pwBytes   = Encoding.Unicode.GetBytes(password);    // UTF-16LE
+
+        using var sha = SHA256.Create();
+
+        var init = new byte[saltBytes.Length + pwBytes.Length];
+        saltBytes.CopyTo(init, 0);
+        pwBytes.CopyTo(init, saltBytes.Length);
+        var h = sha.ComputeHash(init);
+
+        for (int i = 0; i < spinCount; i++)
+        {
+            var iter = new byte[h.Length + 4];
+            h.CopyTo(iter, 0);
+            BitConverter.GetBytes(i).CopyTo(iter, h.Length);
+            h = sha.ComputeHash(iter);
+        }
+
+        return (Convert.ToBase64String(saltBytes), Convert.ToBase64String(h));
     }
 
     // ── IDisposable ─────────────────────────────────────────────────────

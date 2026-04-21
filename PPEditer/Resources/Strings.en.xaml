@@ -18,6 +18,7 @@
     <sys:String x:Key="Ms_Copy">_Copy</sys:String>
     <sys:String x:Key="Ms_Paste">_Paste</sys:String>
     <sys:String x:Key="Ms_SelectAll">Select _All</sys:String>
+    <sys:String x:Key="Ms_DocInfo">Document _Info...</sys:String>
     <sys:String x:Key="Ms_View">_View</sys:String>
     <sys:String x:Key="Ms_ZoomIn">Zoom _In</sys:String>
     <sys:String x:Key="Ms_ZoomOut">Zoom _Out</sys:String>
@@ -132,5 +133,32 @@
     <sys:String x:Key="Lbl_FileNotFound">File Not Found</sys:String>
     <sys:String x:Key="Lbl_UnsavedChanges">Unsaved Changes</sys:String>
     <sys:String x:Key="Lbl_PdfFailed">Error</sys:String>
+
+    <!-- ══ Document Info dialog ══════════════════════════════════════════════ -->
+    <sys:String x:Key="Dlg_DocInfo">Document Info</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabGeneral">General</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabSecurity">Security</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TitleLbl">Title:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_SubjectLbl">Subject:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_AuthorLbl">Author:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_LastModLbl">Last Modified By:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_CreatedLbl">Created:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ModifiedLbl">Modified:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_RevisionLbl">Revision:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ManagerLbl">Manager:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_CompanyLbl">Company:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_WriteProtect">Write Protection</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_StatusLbl">Status:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_Protected">Protected</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_NotProtected">Not protected</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_NewPwd">New password:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ConfirmPwd">Confirm password:</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_SetPwd">Set Password</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_ChangePwd">Change Password</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_RemovePwd">Remove Protection</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_OpenPwd">File Open Password</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_OpenPwdNote">File open password (OLE encryption) is not supported in this version. It will be supported in a future update.</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_PwdEmpty">Please enter a password.</sys:String>
+    <sys:String x:Key="St_DocInfoSaved">Document info saved.</sys:String>
 
 </ResourceDictionary>

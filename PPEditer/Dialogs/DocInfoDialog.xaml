@@ -1,0 +1,158 @@
+<Window x:Class="PPEditer.Dialogs.DocInfoDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource Dlg_DocInfo}"
+        Width="480" Height="480"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        FontFamily="맑은 고딕, Segoe UI" FontSize="13">
+    <DockPanel>
+
+        <!-- Bottom buttons -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="16,8,16,12">
+            <Button x:Name="BtnOk"     Content="{DynamicResource Btn_Ok}"     Width="80"
+                    Margin="0,0,8,0" IsDefault="True" Click="OnOk"/>
+            <Button x:Name="BtnCancel" Content="{DynamicResource Btn_Cancel}" Width="80"
+                    IsCancel="True" Click="OnCancel"/>
+        </StackPanel>
+
+        <TabControl Margin="8,8,8,0">
+
+            <!-- ── 일반 Tab ─────────────────────────────────────────────── -->
+            <TabItem Header="{DynamicResource Dlg_DocInfo_TabGeneral}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="16,12,16,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <!-- Title, Subject, Author -->
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <!-- separator -->
+                            <RowDefinition Height="14"/>
+                            <!-- LastModifiedBy, Created, Modified, Revision (read-only) -->
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                            <!-- separator -->
+                            <RowDefinition Height="14"/>
+                            <!-- Manager, Company -->
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Editable fields -->
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_TitleLbl}"
+                                   VerticalAlignment="Center"/>
+                        <TextBox   Grid.Row="0" Grid.Column="1" x:Name="TxTitle"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_SubjectLbl}"
+                                   VerticalAlignment="Center"/>
+                        <TextBox   Grid.Row="2" Grid.Column="1" x:Name="TxSubject"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_AuthorLbl}"
+                                   VerticalAlignment="Center"/>
+                        <TextBox   Grid.Row="4" Grid.Column="1" x:Name="TxAuthor"/>
+
+                        <Separator Grid.Row="5" Grid.ColumnSpan="2"/>
+
+                        <!-- Read-only fields -->
+                        <TextBlock Grid.Row="6" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_LastModLbl}"
+                                   VerticalAlignment="Center" Foreground="#666666"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1"
+                                   x:Name="LblLastModifiedBy" Foreground="#444444"/>
+
+                        <TextBlock Grid.Row="8" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_CreatedLbl}"
+                                   VerticalAlignment="Center" Foreground="#666666"/>
+                        <TextBlock Grid.Row="8" Grid.Column="1"
+                                   x:Name="LblCreated" Foreground="#444444"/>
+
+                        <TextBlock Grid.Row="10" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_ModifiedLbl}"
+                                   VerticalAlignment="Center" Foreground="#666666"/>
+                        <TextBlock Grid.Row="10" Grid.Column="1"
+                                   x:Name="LblModified" Foreground="#444444"/>
+
+                        <TextBlock Grid.Row="12" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_RevisionLbl}"
+                                   VerticalAlignment="Center" Foreground="#666666"/>
+                        <TextBlock Grid.Row="12" Grid.Column="1"
+                                   x:Name="LblRevision" Foreground="#444444"/>
+
+                        <Separator Grid.Row="13" Grid.ColumnSpan="2"/>
+
+                        <!-- Manager, Company -->
+                        <TextBlock Grid.Row="14" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_ManagerLbl}"
+                                   VerticalAlignment="Center"/>
+                        <TextBox   Grid.Row="14" Grid.Column="1" x:Name="TxManager"/>
+
+                        <TextBlock Grid.Row="16" Grid.Column="0"
+                                   Text="{DynamicResource Dlg_DocInfo_CompanyLbl}"
+                                   VerticalAlignment="Center"/>
+                        <TextBox   Grid.Row="16" Grid.Column="1" x:Name="TxCompany"/>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ── 보안 Tab ─────────────────────────────────────────────── -->
+            <TabItem Header="{DynamicResource Dlg_DocInfo_TabSecurity}">
+                <StackPanel Margin="16,16,16,8">
+
+                    <!-- Write protection -->
+                    <GroupBox Header="{DynamicResource Dlg_DocInfo_WriteProtect}"
+                              Padding="12,8,12,12">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <TextBlock Text="{DynamicResource Dlg_DocInfo_StatusLbl}"
+                                           VerticalAlignment="Center"
+                                           Foreground="#666666" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="LblProtectStatus" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <TextBlock Text="{DynamicResource Dlg_DocInfo_NewPwd}"
+                                       Margin="0,0,0,4"/>
+                            <PasswordBox x:Name="PwNew"     Margin="0,0,0,8"/>
+                            <TextBlock Text="{DynamicResource Dlg_DocInfo_ConfirmPwd}"
+                                       Margin="0,0,0,4"/>
+                            <PasswordBox x:Name="PwConfirm" Margin="0,0,0,12"/>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="BtnSetProtect"    Width="128" Margin="0,0,8,0"
+                                        Click="OnSetWriteProtect"/>
+                                <Button x:Name="BtnRemoveProtect" Width="128"
+                                        Click="OnRemoveWriteProtect"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <!-- File open password (informational only) -->
+                    <GroupBox Header="{DynamicResource Dlg_DocInfo_OpenPwd}"
+                              Padding="12,8,12,12" Margin="0,16,0,0">
+                        <TextBlock Text="{DynamicResource Dlg_DocInfo_OpenPwdNote}"
+                                   TextWrapping="Wrap" Foreground="#888888"/>
+                    </GroupBox>
+
+                </StackPanel>
+            </TabItem>
+
+        </TabControl>
+    </DockPanel>
+</Window>

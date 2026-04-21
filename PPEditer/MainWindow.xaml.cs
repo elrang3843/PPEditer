@@ -83,6 +83,7 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(OnZoomOut),       Key.OemMinus, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(OnZoomFit),       Key.D0, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertTextBox), Key.T, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnDocInfo),       Key.I, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     // ── File commands ─────────────────────────────────────────────────
@@ -223,6 +224,24 @@ public partial class MainWindow : Window
     }
 
     private void OnExit(object? _ = null) => Close();
+
+    // ── Document info ─────────────────────────────────────────────────
+
+    private void OnDocInfo(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        var dlg = new PPEditer.Dialogs.DocInfoDialog(
+            _model.GetDocProperties(), _model.HasWriteProtection)
+        {
+            Owner = this
+        };
+        if (dlg.ShowDialog() != true || dlg.Result is null) return;
+
+        _model.UpdateDocInfo(dlg.Result, dlg.SetProtect, dlg.WritePassword, dlg.RemoveProtect);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("St_DocInfoSaved"));
+    }
 
     // ── Edit commands ─────────────────────────────────────────────────
 
@@ -719,6 +738,7 @@ public partial class MainWindow : Window
         MenuUndo.IsEnabled      = _model.CanUndo;
         MenuRedo.IsEnabled      = _model.CanRedo;
         MenuInsertTextBox.IsEnabled = has;
+        MenuDocInfo.IsEnabled       = has;
 
         TbSave.IsEnabled       = MenuSave.IsEnabled;
         TbUndo.IsEnabled       = MenuUndo.IsEnabled;
@@ -826,6 +846,7 @@ public partial class MainWindow : Window
     private void OnToggleStatus(object s, RoutedEventArgs e)  => OnToggleStatus();
     private void OnAbout(object s, RoutedEventArgs e)         => OnAbout();
     private void OnInsertTextBox(object s, RoutedEventArgs e) => OnInsertTextBox();
+    private void OnDocInfo(object s, RoutedEventArgs e)       => OnDocInfo();
 }
 
 // ── Tiny relay command ─────────────────────────────────────────────────────────
