@@ -1,0 +1,73 @@
+<UserControl x:Class="PPEditer.Controls.SlideThumbnailPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="28"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#F0F0F0" BorderBrush="#CCCCCC" BorderThickness="0,0,0,1">
+            <TextBlock Text="  슬라이드" VerticalAlignment="Center"
+                       FontSize="11" Foreground="#444444"/>
+        </Border>
+
+        <!-- Thumbnail list -->
+        <ListView x:Name="ThumbnailList"
+                  Grid.Row="1"
+                  Background="#E8E8E8"
+                  BorderThickness="0"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                  SelectionChanged="ThumbnailList_SelectionChanged"
+                  MouseDoubleClick="ThumbnailList_MouseDoubleClick">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="Padding"  Value="4,6"/>
+                    <Setter Property="Margin"   Value="0,2"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <Border x:Name="Bd" Padding="{TemplateBinding Padding}"
+                                        Background="Transparent">
+                                    <ContentPresenter/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Bd" Property="Background"
+                                                Value="#CDE6FF"/>
+                                        <Setter TargetName="Bd" Property="BorderBrush"
+                                                Value="#0078D4"/>
+                                        <Setter TargetName="Bd" Property="BorderThickness"
+                                                Value="1"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bd" Property="Background"
+                                                Value="#DDEEFF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Vertical" Width="160">
+                        <!-- Shadow -->
+                        <Grid>
+                            <Border Background="#80000000" Margin="2,2,-2,-2"/>
+                            <Border BorderBrush="#BBBBBB" BorderThickness="1">
+                                <Image Source="{Binding Thumbnail}" Width="160" Height="90"
+                                       Stretch="Uniform"/>
+                            </Border>
+                        </Grid>
+                        <TextBlock Text="{Binding Number}" TextAlignment="Center"
+                                   FontSize="10" Margin="0,3,0,0" Foreground="#333333"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</UserControl>
