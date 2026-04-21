@@ -96,8 +96,8 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(OnInsertMath),    Key.M, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertCharMap), Key.K, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertEmoji),   Key.J, ModifierKeys.Control | ModifierKeys.Shift));
-        kb.Add(new KeyBinding(new RelayCommand(OnGroup),         Key.G, ModifierKeys.Control));
-        kb.Add(new KeyBinding(new RelayCommand(OnUngroup),       Key.G, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(_ => OnGroup()),   Key.G, ModifierKeys.Control));
+        kb.Add(new KeyBinding(new RelayCommand(_ => OnUngroup()), Key.G, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnCharProperties), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
     }
 

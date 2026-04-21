@@ -10,6 +10,8 @@ using DocumentFormat.OpenXml.Presentation;
 using PPEditer.Models;
 using PPEditer.Rendering;
 using PPEditer.Services;
+using WpfTE    = System.Windows.Documents.TextElement;
+using RgbColor = PPEditer.Models.RgbColor;
 
 namespace PPEditer.Controls;
 
@@ -1048,12 +1050,12 @@ public partial class SlideEditorCanvas : UserControl
         if (_editor is null) return new CharStyle();
         var sel = _editor.Selection;
 
-        string? ff = (sel.GetPropertyValue(TextElement.FontFamilyProperty) as FontFamily)?.Source;
-        double? sizePt = sel.GetPropertyValue(TextElement.FontSizeProperty) is double d && d > 0
+        string? ff = (sel.GetPropertyValue(WpfTE.FontFamilyProperty) as FontFamily)?.Source;
+        double? sizePt = sel.GetPropertyValue(WpfTE.FontSizeProperty) is double d && d > 0
             ? d * 72.0 / 96.0 : (double?)null;
-        bool? bold   = sel.GetPropertyValue(TextElement.FontWeightProperty) is FontWeight w
+        bool? bold   = sel.GetPropertyValue(WpfTE.FontWeightProperty) is FontWeight w
             ? w == FontWeights.Bold : (bool?)null;
-        bool? italic = sel.GetPropertyValue(TextElement.FontStyleProperty) is FontStyle fstyle
+        bool? italic = sel.GetPropertyValue(WpfTE.FontStyleProperty) is FontStyle fstyle
             ? fstyle == FontStyles.Italic : (bool?)null;
 
         var decos = sel.GetPropertyValue(Inline.TextDecorationsProperty) as TextDecorationCollection;
@@ -1067,9 +1069,9 @@ public partial class SlideEditorCanvas : UserControl
                      fv == FontVariants.Subscript   ? ScriptKind.Subscript   :
                                                       ScriptKind.None;
 
-        RgbColor? fore = sel.GetPropertyValue(TextElement.ForegroundProperty) is SolidColorBrush fg
+        RgbColor? fore = sel.GetPropertyValue(WpfTE.ForegroundProperty) is SolidColorBrush fg
             ? new RgbColor(fg.Color.R, fg.Color.G, fg.Color.B) : (RgbColor?)null;
-        RgbColor? back = sel.GetPropertyValue(TextElement.BackgroundProperty) is SolidColorBrush bg
+        RgbColor? back = sel.GetPropertyValue(WpfTE.BackgroundProperty) is SolidColorBrush bg
                          && bg.Color.A > 0
             ? new RgbColor(bg.Color.R, bg.Color.G, bg.Color.B) : (RgbColor?)null;
 
@@ -1110,14 +1112,14 @@ public partial class SlideEditorCanvas : UserControl
         if (sel.IsEmpty) _editor.SelectAll();
 
         if (style.FontFamily is not null)
-            sel.ApplyPropertyValue(TextElement.FontFamilyProperty, new FontFamily(style.FontFamily));
+            sel.ApplyPropertyValue(WpfTE.FontFamilyProperty, new FontFamily(style.FontFamily));
         if (style.FontSizePt.HasValue)
-            sel.ApplyPropertyValue(TextElement.FontSizeProperty, style.FontSizePt.Value * 96.0 / 72.0);
+            sel.ApplyPropertyValue(WpfTE.FontSizeProperty, style.FontSizePt.Value * 96.0 / 72.0);
         if (style.Bold.HasValue)
-            sel.ApplyPropertyValue(TextElement.FontWeightProperty,
+            sel.ApplyPropertyValue(WpfTE.FontWeightProperty,
                 style.Bold.Value ? FontWeights.Bold : FontWeights.Normal);
         if (style.Italic.HasValue)
-            sel.ApplyPropertyValue(TextElement.FontStyleProperty,
+            sel.ApplyPropertyValue(WpfTE.FontStyleProperty,
                 style.Italic.Value ? FontStyles.Italic : FontStyles.Normal);
 
         var decos = new TextDecorationCollection();
@@ -1135,12 +1137,12 @@ public partial class SlideEditorCanvas : UserControl
         sel.ApplyPropertyValue(Typography.VariantsProperty, fv);
 
         if (style.ForeColor.HasValue)
-            sel.ApplyPropertyValue(TextElement.ForegroundProperty,
+            sel.ApplyPropertyValue(WpfTE.ForegroundProperty,
                 new SolidColorBrush(Color.FromRgb(style.ForeColor.Value.R,
                                                   style.ForeColor.Value.G,
                                                   style.ForeColor.Value.B)));
         if (style.HighlightColor.HasValue)
-            sel.ApplyPropertyValue(TextElement.BackgroundProperty,
+            sel.ApplyPropertyValue(WpfTE.BackgroundProperty,
                 new SolidColorBrush(Color.FromRgb(style.HighlightColor.Value.R,
                                                   style.HighlightColor.Value.G,
                                                   style.HighlightColor.Value.B)));
