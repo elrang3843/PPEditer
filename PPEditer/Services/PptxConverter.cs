@@ -52,16 +52,24 @@ public static class PptxConverter
             else
                 para.TextAlignment = TextAlignment.Left;
 
-            // Left indent (marL in EMU → WPF px)
+            // Left indent (marL in EMU → WPF px); valid range per spec: 0..51206400
             if (pPr?.LeftMargin?.HasValue == true)
             {
-                double leftPx = pPr.LeftMargin.Value / EmuPerInch * WpfDpi;
-                para.Margin = new Thickness(leftPx, para.Margin.Top, 0, para.Margin.Bottom);
+                int marLEmu = pPr.LeftMargin.Value;
+                if (marLEmu >= 0 && marLEmu <= 51206400)
+                {
+                    double leftPx = marLEmu / EmuPerInch * WpfDpi;
+                    para.Margin = new Thickness(leftPx, para.Margin.Top, 0, para.Margin.Bottom);
+                }
             }
 
-            // First-line indent (indent in EMU → WPF px, negative = hanging)
+            // First-line indent (indent in EMU → WPF px, negative = hanging); valid range: ±51206400
             if (pPr?.Indent?.HasValue == true)
-                para.TextIndent = pPr.Indent.Value / EmuPerInch * WpfDpi;
+            {
+                int indentEmu = pPr.Indent.Value;
+                if (indentEmu >= -51206400 && indentEmu <= 51206400)
+                    para.TextIndent = indentEmu / EmuPerInch * WpfDpi;
+            }
 
             // Line spacing
             var lnSpc = pPr?.GetFirstChild<A.LineSpacing>();
@@ -72,7 +80,6 @@ public static class PptxConverter
                     para.LineHeight = para.FontSize > 0
                         ? para.FontSize * pct / 100.0
                         : double.NaN;
-                // Store raw pct in Tag (overrides VertAnchor tag - use ExtraParaProps instead)
                 para.Tag = pct;
             }
 
@@ -82,7 +89,8 @@ public static class PptxConverter
             {
                 double ptVal = spcBef.SpacingPoints.Val.Value / 100.0;
                 double px = ptVal * WpfDpi / PointPerInch;
-                para.Margin = new Thickness(para.Margin.Left, px, 0, para.Margin.Bottom);
+                if (px >= 0)
+                    para.Margin = new Thickness(para.Margin.Left, px, 0, para.Margin.Bottom);
             }
 
             // Space after (spcPts val = 1/100 pt)
@@ -91,7 +99,8 @@ public static class PptxConverter
             {
                 double ptVal = spcAft.SpacingPoints.Val.Value / 100.0;
                 double px = ptVal * WpfDpi / PointPerInch;
-                para.Margin = new Thickness(para.Margin.Left, para.Margin.Top, 0, px);
+                if (px >= 0)
+                    para.Margin = new Thickness(para.Margin.Left, para.Margin.Top, 0, px);
             }
 
             bool hasRuns = false;
