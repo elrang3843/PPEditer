@@ -30,9 +30,9 @@ public sealed class ShapeStyle
     public long       Y              { get; set; }
     public long       Cx             { get; set; }
     public long       Cy             { get; set; }
-    public FillKind   FillKind       { get; set; } = FillKind.Solid;
-    public RgbColor   FillColor      { get; set; } = RgbColor.DefaultFill;
-    public OutlineKind OutlineKind   { get; set; } = OutlineKind.Solid;
-    public RgbColor   OutlineColor   { get; set; } = RgbColor.DefaultOutline;
-    public double     OutlineWidthPt { get; set; } = 1.5;
+    public FillKind    FillKind       { get; set; } = FillKind.None;
+    public RgbColor    FillColor      { get; set; } = RgbColor.DefaultFill;
+    public OutlineKind OutlineKind   { get; set; } = OutlineKind.None;
+    public RgbColor    OutlineColor   { get; set; } = RgbColor.DefaultOutline;
+    public double      OutlineWidthPt { get; set; } = 1.5;
 }

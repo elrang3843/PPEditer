@@ -137,17 +137,15 @@ public static class SlideRenderer
         var container = new Grid { Width = width, Height = height, ClipToBounds = true };
 
         var fillBrush = GetShapeFill(shape, slidePart);
-        if (fillBrush is not null)
+        // Always create rect so ApplyBorder runs even when fill = None/transparent
+        var rect = new System.Windows.Shapes.Rectangle
         {
-            var rect = new System.Windows.Shapes.Rectangle
-            {
-                Width  = width,
-                Height = height,
-                Fill   = fillBrush,
-            };
-            ApplyBorder(rect, shape, slidePart);
-            container.Children.Add(rect);
-        }
+            Width  = width,
+            Height = height,
+            Fill   = fillBrush ?? Brushes.Transparent,
+        };
+        ApplyBorder(rect, shape, slidePart);
+        container.Children.Add(rect);
 
         if (shape.TextBody is not null)
             container.Children.Add(BuildTextBlock(shape.TextBody, width, height));

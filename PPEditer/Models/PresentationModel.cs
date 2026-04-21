@@ -798,6 +798,11 @@ public sealed class PresentationModel : IDisposable
                 var hex = sf.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
                 if (hex is not null) style.FillColor = RgbColor.FromHex(hex);
             }
+            else
+            {
+                // No explicit fill element — inherited from layout/master; treat as None
+                style.FillKind = FillKind.None;
+            }
 
             // Outline
             var ol = spPr.GetFirstChild<A.Outline>();
