@@ -155,7 +155,7 @@ public static class SlideRenderer
         var c = ResolveColor(solid, slidePart);
         if (!c.HasValue) return;
         rect.Stroke          = new SolidColorBrush(c.Value);
-        rect.StrokeThickness = ln?.Width?.Value is long thick ? EmuToPx(thick) : 1;
+        rect.StrokeThickness = ln?.Width?.Value is int thick ? EmuToPx((long)thick) : 1;
     }
 
     // ── Text body ─────────────────────────────────────────────────────

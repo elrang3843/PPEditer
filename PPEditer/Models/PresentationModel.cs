@@ -434,21 +434,7 @@ public sealed class PresentationModel : IDisposable
                     new ApplicationNonVisualDrawingProperties()),
                 new GroupShapeProperties(
                     new DocumentFormat.OpenXml.Drawing.TransformGroup()))),
-            new ColorMap
-            {
-                Background1 = ColorSchemeIndexValues.Light1,
-                Text1        = ColorSchemeIndexValues.Dark1,
-                Background2  = ColorSchemeIndexValues.Light2,
-                Text2        = ColorSchemeIndexValues.Dark2,
-                Accent1      = ColorSchemeIndexValues.Accent1,
-                Accent2      = ColorSchemeIndexValues.Accent2,
-                Accent3      = ColorSchemeIndexValues.Accent3,
-                Accent4      = ColorSchemeIndexValues.Accent4,
-                Accent5      = ColorSchemeIndexValues.Accent5,
-                Accent6      = ColorSchemeIndexValues.Accent6,
-                Hyperlink    = ColorSchemeIndexValues.Hyperlink,
-                FollowedHyperlink = ColorSchemeIndexValues.FollowedHyperlink
-            },
+            BuildDefaultColorMap(),
             new SlideLayoutIdList(
                 new SlideLayoutId { Id = 2049, RelationshipId = masterPart.GetIdOfPart(layoutPart) }));
         masterPart.SlideMaster.Save();
@@ -477,6 +463,21 @@ public sealed class PresentationModel : IDisposable
                 new SlideId { Id = 256, RelationshipId = pp.GetIdOfPart(slidePart) }));
         pp.Presentation.Save();
         doc.Save();
+    }
+
+    // ColorSchemeIndexValues is inaccessible in SDK v3 via using — set as raw XML attributes instead
+    private static ColorMap BuildDefaultColorMap()
+    {
+        var cm = new ColorMap();
+        foreach (var (name, val) in new[]
+        {
+            ("bg1","lt1"), ("tx1","dk1"), ("bg2","lt2"), ("tx2","dk2"),
+            ("accent1","accent1"), ("accent2","accent2"), ("accent3","accent3"),
+            ("accent4","accent4"), ("accent5","accent5"), ("accent6","accent6"),
+            ("hlink","hlink"), ("folHlink","folHlink"),
+        })
+            cm.SetAttribute(new OpenXmlAttribute(name, string.Empty, val));
+        return cm;
     }
 
     // ── IDisposable ─────────────────────────────────────────────────────

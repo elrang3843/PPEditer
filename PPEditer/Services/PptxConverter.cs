@@ -35,10 +35,7 @@ public static class PptxConverter
             else
                 para.TextAlignment = TextAlignment.Left;
 
-            // Spacing
-            if (aPara.ParagraphProperties?.SpaceBefore?.GetFirstChild<A.SpacePercent>() is A.SpacePercent sp
-                && sp.Val?.Value is int spv)
-                para.Margin = para.Margin with { Top = spv / 100000.0 * 16.0 };
+            // SpaceBefore spacing intentionally omitted (SDK v3 child type unavailable)
 
             bool hasRuns = false;
             foreach (var aRun in aPara.Elements<A.Run>())
