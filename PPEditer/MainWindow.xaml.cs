@@ -102,6 +102,7 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(_ => OnUngroup()), Key.G, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnCharProperties), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnParaProperties), Key.P, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(_ => OnSlideShow()), Key.F5, ModifierKeys.None));
     }
 
     // ── File commands ─────────────────────────────────────────────────
@@ -976,6 +977,7 @@ public partial class MainWindow : Window
         MenuDelSlide.IsEnabled  = has && _model.SlideCount > 1;
         MenuSlideUp.IsEnabled   = has && _currentSlide > 0;
         MenuSlideDown.IsEnabled = has && _currentSlide < _model.SlideCount - 1;
+        MenuSlideShow.IsEnabled = has;
         MenuUndo.IsEnabled      = _model.CanUndo;
         MenuRedo.IsEnabled      = _model.CanRedo;
         MenuInsertTextBox.IsEnabled  = has;
@@ -1087,6 +1089,19 @@ public partial class MainWindow : Window
     private void OnExit(object s, RoutedEventArgs e)          => OnExit();
     private void OnUndo(object s, RoutedEventArgs e)          => OnUndo();
     private void OnRedo(object s, RoutedEventArgs e)          => OnRedo();
+    // ── Slide show ────────────────────────────────────────────────────
+
+    private void OnSlideShow(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        EditorCanvas.CommitEdit(save: true);
+        var wnd = new Dialogs.SlideShowWindow(_model, _currentSlide);
+        wnd.ShowDialog();
+    }
+
+    // ── XAML event bridges ────────────────────────────────────────────
+
+    private void OnSlideShow(object s, RoutedEventArgs e)     => OnSlideShow();
     private void OnAddSlide(object s, RoutedEventArgs e)      => OnAddSlide();
     private void OnDupSlide(object s, RoutedEventArgs e)      => OnDupSlide();
     private void OnDelSlide(object s, RoutedEventArgs e)      => OnDelSlide();

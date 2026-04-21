@@ -110,6 +110,8 @@
                 <Separator/>
                 <MenuItem x:Name="MenuSlideUp"   Header="{DynamicResource Ms_SlideUp}"   InputGestureText="Ctrl+Shift+Up"   Click="OnSlideUp"/>
                 <MenuItem x:Name="MenuSlideDown" Header="{DynamicResource Ms_SlideDown}" InputGestureText="Ctrl+Shift+Down" Click="OnSlideDown"/>
+                <Separator/>
+                <MenuItem x:Name="MenuSlideShow" Header="{DynamicResource Ms_SlideShow}" InputGestureText="F5" Click="OnSlideShow"/>
             </MenuItem>
 
             <!-- ── 설정 메뉴 ────────────────────────────────────────────── -->

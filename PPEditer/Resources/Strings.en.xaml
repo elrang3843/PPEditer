@@ -74,6 +74,7 @@
     <sys:String x:Key="Ms_DelSlide">_Delete Slide</sys:String>
     <sys:String x:Key="Ms_SlideUp">Move _Up</sys:String>
     <sys:String x:Key="Ms_SlideDown">Move _Down</sys:String>
+    <sys:String x:Key="Ms_SlideShow">Slide _Show</sys:String>
     <sys:String x:Key="Ms_Settings">_Settings</sys:String>
     <sys:String x:Key="Ms_FontFilter">_Font License Filter</sys:String>
     <sys:String x:Key="Ms_Language">_Language</sys:String>

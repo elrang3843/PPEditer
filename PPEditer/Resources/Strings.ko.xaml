@@ -74,6 +74,7 @@
     <sys:String x:Key="Ms_DelSlide">슬라이드 삭제(_X)</sys:String>
     <sys:String x:Key="Ms_SlideUp">위로 이동(_U)</sys:String>
     <sys:String x:Key="Ms_SlideDown">아래로 이동(_W)</sys:String>
+    <sys:String x:Key="Ms_SlideShow">슬라이드 쇼(_S)</sys:String>
     <sys:String x:Key="Ms_Settings">설정(_G)</sys:String>
     <sys:String x:Key="Ms_FontFilter">라이선스 글꼴 필터(_F)</sys:String>
     <sys:String x:Key="Ms_Language">언어(_L)</sys:String>
