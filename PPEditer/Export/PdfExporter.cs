@@ -50,17 +50,19 @@ public static class PdfExporter
             var bmpSrc = SlideRenderer.RenderToBitmap(
                 slidePart, model.SlideWidth, model.SlideHeight, bmpW, bmpH);
 
-            var pngBytes = EncodeToPng(bmpSrc);
-
-            using var ms     = new MemoryStream(pngBytes);
-            var xImage        = XImage.FromStream(ms);
-
             // PDF page — size in points (1 pt = 1/72 in)
             var page  = pdf.AddPage();
             page.Width  = new XUnit(widthIn  * 72, XGraphicsUnit.Point);
             page.Height = new XUnit(heightIn * 72, XGraphicsUnit.Point);
 
-            using var gfx = XGraphics.FromPdfPage(page);
+            // MemoryStream must use the default constructor so GetBuffer() is
+            // accessible (new MemoryStream(byte[]) sets publiclyVisible=false,
+            // which causes PDFsharp to throw "internal buffer cannot be accessed").
+            using var ms = new MemoryStream();
+            EncodeToPng(bmpSrc, ms);
+            ms.Position = 0;
+            using var xImage = XImage.FromStream(ms);
+            using var gfx    = XGraphics.FromPdfPage(page);
             gfx.DrawImage(xImage, 0, 0, page.Width.Point, page.Height.Point);
         }
 
@@ -69,12 +71,10 @@ public static class PdfExporter
         return true;
     }
 
-    private static byte[] EncodeToPng(BitmapSource src)
+    private static void EncodeToPng(BitmapSource src, Stream target)
     {
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(src));
-        using var ms = new MemoryStream();
-        encoder.Save(ms);
-        return ms.ToArray();
+        encoder.Save(target);
     }
 }
