@@ -31,6 +31,8 @@ public partial class MainWindow : Window
         EditorCanvas.EditingStarted += OnEditorEditingStarted;
         EditorCanvas.TextCommitted  += OnEditorTextCommitted;
         EditorCanvas.ShapeMoved     += OnShapeMoved;
+        EditorCanvas.ShapeDeleted   += OnShapeDeleted;
+        EditorCanvas.ShapeResized   += OnShapeResized;
 
         RegisterKeyBindings();
         InitSettings();
@@ -85,6 +87,8 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(OnZoomFit),       Key.D0, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertTextBox), Key.T, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnDocInfo),       Key.I, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnInsertCharMap), Key.K, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnInsertEmoji),   Key.J, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     // ── File commands ─────────────────────────────────────────────────
@@ -392,6 +396,124 @@ public partial class MainWindow : Window
         UpdateActions();
     }
 
+    private void OnShapeDeleted(int slideIdx, int treeIdx)
+    {
+        _model.DeleteShape(slideIdx, treeIdx);
+        EditorCanvas.Invalidate(preserveSelection: false);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_ShapeDeleted"));
+    }
+
+    private void OnShapeResized(int slideIdx, int treeIdx,
+        long leftEmu, long topEmu, long widthEmu, long heightEmu)
+    {
+        _model.ResizeShape(slideIdx, treeIdx, leftEmu, topEmu, widthEmu, heightEmu);
+        EditorCanvas.Invalidate();
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+    }
+
+    // ── Insert media ──────────────────────────────────────────────────
+
+    private void OnInsertImage(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = S("Dlg_ImageFilter"),
+            Title  = S("Dlg_ImageTitle"),
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            _model.AddImage(_currentSlide, dlg.FileName);
+            RefreshAll();
+            SetStatus(S("Msg_ImageAdded"));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_InsertFailed")}\n{ex.Message}",
+                S("Lbl_InsertFailed"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnInsertVideo(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = S("Dlg_VideoFilter"),
+            Title  = S("Dlg_VideoTitle"),
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            _model.AddVideo(_currentSlide, dlg.FileName);
+            RefreshAll();
+            SetStatus(S("Msg_VideoAdded"));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_InsertFailed")}\n{ex.Message}",
+                S("Lbl_InsertFailed"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnInsertAudio(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = S("Dlg_AudioFilter"),
+            Title  = S("Dlg_AudioTitle"),
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            _model.AddAudio(_currentSlide, dlg.FileName);
+            RefreshAll();
+            SetStatus(S("Msg_AudioAdded"));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_InsertFailed")}\n{ex.Message}",
+                S("Lbl_InsertFailed"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    // ── Insert text (CharMap / Emoji) ─────────────────────────────────
+
+    private void OnInsertCharMap(object? _ = null)
+    {
+        if (!EditorCanvas.IsEditing) return;
+        EditorCanvas.SuppressLostFocusCommit = true;
+        var dlg = new PPEditer.Dialogs.CharMapDialog { Owner = this };
+        dlg.CharInserted += ch => EditorCanvas.InsertText(ch);
+        dlg.Closed += (_, _) =>
+        {
+            EditorCanvas.SuppressLostFocusCommit = false;
+            _activeEditor?.Focus();
+        };
+        dlg.Show();
+    }
+
+    private void OnInsertEmoji(object? _ = null)
+    {
+        if (!EditorCanvas.IsEditing) return;
+        EditorCanvas.SuppressLostFocusCommit = true;
+        var dlg = new PPEditer.Dialogs.EmojiPickerDialog { Owner = this };
+        dlg.EmojiInserted += em => EditorCanvas.InsertText(em);
+        dlg.Closed += (_, _) =>
+        {
+            EditorCanvas.SuppressLostFocusCommit = false;
+            _activeEditor?.Focus();
+        };
+        dlg.Show();
+    }
+
     private void OnEditorTextCommitted(int slideIdx, int treeIdx,
         IReadOnlyList<PptxConverter.PptxParagraph> paragraphs)
     {
@@ -677,7 +799,12 @@ public partial class MainWindow : Window
         MenuSlideDown.IsEnabled = has && _currentSlide < _model.SlideCount - 1;
         MenuUndo.IsEnabled      = _model.CanUndo;
         MenuRedo.IsEnabled      = _model.CanRedo;
-        MenuInsertTextBox.IsEnabled = has;
+        MenuInsertTextBox.IsEnabled  = has;
+        MenuInsertImage.IsEnabled   = has;
+        MenuInsertVideo.IsEnabled   = has;
+        MenuInsertAudio.IsEnabled   = has;
+        MenuInsertCharMap.IsEnabled = has && editing;
+        MenuInsertEmoji.IsEnabled   = has && editing;
         MenuDocInfo.IsEnabled       = has;
 
         TbSave.IsEnabled       = MenuSave.IsEnabled;
@@ -787,6 +914,11 @@ public partial class MainWindow : Window
     private void OnAbout(object s, RoutedEventArgs e)         => OnAbout();
     private void OnInsertTextBox(object s, RoutedEventArgs e) => OnInsertTextBox();
     private void OnDocInfo(object s, RoutedEventArgs e)       => OnDocInfo();
+    private void OnInsertImage(object s, RoutedEventArgs e)   => OnInsertImage();
+    private void OnInsertVideo(object s, RoutedEventArgs e)   => OnInsertVideo();
+    private void OnInsertAudio(object s, RoutedEventArgs e)   => OnInsertAudio();
+    private void OnInsertCharMap(object s, RoutedEventArgs e) => OnInsertCharMap();
+    private void OnInsertEmoji(object s, RoutedEventArgs e)   => OnInsertEmoji();
 }
 
 // ── Tiny relay command ─────────────────────────────────────────────────────────

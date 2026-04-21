@@ -374,6 +374,183 @@ public sealed class PresentationModel : IDisposable
         _modified = true;
     }
 
+    /// <summary>Delete a shape identified by its shape-tree index.</summary>
+    public void DeleteShape(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return;
+
+        PushUndo();
+        elements[shapeTreeIndex].Remove();
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
+    /// <summary>Resize / reposition a shape to the given EMU coordinates.</summary>
+    public void ResizeShape(int slideIndex, int shapeTreeIndex,
+        long leftEmu, long topEmu, long widthEmu, long heightEmu)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return;
+
+        A.Transform2D? xfrm = null;
+        if (elements[shapeTreeIndex] is Shape s)
+            xfrm = s.ShapeProperties?.GetFirstChild<A.Transform2D>();
+        else if (elements[shapeTreeIndex] is Picture p)
+            xfrm = p.ShapeProperties?.GetFirstChild<A.Transform2D>();
+
+        if (xfrm is null) return;
+
+        PushUndo();
+        if (xfrm.Offset  is null) xfrm.Offset  = new A.Offset();
+        if (xfrm.Extents is null) xfrm.Extents = new A.Extents();
+        xfrm.Offset.X  = leftEmu;
+        xfrm.Offset.Y  = topEmu;
+        xfrm.Extents.Cx = widthEmu;
+        xfrm.Extents.Cy = heightEmu;
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
+    /// <summary>Embed an image file into the slide as a Picture element.</summary>
+    public int AddImage(int slideIndex, string imagePath)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return -1;
+
+        PushUndo();
+
+        var ext = Path.GetExtension(imagePath).ToLowerInvariant();
+        var imgType = ext switch
+        {
+            ".png"         => ImagePartType.Png,
+            ".gif"         => ImagePartType.Gif,
+            ".bmp"         => ImagePartType.Bmp,
+            ".tiff" or ".tif" => ImagePartType.Tiff,
+            _              => ImagePartType.Jpeg,
+        };
+
+        var imgPart = slidePart.AddImagePart(imgType);
+        using (var fs = File.OpenRead(imagePath))
+            imgPart.FeedData(fs);
+
+        string rId = slidePart.GetIdOfPart(imgPart);
+
+        // Default size: 4 × 3 inches centred on slide
+        long imgW = Math.Min(3048000L, SlideWidth  / 2);
+        long imgH = Math.Min(2286000L, SlideHeight / 2);
+        long left = (SlideWidth  - imgW) / 2;
+        long top  = (SlideHeight - imgH) / 2;
+
+        var tree  = slidePart.Slide.CommonSlideData!.ShapeTree!;
+        uint maxId = GetMaxShapeId(tree);
+
+        var pic = new Picture(
+            new NonVisualPictureProperties(
+                new NonVisualDrawingProperties { Id = maxId + 1, Name = Path.GetFileName(imagePath) },
+                new NonVisualPictureDrawingProperties(
+                    new A.PictureLocks { NoChangeAspect = true }),
+                new ApplicationNonVisualDrawingProperties()),
+            new BlipFill(
+                new A.Blip { Embed = rId },
+                new A.Stretch(new A.FillRectangle())),
+            new ShapeProperties(
+                new A.Transform2D(
+                    new A.Offset  { X = left, Y = top  },
+                    new A.Extents { Cx = imgW, Cy = imgH }),
+                new A.PresetGeometry(new A.AdjustValueList())
+                    { Preset = A.ShapeTypeValues.Rectangle }));
+
+        tree.Append(pic);
+        slidePart.Slide.Save();
+        _modified = true;
+        return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(pic);
+    }
+
+    /// <summary>Add a linked video placeholder shape.</summary>
+    public int AddVideo(int slideIndex, string videoPath)
+        => AddMediaShape(slideIndex, videoPath, "▶ Video", "005f87");
+
+    /// <summary>Add a linked audio placeholder shape.</summary>
+    public int AddAudio(int slideIndex, string audioPath)
+        => AddMediaShape(slideIndex, audioPath, "🔊 Audio", "1b4f72");
+
+    private int AddMediaShape(int slideIndex, string mediaPath, string labelPrefix, string hexColor)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return -1;
+
+        PushUndo();
+
+        long cx   = Math.Min(4572000L, SlideWidth  / 2);
+        long cy   = Math.Min(914400L,  SlideHeight / 4);
+        long left = (SlideWidth  - cx) / 2;
+        long top  = (SlideHeight - cy) / 2;
+
+        var tree  = slidePart.Slide.CommonSlideData!.ShapeTree!;
+        uint maxId = GetMaxShapeId(tree);
+
+        string fileName = Path.GetFileName(mediaPath);
+        string label    = $"{labelPrefix}: {fileName}";
+
+        var rProps = new A.RunProperties { Language = "ko-KR", FontSize = 1400 };
+        rProps.Append(new A.SolidFill(new A.RgbColorModelHex { Val = "FFFFFF" }));
+
+        var shape = new Shape(
+            new NonVisualShapeProperties(
+                new NonVisualDrawingProperties { Id = maxId + 1, Name = $"Media{maxId + 1}" },
+                new NonVisualShapeDrawingProperties(),
+                new ApplicationNonVisualDrawingProperties()),
+            new ShapeProperties(
+                new A.Transform2D(
+                    new A.Offset  { X = left, Y = top },
+                    new A.Extents { Cx = cx,  Cy = cy }),
+                new A.PresetGeometry(new A.AdjustValueList())
+                    { Preset = A.ShapeTypeValues.Rectangle },
+                new A.SolidFill(new A.RgbColorModelHex { Val = hexColor }),
+                new A.Outline(new A.NoFill())),
+            new TextBody(
+                new A.BodyProperties
+                {
+                    Anchor    = A.TextAnchoringTypeValues.Center,
+                    LeftInset = 91440, RightInset = 91440,
+                    TopInset  = 45720, BottomInset = 45720,
+                },
+                new A.ListStyle(),
+                new A.Paragraph(
+                    new A.ParagraphProperties { Alignment = A.TextAlignmentTypeValues.Center },
+                    new A.Run(rProps, new A.Text(label)))));
+
+        tree.Append(shape);
+        slidePart.Slide.Save();
+        _modified = true;
+        return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(shape);
+    }
+
+    private static uint GetMaxShapeId(ShapeTree tree)
+    {
+        uint max = 1u;
+        foreach (var el in tree.Elements<OpenXmlCompositeElement>())
+        {
+            uint id = el switch
+            {
+                Shape   s => s.NonVisualShapeProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0u,
+                Picture p => p.NonVisualPictureProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0u,
+                _         => 0u,
+            };
+            if (id > max) max = id;
+        }
+        return max;
+    }
+
     // ── Undo / Redo ─────────────────────────────────────────────────────
 
     public bool Undo()

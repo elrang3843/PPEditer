@@ -21,26 +21,50 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<RichTextBox>? EditingStarted;
     /// <summary>User committed a text edit. (slideIdx, shapeTreeIdx, paragraphs)</summary>
     public event Action<int, int, IReadOnlyList<PptxConverter.PptxParagraph>>? TextCommitted;
-    /// <summary>User moved a shape with arrow keys. (slideIdx, shapeTreeIdx, deltaXEmu, deltaYEmu)</summary>
+    /// <summary>User moved a shape with arrow keys or mouse drag. (slideIdx, treeIdx, dxEmu, dyEmu)</summary>
     public event Action<int, int, long, long>? ShapeMoved;
+    /// <summary>User deleted the selected shape. (slideIdx, treeIdx)</summary>
+    public event Action<int, int>? ShapeDeleted;
+    /// <summary>User resized the selected shape. (slideIdx, treeIdx, leftEmu, topEmu, widthEmu, heightEmu)</summary>
+    public event Action<int, int, long, long, long, long>? ShapeResized;
+
+    // ── Public property ────────────────────────────────────────────────
+
+    /// <summary>Set true before opening a dialog so LostFocus does not commit and close the editor.</summary>
+    public bool SuppressLostFocusCommit { get; set; }
 
     // ── State ──────────────────────────────────────────────────────────
 
     private PresentationModel? _model;
     private SlidePart?         _slidePart;
     private int                _slideIndex;
-    private Canvas?            _nativeCanvas;      // the live SlideRenderer canvas
+    private Canvas?            _nativeCanvas;
     private double             _zoom = 1.0;
 
-    private int       _selectedIdx     = -1;        // canvas child index
-    private int       _selectedTreeIdx = -1;        // shape-tree index of selected shape
-    private Rectangle? _selRect;                   // selection highlight
-    private RichTextBox? _editor;                  // active inline editor
-    private int       _editingTreeIdx = -1;        // shape-tree index being edited
+    private int      _selectedIdx     = -1;   // canvas child index
+    private int      _selectedTreeIdx = -1;   // shape-tree index
+    private Canvas?  _selOverlay;             // selection overlay (border + 8 handles)
+    private RichTextBox? _editor;
+    private int      _editingTreeIdx  = -1;
 
-    // ── Native canvas dimensions (EMU→WPF native pixels) ──────────────
+    // ── Drag state ─────────────────────────────────────────────────────
+
+    private enum DragMode { None, Move, Resize }
+    private DragMode _dragMode     = DragMode.None;
+    private int      _resizeHandle = -1;       // 0-7 (TL TC TR MR BR BC BL ML)
+    private Point    _dragStart;               // position in native-canvas coords
+    private double   _dOrigL, _dOrigT, _dOrigW, _dOrigH; // original px bounds
+
+    private const double HandleSize = 9.0;
+    private const double MinShapeSize = 20.0;
+
+    // ── Native canvas dimensions ───────────────────────────────────────
+
     private double NativeW => _model is not null ? _model.SlideWidth  / 914400.0 * 96.0 : 960;
     private double NativeH => _model is not null ? _model.SlideHeight / 914400.0 * 96.0 : 540;
+    private double EmuPerPx => _model is not null ? (double)_model.SlideWidth / NativeW : 9525.0;
+
+    // ── Constructor ────────────────────────────────────────────────────
 
     public SlideEditorCanvas()
     {
@@ -60,9 +84,9 @@ public partial class SlideEditorCanvas : UserControl
         Rebuild();
     }
 
-    public void Invalidate()
+    public void Invalidate(bool preserveSelection = true)
     {
-        int savedTreeIdx = _selectedTreeIdx;
+        int savedTreeIdx = preserveSelection ? _selectedTreeIdx : -1;
         CommitEdit(save: false);
         Rebuild();
         if (savedTreeIdx >= 0 && _nativeCanvas is not null)
@@ -74,15 +98,36 @@ public partial class SlideEditorCanvas : UserControl
     public void FitToWindow() { _zoom = 1.0; UpdateViewboxSize(); }
     public void SetZoom(double z) { _zoom = Math.Clamp(z, 0.25, 3.0); ApplyZoom(); }
     public double ZoomFactor  => _zoom;
+    public bool   IsEditing   => _editor is not null;
 
-    // ── Rebuild (re-render slide) ──────────────────────────────────────
+    /// <summary>Insert text at the active editor's caret (used by CharMap / Emoji dialogs).</summary>
+    public void InsertText(string text)
+    {
+        if (_editor is null) return;
+        try
+        {
+            if (!_editor.Selection.IsEmpty)
+                _editor.Selection.Text = "";
+            var newCaret = _editor.CaretPosition.InsertTextInRun(text);
+            _editor.CaretPosition = newCaret;
+        }
+        catch
+        {
+            _editor.Selection.Text = text;
+        }
+        _editor.Focus();
+    }
+
+    // ── Rebuild ────────────────────────────────────────────────────────
 
     private void Rebuild()
     {
         _selectedIdx     = -1;
         _selectedTreeIdx = -1;
-        _selRect         = null;
+        _selOverlay      = null;
         _editingTreeIdx  = -1;
+        _dragMode        = DragMode.None;
+        _resizeHandle    = -1;
         NoDocMsg.Visibility = Visibility.Collapsed;
 
         if (_model is null || !_model.IsOpen || _slidePart is null)
@@ -95,6 +140,8 @@ public partial class SlideEditorCanvas : UserControl
 
         var canvas = SlideRenderer.BuildCanvas(_slidePart, _model.SlideWidth, _model.SlideHeight);
         canvas.MouseLeftButtonDown += Canvas_MouseDown;
+        canvas.MouseMove           += Canvas_MouseMove;
+        canvas.MouseLeftButtonUp   += Canvas_MouseUp;
         canvas.KeyDown             += Canvas_KeyDown;
         canvas.Focusable            = true;
 
@@ -105,7 +152,7 @@ public partial class SlideEditorCanvas : UserControl
 
     // ── Zoom & sizing ──────────────────────────────────────────────────
 
-    private void ApplyZoom()    => UpdateViewboxSize();
+    private void ApplyZoom() => UpdateViewboxSize();
 
     private void UpdateViewboxSize()
     {
@@ -149,6 +196,56 @@ public partial class SlideEditorCanvas : UserControl
         e.Handled = true;
     }
 
+    private void Canvas_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragMode == DragMode.None || _selOverlay is null || _nativeCanvas is null) return;
+
+        var pos = e.GetPosition(_nativeCanvas);
+        double dx = pos.X - _dragStart.X;
+        double dy = pos.Y - _dragStart.Y;
+
+        if (_dragMode == DragMode.Move)
+        {
+            Canvas.SetLeft(_selOverlay, _dOrigL + dx);
+            Canvas.SetTop(_selOverlay,  _dOrigT + dy);
+        }
+        else if (_dragMode == DragMode.Resize)
+        {
+            var (l, t, w, h) = ComputeResizeBounds(dx, dy);
+            UpdateOverlayBounds(l, t, w, h);
+        }
+    }
+
+    private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_dragMode == DragMode.None || _nativeCanvas is null) return;
+
+        _nativeCanvas.ReleaseMouseCapture();
+
+        var pos = e.GetPosition(_nativeCanvas);
+        double dx = pos.X - _dragStart.X;
+        double dy = pos.Y - _dragStart.Y;
+
+        if (_dragMode == DragMode.Move && _selectedTreeIdx >= 0)
+        {
+            long dxEmu = (long)(dx * EmuPerPx);
+            long dyEmu = (long)(dy * EmuPerPx);
+            if (dxEmu != 0 || dyEmu != 0)
+                ShapeMoved?.Invoke(_slideIndex, _selectedTreeIdx, dxEmu, dyEmu);
+        }
+        else if (_dragMode == DragMode.Resize && _selectedTreeIdx >= 0)
+        {
+            var (l, t, w, h) = ComputeResizeBounds(dx, dy);
+            if (w >= MinShapeSize && h >= MinShapeSize)
+                ShapeResized?.Invoke(_slideIndex, _selectedTreeIdx,
+                    PxToEmu(l), PxToEmu(t), PxToEmu(w), PxToEmu(h));
+        }
+
+        _dragMode     = DragMode.None;
+        _resizeHandle = -1;
+        e.Handled     = true;
+    }
+
     private void Canvas_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -159,7 +256,9 @@ public partial class SlideEditorCanvas : UserControl
         }
         else if (e.Key == Key.Delete && _selectedIdx >= 0 && _editor is null)
         {
-            // Future: delete selected shape
+            if (_selectedTreeIdx >= 0)
+                ShapeDeleted?.Invoke(_slideIndex, _selectedTreeIdx);
+            e.Handled = true;
         }
         else if (_selectedIdx >= 0 && _editor is null &&
                  (e.Key == Key.Left || e.Key == Key.Right ||
@@ -167,17 +266,16 @@ public partial class SlideEditorCanvas : UserControl
         {
             bool fine = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
             long step = fine ? 7200L : 72000L;
-            long dx = e.Key == Key.Left  ? -step : e.Key == Key.Right ? step : 0L;
-            long dy = e.Key == Key.Up    ? -step : e.Key == Key.Down  ? step : 0L;
+            long kDx = e.Key == Key.Left  ? -step : e.Key == Key.Right ? step : 0L;
+            long kDy = e.Key == Key.Up    ? -step : e.Key == Key.Down  ? step : 0L;
             if (_selectedTreeIdx >= 0)
-                ShapeMoved?.Invoke(_slideIndex, _selectedTreeIdx, dx, dy);
+                ShapeMoved?.Invoke(_slideIndex, _selectedTreeIdx, kDx, kDy);
             e.Handled = true;
         }
     }
 
     // ── Hit testing ───────────────────────────────────────────────────
 
-    /// <summary>Returns canvas child index at <paramref name="pos"/> (top of Z-order wins).</summary>
     private static int HitTest(Canvas canvas, Point pos)
     {
         for (int i = canvas.Children.Count - 1; i >= 0; i--)
@@ -192,36 +290,109 @@ public partial class SlideEditorCanvas : UserControl
         return -1;
     }
 
-    // ── Selection ─────────────────────────────────────────────────────
+    // ── Selection & overlay ────────────────────────────────────────────
 
     private void SelectShape(Canvas canvas, int idx)
     {
-        // Remove old selection overlay
-        if (_selRect is not null)
-        {
-            canvas.Children.Remove(_selRect);
-            _selRect = null;
-        }
+        RemoveOverlay(canvas);
 
         _selectedIdx     = idx;
         _selectedTreeIdx = -1;
         if (idx < 0 || canvas.Children[idx] is not FrameworkElement target) return;
         if (target.Tag is int ti) _selectedTreeIdx = ti;
 
-        _selRect = new Rectangle
+        double l = Canvas.GetLeft(target);
+        double t = Canvas.GetTop(target);
+        _selOverlay = BuildOverlay(l, t, target.Width, target.Height);
+        Panel.SetZIndex(_selOverlay, 9999);
+        canvas.Children.Add(_selOverlay);
+    }
+
+    private void RemoveOverlay(Canvas canvas)
+    {
+        if (_selOverlay is not null)
         {
-            Width           = target.Width,
-            Height          = target.Height,
+            canvas.Children.Remove(_selOverlay);
+            _selOverlay = null;
+        }
+    }
+
+    private Canvas BuildOverlay(double l, double t, double w, double h)
+    {
+        var overlay = new Canvas { Width = w, Height = h };
+        Canvas.SetLeft(overlay, l);
+        Canvas.SetTop(overlay,  t);
+
+        // Border rect — drag body to move
+        var border = new Rectangle
+        {
+            Width           = w,
+            Height          = h,
             Stroke          = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
             StrokeThickness = 2,
             StrokeDashArray = new DoubleCollection { 5, 3 },
-            Fill            = new SolidColorBrush(Color.FromArgb(20, 0, 0x78, 0xD4)),
-            IsHitTestVisible = false,
+            Fill            = new SolidColorBrush(Color.FromArgb(12, 0, 0x78, 0xD4)),
+            Cursor          = Cursors.SizeAll,
+            IsHitTestVisible = true,
         };
-        Canvas.SetLeft(_selRect, Canvas.GetLeft(target));
-        Canvas.SetTop(_selRect,  Canvas.GetTop(target));
-        Panel.SetZIndex(_selRect, 9999);
-        canvas.Children.Add(_selRect);
+        border.MouseLeftButtonDown += OverlayBody_MouseDown;
+        overlay.Children.Add(border);
+
+        // 8 resize handles
+        var pts = HandlePoints(w, h);
+        for (int i = 0; i < 8; i++)
+        {
+            int hi = i;
+            var handle = new Rectangle
+            {
+                Width           = HandleSize,
+                Height          = HandleSize,
+                Fill            = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
+                Stroke          = Brushes.White,
+                StrokeThickness = 1,
+                Cursor          = HandleCursor(i),
+                IsHitTestVisible = true,
+            };
+            Canvas.SetLeft(handle, pts[i].X - HandleSize / 2);
+            Canvas.SetTop(handle,  pts[i].Y - HandleSize / 2);
+            Panel.SetZIndex(handle, 1);
+            handle.MouseLeftButtonDown += (_, ev) => HandleRect_MouseDown(hi, ev);
+            overlay.Children.Add(handle);
+        }
+        return overlay;
+    }
+
+    private void OverlayBody_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_nativeCanvas is null || _selectedIdx < 0) return;
+        var target = _nativeCanvas.Children[_selectedIdx] as FrameworkElement;
+        if (target is null) return;
+
+        _dragMode  = DragMode.Move;
+        _dragStart = e.GetPosition(_nativeCanvas);
+        _dOrigL    = Canvas.GetLeft(target);
+        _dOrigT    = Canvas.GetTop(target);
+        _dOrigW    = target.Width;
+        _dOrigH    = target.Height;
+        _nativeCanvas.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void HandleRect_MouseDown(int handleIdx, MouseButtonEventArgs e)
+    {
+        if (_nativeCanvas is null || _selectedIdx < 0) return;
+        var target = _nativeCanvas.Children[_selectedIdx] as FrameworkElement;
+        if (target is null) return;
+
+        _dragMode     = DragMode.Resize;
+        _resizeHandle = handleIdx;
+        _dragStart    = e.GetPosition(_nativeCanvas);
+        _dOrigL       = Canvas.GetLeft(target);
+        _dOrigT       = Canvas.GetTop(target);
+        _dOrigW       = target.Width;
+        _dOrigH       = target.Height;
+        _nativeCanvas.CaptureMouse();
+        e.Handled = true;
     }
 
     private void SelectShapeByTreeIndex(int treeIdx)
@@ -239,6 +410,87 @@ public partial class SlideEditorCanvas : UserControl
         }
     }
 
+    // ── Resize calculation ─────────────────────────────────────────────
+
+    // Handle indices:  0=TL  1=TC  2=TR  3=MR  4=BR  5=BC  6=BL  7=ML
+    private (double l, double t, double w, double h) ComputeResizeBounds(double dx, double dy)
+    {
+        double l = _dOrigL, t = _dOrigT, w = _dOrigW, h = _dOrigH;
+
+        switch (_resizeHandle)
+        {
+            case 0: l += dx; t += dy; w -= dx; h -= dy; break; // TL
+            case 1:          t += dy;           h -= dy; break; // TC
+            case 2:          t += dy; w += dx;  h -= dy; break; // TR
+            case 3:                   w += dx;            break; // MR
+            case 4:                   w += dx;  h += dy; break; // BR
+            case 5:                             h += dy; break; // BC
+            case 6: l += dx;          w -= dx;  h += dy; break; // BL
+            case 7: l += dx;          w -= dx;            break; // ML
+        }
+
+        if (w < MinShapeSize)
+        {
+            if (_resizeHandle is 0 or 6 or 7) l = _dOrigL + _dOrigW - MinShapeSize;
+            w = MinShapeSize;
+        }
+        if (h < MinShapeSize)
+        {
+            if (_resizeHandle is 0 or 1 or 2) t = _dOrigT + _dOrigH - MinShapeSize;
+            h = MinShapeSize;
+        }
+        return (l, t, w, h);
+    }
+
+    private void UpdateOverlayBounds(double l, double t, double w, double h)
+    {
+        if (_selOverlay is null) return;
+        Canvas.SetLeft(_selOverlay, l);
+        Canvas.SetTop(_selOverlay,  t);
+        _selOverlay.Width  = w;
+        _selOverlay.Height = h;
+
+        if (_selOverlay.Children[0] is Rectangle border)
+        {
+            border.Width  = w;
+            border.Height = h;
+        }
+        var pts = HandlePoints(w, h);
+        for (int i = 1; i <= 8 && i < _selOverlay.Children.Count; i++)
+        {
+            if (_selOverlay.Children[i] is Rectangle hr)
+            {
+                Canvas.SetLeft(hr, pts[i - 1].X - HandleSize / 2);
+                Canvas.SetTop(hr,  pts[i - 1].Y - HandleSize / 2);
+            }
+        }
+    }
+
+    // ── Handle geometry helpers ────────────────────────────────────────
+
+    private static Point[] HandlePoints(double w, double h) =>
+    [
+        new(0,   0),     // 0 TL
+        new(w/2, 0),     // 1 TC
+        new(w,   0),     // 2 TR
+        new(w,   h/2),   // 3 MR
+        new(w,   h),     // 4 BR
+        new(w/2, h),     // 5 BC
+        new(0,   h),     // 6 BL
+        new(0,   h/2),   // 7 ML
+    ];
+
+    private static Cursor HandleCursor(int idx) => idx switch
+    {
+        0 or 4 => Cursors.SizeNWSE,
+        1 or 5 => Cursors.SizeNS,
+        2 or 6 => Cursors.SizeNESW,
+        3 or 7 => Cursors.SizeWE,
+        _      => Cursors.Arrow,
+    };
+
+    private long PxToEmu(double px) => (long)(px * EmuPerPx);
+
     // ── Inline text editing ────────────────────────────────────────────
 
     private void StartEdit(Canvas canvas, int canvasIdx)
@@ -246,16 +498,14 @@ public partial class SlideEditorCanvas : UserControl
         if (canvas.Children[canvasIdx] is not FrameworkElement target) return;
         if (target.Tag is not int treeIdx) return;
 
-        // Only shapes with text bodies are editable
         var elements = _slidePart?.Slide.CommonSlideData?.ShapeTree?
             .Elements<OpenXmlCompositeElement>().ToList();
         if (elements is null || treeIdx >= elements.Count) return;
-        if (elements[treeIdx] is not DocumentFormat.OpenXml.Presentation.Shape shape || shape.TextBody is null) return;
+        if (elements[treeIdx] is not Shape shape || shape.TextBody is null) return;
 
         CommitEdit(save: false);
         SelectShape(canvas, canvasIdx);
 
-        // Build FlowDocument from PPTX text body
         var doc = PptxConverter.ToFlowDocument(shape.TextBody);
 
         _editor = new RichTextBox(doc)
@@ -279,10 +529,9 @@ public partial class SlideEditorCanvas : UserControl
         _editor.Focus();
         _editor.SelectAll();
 
-        // Notify MainWindow to enable the formatting toolbar
         EditingStarted?.Invoke(_editor);
 
-        _editor.LostFocus += (_, _) => CommitEdit(save: true);
+        _editor.LostFocus += (_, _) => { if (!SuppressLostFocusCommit) CommitEdit(save: true); };
         _editor.KeyDown   += Editor_KeyDown;
     }
 
@@ -312,12 +561,9 @@ public partial class SlideEditorCanvas : UserControl
 
     // ── Public helpers for formatting toolbar ──────────────────────────
 
-    /// <summary>Apply a property value to the current RichTextBox selection.</summary>
     public void ApplySelectionProperty(DependencyProperty prop, object value)
         => _editor?.Selection.ApplyPropertyValue(prop, value);
 
     public object? GetSelectionProperty(DependencyProperty prop)
         => _editor?.Selection.GetPropertyValue(prop);
-
-    public bool IsEditing => _editor is not null;
 }

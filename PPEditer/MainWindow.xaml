@@ -50,6 +50,15 @@
             <MenuItem Header="{DynamicResource Ms_Insert}">
                 <MenuItem x:Name="MenuInsertTextBox" Header="{DynamicResource Ms_InsertTextBox}"
                           InputGestureText="Ctrl+Shift+T" Click="OnInsertTextBox"/>
+                <Separator/>
+                <MenuItem x:Name="MenuInsertImage" Header="{DynamicResource Ms_InsertImage}" Click="OnInsertImage"/>
+                <MenuItem x:Name="MenuInsertVideo" Header="{DynamicResource Ms_InsertVideo}" Click="OnInsertVideo"/>
+                <MenuItem x:Name="MenuInsertAudio" Header="{DynamicResource Ms_InsertAudio}" Click="OnInsertAudio"/>
+                <Separator/>
+                <MenuItem x:Name="MenuInsertCharMap" Header="{DynamicResource Ms_InsertCharMap}"
+                          InputGestureText="Ctrl+Shift+K" Click="OnInsertCharMap"/>
+                <MenuItem x:Name="MenuInsertEmoji"   Header="{DynamicResource Ms_InsertEmoji}"
+                          InputGestureText="Ctrl+Shift+J" Click="OnInsertEmoji"/>
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Slide}">
