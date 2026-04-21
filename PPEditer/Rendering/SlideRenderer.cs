@@ -142,11 +142,12 @@ public static class SlideRenderer
         var custGeom = spPr?.GetFirstChild<A.CustomGeometry>();
         if (custGeom is not null)
         {
+            // No Width/Height on Path — let the Grid control bounds. Explicit dimensions
+            // cause WPF to constrain the Path's render bounds, clipping bezier curves that
+            // extend beyond the bounding box. Stretch=None renders geometry at raw coords.
             geomShape = new System.Windows.Shapes.Path
             {
                 Data    = BuildPathGeometry(custGeom, width, height),
-                Width   = width,
-                Height  = height,
                 Stretch = Stretch.None,
                 Fill    = fillBrush ?? Brushes.Transparent,
             };
@@ -166,11 +167,10 @@ public static class SlideRenderer
             var presetGeom = BuildPresetGeometry(pg, width, height);
             if (presetGeom is not null)
             {
+                // No Width/Height — same reasoning as custom geometry above.
                 geomShape = new System.Windows.Shapes.Path
                 {
                     Data    = presetGeom,
-                    Width   = width,
-                    Height  = height,
                     Stretch = Stretch.None,
                     Fill    = fillBrush ?? Brushes.Transparent,
                 };
@@ -188,10 +188,10 @@ public static class SlideRenderer
 
         ApplyStroke(geomShape, shape, slidePart);
 
-        // Custom geometry (splines) may have bezier control points outside the bounding box;
-        // disabling ClipToBounds lets the curves render fully.
-        bool clip = spPr?.GetFirstChild<A.CustomGeometry>() is null;
-        var container = new Grid { Width = width, Height = height, ClipToBounds = clip };
+        // ClipToBounds=false so stroke at boundary edges and bezier curves outside the
+        // bounding box render fully. The outer slide Canvas (ClipToBounds=true) clips
+        // at the slide boundary only.
+        var container = new Grid { Width = width, Height = height, ClipToBounds = false };
         container.Children.Add(geomShape);
 
         if (shape.TextBody is not null)
