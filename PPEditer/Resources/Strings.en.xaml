@@ -30,6 +30,33 @@
     <sys:String x:Key="Ms_InsertImage">_Image...</sys:String>
     <sys:String x:Key="Ms_InsertVideo">_Video...</sys:String>
     <sys:String x:Key="Ms_InsertAudio">_Audio...</sys:String>
+    <sys:String x:Key="Ms_InsertShape">_Draw Shape</sys:String>
+    <sys:String x:Key="Ms_Shape_Lines">Lines</sys:String>
+    <sys:String x:Key="Ms_Shape_Line">Line</sys:String>
+    <sys:String x:Key="Ms_Shape_SplineLine">Spline Line</sys:String>
+    <sys:String x:Key="Ms_Shape_PolyLine">Polyline</sys:String>
+    <sys:String x:Key="Ms_Shape_Rects">Rectangles</sys:String>
+    <sys:String x:Key="Ms_Shape_Rect">Rectangle</sys:String>
+    <sys:String x:Key="Ms_Shape_Square">Square</sys:String>
+    <sys:String x:Key="Ms_Shape_Trapezoid">Trapezoid</sys:String>
+    <sys:String x:Key="Ms_Shape_Parallelogram">Parallelogram</sys:String>
+    <sys:String x:Key="Ms_Shape_Triangles">Triangles</sys:String>
+    <sys:String x:Key="Ms_Shape_EqTriangle">Equilateral Triangle</sys:String>
+    <sys:String x:Key="Ms_Shape_IsoTriangle">Isosceles Triangle</sys:String>
+    <sys:String x:Key="Ms_Shape_RightTriangle">Right Triangle</sys:String>
+    <sys:String x:Key="Ms_Shape_Scalene">Scalene Triangle</sys:String>
+    <sys:String x:Key="Ms_Shape_Circles">Circles / Ellipses</sys:String>
+    <sys:String x:Key="Ms_Shape_Circle">Circle</sys:String>
+    <sys:String x:Key="Ms_Shape_Ellipse">Ellipse</sys:String>
+    <sys:String x:Key="Ms_Shape_Arc">Arc</sys:String>
+    <sys:String x:Key="Ms_Shape_Filled">Filled Polygons</sys:String>
+    <sys:String x:Key="Ms_Shape_Polygon">Polygon</sys:String>
+    <sys:String x:Key="Ms_Shape_SplinePolygon">Spline Polygon</sys:String>
+    <sys:String x:Key="Ms_Shape_Arrow">Arrow</sys:String>
+    <sys:String x:Key="St_DrawHint_Drag">Drag to draw the shape. (Esc = cancel)</sys:String>
+    <sys:String x:Key="St_DrawHint_Click">Click to add points, double-click to finish. (Esc = cancel)</sys:String>
+    <sys:String x:Key="St_DrawHint_3Click">Click 3 points to draw the triangle. (Esc = cancel)</sys:String>
+    <sys:String x:Key="Msg_ShapeDrawn">Shape added.</sys:String>
     <sys:String x:Key="Ms_InsertMath">_Math/Science Symbols...</sys:String>
     <sys:String x:Key="Ms_InsertCharMap">S_pecial Character...</sys:String>
     <sys:String x:Key="Ms_InsertEmoji">_Emoji...</sys:String>

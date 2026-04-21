@@ -31,11 +31,30 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int>? ShapePropertiesRequested;
     /// <summary>User changed z-order via context menu. (slideIdx, treeIdx, delta: +1=forward/-1=backward)</summary>
     public event Action<int, int, int>? ShapeOrderChanged;
+    /// <summary>User finished drawing a shape. (slideIdx, tool, pointsInCanvasPx)</summary>
+    public event Action<int, DrawTool, System.Windows.Point[]>? ShapeDrawn;
 
-    // ── Public property ────────────────────────────────────────────────
+    // ── Public properties ──────────────────────────────────────────────
 
     /// <summary>Set true before opening a dialog so LostFocus does not commit and close the editor.</summary>
     public bool SuppressLostFocusCommit { get; set; }
+
+    /// <summary>Currently active drawing tool. Setting to non-Select changes cursor and cancels any in-progress draw.</summary>
+    public DrawTool ActiveTool
+    {
+        get => _activeTool;
+        set
+        {
+            if (_activeTool == value) return;
+            CancelDrawing();
+            _activeTool = value;
+            if (_nativeCanvas is not null)
+                _nativeCanvas.Cursor = value == DrawTool.Select ? Cursors.Arrow : Cursors.Cross;
+        }
+    }
+
+    /// <summary>Exposes the canvas EMU-per-pixel ratio so callers can convert point coordinates to EMU.</summary>
+    public double EmuPerPixel => EmuPerPx;
 
     // ── State ──────────────────────────────────────────────────────────
 
@@ -44,6 +63,13 @@ public partial class SlideEditorCanvas : UserControl
     private int                _slideIndex;
     private Canvas?            _nativeCanvas;
     private double             _zoom = 1.0;
+
+    // ── Drawing state ──────────────────────────────────────────────────
+    private DrawTool    _activeTool     = DrawTool.Select;
+    private bool        _isDrawing      = false;
+    private List<Point> _drawPoints     = [];
+    private Point       _drawCurrentPos;
+    private UIElement?  _drawPreview;
 
     private int      _selectedIdx     = -1;   // canvas child index
     private int      _selectedTreeIdx = -1;   // shape-tree index
@@ -158,6 +184,8 @@ public partial class SlideEditorCanvas : UserControl
         canvas.MouseRightButtonUp   += Canvas_RightMouseUp;
         canvas.KeyDown              += Canvas_KeyDown;
         canvas.Focusable             = true;
+        if (_activeTool != DrawTool.Select)
+            canvas.Cursor = Cursors.Cross;
 
         _nativeCanvas      = canvas;
         SlideViewbox.Child = canvas;
@@ -195,6 +223,14 @@ public partial class SlideEditorCanvas : UserControl
         var canvas   = (Canvas)sender;
         var clickPos = e.GetPosition(canvas);
 
+        if (_activeTool != DrawTool.Select)
+        {
+            HandleDrawMouseDown(canvas, clickPos, e.ClickCount);
+            canvas.Focus();
+            e.Handled = true;
+            return;
+        }
+
         if (e.ClickCount == 1)
         {
             CommitEdit(save: true);
@@ -212,9 +248,19 @@ public partial class SlideEditorCanvas : UserControl
 
     private void Canvas_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_dragMode == DragMode.None || _selOverlay is null || _nativeCanvas is null) return;
-
+        if (_nativeCanvas is null) return;
         var pos = e.GetPosition(_nativeCanvas);
+
+        if (_activeTool != DrawTool.Select && _isDrawing)
+        {
+            _drawCurrentPos = pos;
+            if (IsDragTool(_activeTool)) UpdateDragPreview(_nativeCanvas);
+            else                         UpdateClickPreview(_nativeCanvas);
+            return;
+        }
+
+        if (_dragMode == DragMode.None || _selOverlay is null) return;
+
         double dx = pos.X - _dragStart.X;
         double dy = pos.Y - _dragStart.Y;
 
@@ -232,6 +278,16 @@ public partial class SlideEditorCanvas : UserControl
 
     private void Canvas_MouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (_activeTool != DrawTool.Select && _isDrawing && IsDragTool(_activeTool))
+        {
+            _nativeCanvas?.ReleaseMouseCapture();
+            var endPos = e.GetPosition((Canvas)sender);
+            if (_drawPoints.Count > 0) _drawPoints.Add(endPos);
+            FinalizeDrawing((Canvas)sender);
+            e.Handled = true;
+            return;
+        }
+
         if (_dragMode == DragMode.None || _nativeCanvas is null) return;
 
         _nativeCanvas.ReleaseMouseCapture();
@@ -264,6 +320,12 @@ public partial class SlideEditorCanvas : UserControl
     {
         if (e.Key == Key.Escape)
         {
+            if (_isDrawing)
+            {
+                CancelDrawing();
+                e.Handled = true;
+                return;
+            }
             CommitEdit(save: true);
             SelectShape((Canvas)sender, -1);
             e.Handled = true;
@@ -290,6 +352,12 @@ public partial class SlideEditorCanvas : UserControl
 
     private void Canvas_RightMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (_isDrawing)
+        {
+            CancelDrawing();
+            e.Handled = true;
+            return;
+        }
         var canvas   = (Canvas)sender;
         var clickPos = e.GetPosition(canvas);
         int idx = HitTest(canvas, clickPos);
@@ -353,6 +421,202 @@ public partial class SlideEditorCanvas : UserControl
 
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse;
         menu.IsOpen    = true;
+    }
+
+    // ── Drawing mode ────────────────────────────────────────────────────
+
+    private static bool IsDragTool(DrawTool t) => t is
+        DrawTool.Line or DrawTool.Square or DrawTool.Rect or
+        DrawTool.Ellipse or DrawTool.Circle or DrawTool.EqTriangle or
+        DrawTool.IsoTriangle or DrawTool.RightTriangle or
+        DrawTool.Trapezoid or DrawTool.Parallelogram or
+        DrawTool.Arc or DrawTool.Arrow;
+
+    private static bool IsClickTool(DrawTool t) => t is
+        DrawTool.PolyLine or DrawTool.SplineLine or
+        DrawTool.Polygon or DrawTool.SplinePolygon or
+        DrawTool.ScaleneTriangle;
+
+    private void HandleDrawMouseDown(Canvas canvas, Point pos, int clickCount)
+    {
+        if (IsDragTool(_activeTool))
+        {
+            if (clickCount != 1) return;
+            _isDrawing = true;
+            _drawPoints = [pos];
+            _drawCurrentPos = pos;
+            canvas.CaptureMouse();
+            RemoveDrawPreview(canvas);
+            CreateDragPreview(canvas);
+            return;
+        }
+
+        if (!IsClickTool(_activeTool)) return;
+
+        if (clickCount == 2)
+        {
+            if (_isDrawing && _drawPoints.Count >= 2)
+            {
+                // Remove duplicate point added by the first click of this double-click
+                var last = _drawPoints[^1];
+                var prev = _drawPoints[^2];
+                if (Math.Abs(last.X - prev.X) < 5 && Math.Abs(last.Y - prev.Y) < 5)
+                    _drawPoints.RemoveAt(_drawPoints.Count - 1);
+                FinalizeDrawing(canvas);
+            }
+            return;
+        }
+
+        // Single click
+        if (!_isDrawing)
+        {
+            _isDrawing = true;
+            _drawPoints = [pos];
+            _drawCurrentPos = pos;
+            RemoveDrawPreview(canvas);
+            CreateClickPreview(canvas);
+        }
+        else
+        {
+            _drawPoints.Add(pos);
+            UpdateClickPreview(canvas);
+            if (_activeTool == DrawTool.ScaleneTriangle && _drawPoints.Count == 3)
+                FinalizeDrawing(canvas);
+        }
+    }
+
+    private void FinalizeDrawing(Canvas canvas)
+    {
+        var pts  = _drawPoints.ToArray();
+        var tool = _activeTool;
+        RemoveDrawPreview(canvas);
+        canvas.ReleaseMouseCapture();
+        _isDrawing = false;
+        _drawPoints.Clear();
+        _activeTool = DrawTool.Select;
+        if (_nativeCanvas is not null)
+            _nativeCanvas.Cursor = Cursors.Arrow;
+        if (pts.Length >= 2)
+            ShapeDrawn?.Invoke(_slideIndex, tool, pts);
+    }
+
+    private void CancelDrawing()
+    {
+        if (_nativeCanvas is not null)
+            RemoveDrawPreview(_nativeCanvas);
+        _nativeCanvas?.ReleaseMouseCapture();
+        _isDrawing = false;
+        _drawPoints.Clear();
+        _activeTool = DrawTool.Select;
+        if (_nativeCanvas is not null)
+            _nativeCanvas.Cursor = Cursors.Arrow;
+    }
+
+    private void RemoveDrawPreview(Canvas canvas)
+    {
+        if (_drawPreview is null) return;
+        canvas.Children.Remove(_drawPreview);
+        _drawPreview = null;
+    }
+
+    private void CreateDragPreview(Canvas canvas)
+    {
+        if (_drawPoints.Count == 0) return;
+        var start = _drawPoints[0];
+        UIElement preview;
+        if (_activeTool == DrawTool.Line)
+        {
+            preview = new System.Windows.Shapes.Line
+            {
+                X1 = start.X, Y1 = start.Y,
+                X2 = start.X, Y2 = start.Y,
+                Stroke           = new SolidColorBrush(Color.FromRgb(0x2E, 0x74, 0xB5)),
+                StrokeThickness  = 1.5,
+                StrokeDashArray  = new DoubleCollection { 4, 2 },
+                IsHitTestVisible = false,
+            };
+        }
+        else
+        {
+            var rect = new System.Windows.Shapes.Rectangle
+            {
+                Stroke           = new SolidColorBrush(Color.FromRgb(0x2E, 0x74, 0xB5)),
+                StrokeThickness  = 1.5,
+                StrokeDashArray  = new DoubleCollection { 4, 2 },
+                Fill             = new SolidColorBrush(Color.FromArgb(30, 0xBD, 0xD7, 0xEE)),
+                Width            = 0,
+                Height           = 0,
+                IsHitTestVisible = false,
+            };
+            Canvas.SetLeft(rect, start.X);
+            Canvas.SetTop(rect,  start.Y);
+            preview = rect;
+        }
+        Panel.SetZIndex(preview, 9998);
+        canvas.Children.Add(preview);
+        _drawPreview = preview;
+    }
+
+    private void UpdateDragPreview(Canvas canvas)
+    {
+        if (_drawPreview is null || _drawPoints.Count == 0) return;
+        var start = _drawPoints[0];
+        var end   = _drawCurrentPos;
+        if (_drawPreview is System.Windows.Shapes.Line line)
+        {
+            line.X2 = end.X;
+            line.Y2 = end.Y;
+        }
+        else if (_drawPreview is System.Windows.Shapes.Rectangle rect)
+        {
+            double x = Math.Min(start.X, end.X);
+            double y = Math.Min(start.Y, end.Y);
+            Canvas.SetLeft(rect, x);
+            Canvas.SetTop(rect,  y);
+            rect.Width  = Math.Max(1, Math.Abs(end.X - start.X));
+            rect.Height = Math.Max(1, Math.Abs(end.Y - start.Y));
+        }
+    }
+
+    private void CreateClickPreview(Canvas canvas)
+    {
+        bool closed = _activeTool is DrawTool.Polygon or DrawTool.SplinePolygon or DrawTool.ScaleneTriangle;
+        UIElement preview;
+        if (closed)
+        {
+            preview = new System.Windows.Shapes.Polygon
+            {
+                Stroke           = new SolidColorBrush(Color.FromRgb(0x2E, 0x74, 0xB5)),
+                StrokeThickness  = 1.5,
+                StrokeDashArray  = new DoubleCollection { 4, 2 },
+                Fill             = new SolidColorBrush(Color.FromArgb(30, 0xBD, 0xD7, 0xEE)),
+                IsHitTestVisible = false,
+            };
+        }
+        else
+        {
+            preview = new System.Windows.Shapes.Polyline
+            {
+                Stroke           = new SolidColorBrush(Color.FromRgb(0x2E, 0x74, 0xB5)),
+                StrokeThickness  = 1.5,
+                StrokeDashArray  = new DoubleCollection { 4, 2 },
+                IsHitTestVisible = false,
+            };
+        }
+        Panel.SetZIndex(preview, 9998);
+        canvas.Children.Add(preview);
+        _drawPreview = preview;
+        UpdateClickPreview(canvas);
+    }
+
+    private void UpdateClickPreview(Canvas canvas)
+    {
+        if (_drawPreview is null) return;
+        var pts = new PointCollection(_drawPoints) { _drawCurrentPos };
+        if (_drawPreview is System.Windows.Shapes.Polygon poly)
+            poly.Points = pts;
+        else if (_drawPreview is System.Windows.Shapes.Polyline pline)
+            pline.Points = pts;
     }
 
     // ── Hit testing ───────────────────────────────────────────────────

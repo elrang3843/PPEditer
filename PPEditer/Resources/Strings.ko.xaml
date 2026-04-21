@@ -30,6 +30,33 @@
     <sys:String x:Key="Ms_InsertImage">그림(_I)...</sys:String>
     <sys:String x:Key="Ms_InsertVideo">동영상(_V)...</sys:String>
     <sys:String x:Key="Ms_InsertAudio">소리(_U)...</sys:String>
+    <sys:String x:Key="Ms_InsertShape">도형 그리기(_H)</sys:String>
+    <sys:String x:Key="Ms_Shape_Lines">선</sys:String>
+    <sys:String x:Key="Ms_Shape_Line">직선</sys:String>
+    <sys:String x:Key="Ms_Shape_SplineLine">스프라인 선</sys:String>
+    <sys:String x:Key="Ms_Shape_PolyLine">폴리곤 선</sys:String>
+    <sys:String x:Key="Ms_Shape_Rects">사각형</sys:String>
+    <sys:String x:Key="Ms_Shape_Rect">직사각형</sys:String>
+    <sys:String x:Key="Ms_Shape_Square">정사각형</sys:String>
+    <sys:String x:Key="Ms_Shape_Trapezoid">사다리꼴</sys:String>
+    <sys:String x:Key="Ms_Shape_Parallelogram">평행사변형</sys:String>
+    <sys:String x:Key="Ms_Shape_Triangles">삼각형</sys:String>
+    <sys:String x:Key="Ms_Shape_EqTriangle">정삼각형</sys:String>
+    <sys:String x:Key="Ms_Shape_IsoTriangle">이등변삼각형</sys:String>
+    <sys:String x:Key="Ms_Shape_RightTriangle">직각삼각형</sys:String>
+    <sys:String x:Key="Ms_Shape_Scalene">비대칭삼각형</sys:String>
+    <sys:String x:Key="Ms_Shape_Circles">원/타원</sys:String>
+    <sys:String x:Key="Ms_Shape_Circle">원</sys:String>
+    <sys:String x:Key="Ms_Shape_Ellipse">타원</sys:String>
+    <sys:String x:Key="Ms_Shape_Arc">호</sys:String>
+    <sys:String x:Key="Ms_Shape_Filled">폴리곤 면</sys:String>
+    <sys:String x:Key="Ms_Shape_Polygon">폴리곤</sys:String>
+    <sys:String x:Key="Ms_Shape_SplinePolygon">스프라인 면</sys:String>
+    <sys:String x:Key="Ms_Shape_Arrow">화살표</sys:String>
+    <sys:String x:Key="St_DrawHint_Drag">드래그하여 도형을 그리세요. (Esc = 취소)</sys:String>
+    <sys:String x:Key="St_DrawHint_Click">클릭으로 점을 추가하고 더블클릭으로 완료합니다. (Esc = 취소)</sys:String>
+    <sys:String x:Key="St_DrawHint_3Click">3점을 클릭하여 삼각형을 그립니다. (Esc = 취소)</sys:String>
+    <sys:String x:Key="Msg_ShapeDrawn">도형이 추가되었습니다.</sys:String>
     <sys:String x:Key="Ms_InsertMath">수식/과학 기호(_M)...</sys:String>
     <sys:String x:Key="Ms_InsertCharMap">특수 문자(_P)...</sys:String>
     <sys:String x:Key="Ms_InsertEmoji">이모지(_E)...</sys:String>

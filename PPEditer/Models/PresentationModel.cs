@@ -492,6 +492,164 @@ public sealed class PresentationModel : IDisposable
         return firstContent;
     }
 
+    // ── Shape drawing ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Add a new shape drawn by the user. xs/ys are EMU coordinates on the slide.
+    /// For drag shapes: [0]=startX/Y, [1]=endX/Y.
+    /// For click shapes: every vertex in order.
+    /// </summary>
+    public int AddDrawnShape(int slideIndex, DrawTool tool, long[] xs, long[] ys)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null || xs.Length < 2 || xs.Length != ys.Length) return -1;
+
+        PushUndo();
+
+        long left = xs.Min(), top = ys.Min();
+        long w    = Math.Max(xs.Max() - left, 12700L);
+        long h    = Math.Max(ys.Max() - top,  12700L);
+
+        // Square / Circle → force equal sides
+        if (tool is DrawTool.Square or DrawTool.EqTriangle or DrawTool.Circle)
+        { long s = Math.Max(w, h); w = s; h = s; }
+
+        long[] lx = xs.Select(x => x - left).ToArray();
+        long[] ly = ys.Select(y => y - top).ToArray();
+
+        var tree  = slidePart.Slide.CommonSlideData!.ShapeTree!;
+        uint maxId = GetMaxShapeId(tree);
+
+        bool isLineType = tool is DrawTool.Line or DrawTool.PolyLine or DrawTool.SplineLine;
+        bool isFilled   = !isLineType;
+
+        A.OpenXmlElement geom;
+        A.Transform2D   xfrm;
+
+        if (tool is DrawTool.Line)
+        {
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildPolyPath(lx, ly, w, h, closed: false);
+        }
+        else if (tool is DrawTool.PolyLine)
+        {
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildPolyPath(lx, ly, w, h, closed: false);
+        }
+        else if (tool is DrawTool.SplineLine)
+        {
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildSplinePath(lx, ly, w, h, closed: false);
+        }
+        else if (tool is DrawTool.ScaleneTriangle or DrawTool.Polygon)
+        {
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildPolyPath(lx, ly, w, h, closed: true);
+        }
+        else if (tool is DrawTool.SplinePolygon)
+        {
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildSplinePath(lx, ly, w, h, closed: true);
+        }
+        else
+        {
+            // Preset geometry
+            A.ShapeTypeValues preset = tool switch
+            {
+                DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
+                DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
+                DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
+                DrawTool.IsoTriangle                => A.ShapeTypeValues.IsoscelesTriangle,
+                DrawTool.RightTriangle              => A.ShapeTypeValues.RightTriangle,
+                DrawTool.Trapezoid                  => A.ShapeTypeValues.Trapezoid,
+                DrawTool.Parallelogram              => A.ShapeTypeValues.Parallelogram,
+                DrawTool.Arc                        => A.ShapeTypeValues.Arc,
+                DrawTool.Arrow                      => A.ShapeTypeValues.RightArrow,
+                _                                   => A.ShapeTypeValues.Rectangle,
+            };
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = new A.PresetGeometry(new A.AdjustValueList()) { Preset = preset };
+        }
+
+        var spPr = new ShapeProperties();
+        spPr.Append(xfrm);
+        spPr.Append(geom);
+
+        if (isLineType)
+            spPr.Append(new A.NoFill());
+        else
+            spPr.Append(new A.SolidFill(new A.RgbColorModelHex { Val = "BDD7EE" }));
+
+        var ol = new A.Outline { Width = 19050 }; // 1.5 pt
+        ol.Append(new A.SolidFill(new A.RgbColorModelHex { Val = "2E74B5" }));
+        spPr.Append(ol);
+
+        var shape = new Shape(
+            new NonVisualShapeProperties(
+                new NonVisualDrawingProperties { Id = maxId + 1, Name = $"Shape {maxId + 1}" },
+                new NonVisualShapeDrawingProperties(),
+                new ApplicationNonVisualDrawingProperties()),
+            spPr,
+            new TextBody(new A.BodyProperties(), new A.ListStyle(), new A.Paragraph()));
+
+        tree.Append(shape);
+        slidePart.Slide.Save();
+        _modified = true;
+        return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(shape);
+    }
+
+    private static A.Transform2D MakeXfrm(long l, long t, long w, long h)
+        => new A.Transform2D(
+            new A.Offset  { X = l, Y = t },
+            new A.Extents { Cx = w, Cy = h });
+
+    private static A.CustomGeometry BuildPolyPath(long[] lx, long[] ly, long w, long h, bool closed)
+    {
+        var path = new A.Path
+        {
+            Width = w, Height = h,
+            Fill  = closed ? A.PathFillModeValues.Norm : A.PathFillModeValues.None,
+        };
+        path.Append(new A.MoveTo(APt(lx[0], ly[0])));
+        for (int i = 1; i < lx.Length; i++)
+            path.Append(new A.LineTo(APt(lx[i], ly[i])));
+        if (closed) path.Append(new A.CloseShapePath());
+        return WrapInCustGeom(path);
+    }
+
+    private static A.CustomGeometry BuildSplinePath(long[] lx, long[] ly, long w, long h, bool closed)
+    {
+        int n = lx.Length;
+        var path = new A.Path
+        {
+            Width = w, Height = h,
+            Fill  = closed ? A.PathFillModeValues.Norm : A.PathFillModeValues.None,
+        };
+        path.Append(new A.MoveTo(APt(lx[0], ly[0])));
+        for (int i = 0; i < n - 1; i++)
+        {
+            long p0x = lx[Math.Max(i - 1, 0)], p0y = ly[Math.Max(i - 1, 0)];
+            long p1x = lx[i],                   p1y = ly[i];
+            long p2x = lx[i + 1],               p2y = ly[i + 1];
+            long p3x = lx[Math.Min(i + 2, n-1)],p3y = ly[Math.Min(i + 2, n-1)];
+            long c1x = p1x + (p2x - p0x) / 6,   c1y = p1y + (p2y - p0y) / 6;
+            long c2x = p2x - (p3x - p1x) / 6,   c2y = p2y - (p3y - p1y) / 6;
+            path.Append(new A.CubicBezierCurveTo(APt(c1x, c1y), APt(c2x, c2y), APt(p2x, p2y)));
+        }
+        if (closed) path.Append(new A.CloseShapePath());
+        return WrapInCustGeom(path);
+    }
+
+    private static A.Point APt(long x, long y) => new A.Point { X = x.ToString(), Y = y.ToString() };
+
+    private static A.CustomGeometry WrapInCustGeom(A.Path path)
+    {
+        var g = new A.CustomGeometry();
+        g.Append(new A.AdjustValueList());
+        g.Append(new A.PathList(path));
+        return g;
+    }
+
     /// <summary>Delete a shape identified by its shape-tree index.</summary>
     public void DeleteShape(int slideIndex, int shapeTreeIndex)
     {

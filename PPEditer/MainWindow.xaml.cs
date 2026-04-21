@@ -35,6 +35,7 @@ public partial class MainWindow : Window
         EditorCanvas.ShapeResized            += OnShapeResized;
         EditorCanvas.ShapePropertiesRequested += OnShapePropertiesRequested;
         EditorCanvas.ShapeOrderChanged        += OnShapeOrderChanged;
+        EditorCanvas.ShapeDrawn               += OnShapeDrawn;
 
         RegisterKeyBindings();
         InitSettings();
@@ -455,6 +456,38 @@ public partial class MainWindow : Window
         UpdateActions();
     }
 
+    // ── Insert shape drawing ─────────────────────────────────────────
+
+    private void OnDrawShape(object sender, RoutedEventArgs e)
+    {
+        if (!_model.IsOpen) return;
+        if (sender is not MenuItem mi || mi.Tag is not string tagStr) return;
+        if (!Enum.TryParse<DrawTool>(tagStr, out var tool)) return;
+        EditorCanvas.CommitEdit(save: true);
+        EditorCanvas.ActiveTool = tool;
+        string hint = tool switch
+        {
+            DrawTool.ScaleneTriangle                                    => S("St_DrawHint_3Click"),
+            DrawTool.PolyLine or DrawTool.SplineLine or
+            DrawTool.Polygon  or DrawTool.SplinePolygon                 => S("St_DrawHint_Click"),
+            _                                                           => S("St_DrawHint_Drag"),
+        };
+        SetStatus(hint);
+    }
+
+    private void OnShapeDrawn(int slideIdx, DrawTool tool, System.Windows.Point[] points)
+    {
+        double epp = EditorCanvas.EmuPerPixel;
+        long[] xs = points.Select(p => (long)(p.X * epp)).ToArray();
+        long[] ys = points.Select(p => (long)(p.Y * epp)).ToArray();
+        int newIdx = _model.AddDrawnShape(slideIdx, tool, xs, ys);
+        EditorCanvas.Invalidate(newIdx >= 0 ? newIdx : 0);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_ShapeDrawn"));
+    }
+
     // ── Insert media ──────────────────────────────────────────────────
 
     private void OnInsertImage(object? _ = null)
@@ -856,6 +889,7 @@ public partial class MainWindow : Window
         MenuInsertImage.IsEnabled   = has;
         MenuInsertVideo.IsEnabled   = has;
         MenuInsertAudio.IsEnabled   = has;
+        MenuInsertShape.IsEnabled   = has;
         MenuInsertMath.IsEnabled    = has && editing;
         MenuInsertCharMap.IsEnabled = has && editing;
         MenuInsertEmoji.IsEnabled   = has && editing;

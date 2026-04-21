@@ -54,6 +54,36 @@
                 <MenuItem x:Name="MenuInsertImage" Header="{DynamicResource Ms_InsertImage}" Click="OnInsertImage"/>
                 <MenuItem x:Name="MenuInsertVideo" Header="{DynamicResource Ms_InsertVideo}" Click="OnInsertVideo"/>
                 <MenuItem x:Name="MenuInsertAudio" Header="{DynamicResource Ms_InsertAudio}" Click="OnInsertAudio"/>
+                <MenuItem x:Name="MenuInsertShape" Header="{DynamicResource Ms_InsertShape}">
+                    <MenuItem Header="{DynamicResource Ms_Shape_Lines}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Line}"       Click="OnDrawShape" Tag="Line"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_SplineLine}" Click="OnDrawShape" Tag="SplineLine"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_PolyLine}"   Click="OnDrawShape" Tag="PolyLine"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Rects}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Rect}"          Click="OnDrawShape" Tag="Rect"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Square}"        Click="OnDrawShape" Tag="Square"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Trapezoid}"     Click="OnDrawShape" Tag="Trapezoid"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Parallelogram}" Click="OnDrawShape" Tag="Parallelogram"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Triangles}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_EqTriangle}"    Click="OnDrawShape" Tag="EqTriangle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_IsoTriangle}"   Click="OnDrawShape" Tag="IsoTriangle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_RightTriangle}" Click="OnDrawShape" Tag="RightTriangle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Scalene}"       Click="OnDrawShape" Tag="ScaleneTriangle"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Circles}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Circle}"  Click="OnDrawShape" Tag="Circle"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Ellipse}" Click="OnDrawShape" Tag="Ellipse"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_Arc}"     Click="OnDrawShape" Tag="Arc"/>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Filled}">
+                        <MenuItem Header="{DynamicResource Ms_Shape_Polygon}"       Click="OnDrawShape" Tag="Polygon"/>
+                        <MenuItem Header="{DynamicResource Ms_Shape_SplinePolygon}" Click="OnDrawShape" Tag="SplinePolygon"/>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="{DynamicResource Ms_Shape_Arrow}" Click="OnDrawShape" Tag="Arrow"/>
+                </MenuItem>
                 <Separator/>
                 <MenuItem x:Name="MenuInsertMath"    Header="{DynamicResource Ms_InsertMath}"
                           InputGestureText="Ctrl+Shift+M" Click="OnInsertMath"/>
