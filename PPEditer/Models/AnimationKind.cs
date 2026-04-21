@@ -12,7 +12,9 @@ public enum AnimationKind
 
 public sealed class ShapeAnimation
 {
-    public int           TreeIndex  { get; set; }
-    public AnimationKind Kind       { get; set; }
-    public double        DurationMs { get; set; } = 500;
+    public int           TreeIndex   { get; set; }
+    public AnimationKind Kind        { get; set; }
+    public double        DurationMs  { get; set; } = 500;
+    public bool          AutoPlay    { get; set; } = false;
+    public int           RepeatCount { get; set; } = 1;
 }

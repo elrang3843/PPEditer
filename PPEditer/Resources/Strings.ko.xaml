@@ -96,6 +96,9 @@
     <sys:String x:Key="An_Pulse">펄스/강조 — 커졌다가 원래 크기로 복귀</sys:String>
     <sys:String x:Key="An_Bounce">팝콘/튕김 — 텍스트가 튀어 오르는 효과</sys:String>
     <sys:String x:Key="An_WipeIn">닦아내기 — 왼쪽에서 오른쪽으로 나타남</sys:String>
+    <sys:String x:Key="Dlg_Duration">시간 (초):</sys:String>
+    <sys:String x:Key="Dlg_RepeatCount">반복 횟수 (0=무한):</sys:String>
+    <sys:String x:Key="Dlg_AutoPlay">슬라이드 표시 시 자동 실행</sys:String>
     <sys:String x:Key="Msg_TransitionSet">슬라이드 전환 효과가 설정되었습니다.</sys:String>
     <sys:String x:Key="Msg_AnimationSet">애니메이션 효과가 설정되었습니다.</sys:String>
     <sys:String x:Key="Ms_Settings">설정(_G)</sys:String>

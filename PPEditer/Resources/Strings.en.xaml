@@ -96,6 +96,9 @@
     <sys:String x:Key="An_Pulse">Pulse — scales up then back</sys:String>
     <sys:String x:Key="An_Bounce">Bounce — pops up like popcorn</sys:String>
     <sys:String x:Key="An_WipeIn">Wipe In — sweeps in from the left</sys:String>
+    <sys:String x:Key="Dlg_Duration">Duration (s):</sys:String>
+    <sys:String x:Key="Dlg_RepeatCount">Repeat (0=∞):</sys:String>
+    <sys:String x:Key="Dlg_AutoPlay">Auto-play on slide show</sys:String>
     <sys:String x:Key="Msg_TransitionSet">Slide transition effect set.</sys:String>
     <sys:String x:Key="Msg_AnimationSet">Animation effect set.</sys:String>
     <sys:String x:Key="Ms_Settings">_Settings</sys:String>

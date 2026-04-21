@@ -23,7 +23,7 @@ public partial class SlideShowWindow : Window
         InitializeComponent();
         _model = model;
         _index = Math.Clamp(startIndex, 0, model.SlideCount - 1);
-        Loaded += (_, _) => { Focus(); ShowSlide(TransitionKind.None); };
+        Loaded += (_, _) => { Focus(); ShowSlide(new SlideTransition { Kind = TransitionKind.None }); };
     }
 
     // ── Navigation ────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ public partial class SlideShowWindow : Window
         if (_index < _model.SlideCount - 1)
         {
             _index++;
-            ShowSlide(_model.GetSlideTransition(_index).Kind);
+            ShowSlide(_model.GetSlideTransition(_index));
         }
         else Close();
     }
@@ -44,12 +44,12 @@ public partial class SlideShowWindow : Window
     {
         if (_transitioning) return;
         _pendingAnims.Clear();
-        if (_index > 0) { _index--; ShowSlide(TransitionKind.None); }
+        if (_index > 0) { _index--; ShowSlide(new SlideTransition { Kind = TransitionKind.None }); }
     }
 
     // ── Slide display ─────────────────────────────────────────────────
 
-    private void ShowSlide(TransitionKind transition)
+    private void ShowSlide(SlideTransition transition)
     {
         var part = _model.GetSlidePart(_index);
         if (part is null) return;
@@ -64,12 +64,15 @@ public partial class SlideShowWindow : Window
             _pendingAnims.Enqueue(anim);
         }
 
-        if (_activeViewbox is null || transition == TransitionKind.None)
+        double dur = transition.DurationMs;
+
+        if (_activeViewbox is null || transition.Kind == TransitionKind.None)
         {
             SlideContainer.Children.Clear();
             SlideContainer.Children.Add(newVb);
             _activeViewbox = newVb;
             _activeCanvas  = newCanvas;
+            FlushAutoPlay();
             return;
         }
 
@@ -83,66 +86,68 @@ public partial class SlideShowWindow : Window
             _activeViewbox = newVb;
             _activeCanvas  = newCanvas;
             _transitioning = false;
+            FlushAutoPlay();
         }
 
-        switch (transition)
+        switch (transition.Kind)
         {
-            case TransitionKind.Fade:    PlayFade   (old, newVb, Finish); break;
-            case TransitionKind.Push:    PlayPush   (old, newVb, Finish); break;
-            case TransitionKind.Wipe:    PlayWipe   (old, newVb, Finish); break;
-            case TransitionKind.Flip:    PlayFlip   (old, newVb, Finish); break;
-            case TransitionKind.Crumple: PlayCrumple(old, newVb, Finish); break;
-            case TransitionKind.Morph:   PlayMorph  (old, newVb, Finish); break;
+            case TransitionKind.Fade:    PlayFade   (old, newVb, Finish, dur); break;
+            case TransitionKind.Push:    PlayPush   (old, newVb, Finish, dur); break;
+            case TransitionKind.Wipe:    PlayWipe   (old, newVb, Finish, dur); break;
+            case TransitionKind.Flip:    PlayFlip   (old, newVb, Finish, dur); break;
+            case TransitionKind.Crumple: PlayCrumple(old, newVb, Finish, dur); break;
+            case TransitionKind.Morph:   PlayMorph  (old, newVb, Finish, dur); break;
             default:
                 SlideContainer.Children.Remove(old);
                 _activeViewbox = newVb;
                 _activeCanvas  = newCanvas;
                 _transitioning = false;
+                FlushAutoPlay();
                 break;
         }
     }
 
     // ── Slide transitions (BeginAnimation) ───────────────────────────
 
-    private void PlayFade(Viewbox old, Viewbox nw, Action done)
+    private void PlayFade(Viewbox old, Viewbox nw, Action done, double dur)
     {
         nw.Opacity = 0;
-        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, 700));
-        var fin = A(0, 1, 700); fin.Completed += (_, _) => done();
+        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, dur));
+        var fin = A(0, 1, dur); fin.Completed += (_, _) => done();
         nw.BeginAnimation(UIElement.OpacityProperty, fin);
     }
 
-    private void PlayPush(Viewbox old, Viewbox nw, Action done)
+    private void PlayPush(Viewbox old, Viewbox nw, Action done, double dur)
     {
         double w  = ScreenW();
         var oldTt = TT(old, 0, 0);
         var newTt = TT(nw, w, 0);
-        oldTt.BeginAnimation(TranslateTransform.XProperty, A(0, -w, 600));
-        var fin = A(w, 0, 600); fin.Completed += (_, _) => done();
+        oldTt.BeginAnimation(TranslateTransform.XProperty, A(0, -w, dur));
+        var fin = A(w, 0, dur); fin.Completed += (_, _) => done();
         newTt.BeginAnimation(TranslateTransform.XProperty, fin);
     }
 
-    private void PlayWipe(Viewbox old, Viewbox nw, Action done)
+    private void PlayWipe(Viewbox old, Viewbox nw, Action done, double dur)
     {
         double w  = ScreenW();
         var newTt = TT(nw, -w, 0);
-        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, 400));
-        var fin = AE(-w, 0, 650, Out); fin.Completed += (_, _) => done();
+        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, dur * 0.6));
+        var fin = AE(-w, 0, dur, Out); fin.Completed += (_, _) => done();
         newTt.BeginAnimation(TranslateTransform.XProperty, fin);
     }
 
-    private void PlayFlip(Viewbox old, Viewbox nw, Action done)
+    private void PlayFlip(Viewbox old, Viewbox nw, Action done, double dur)
     {
         SlideContainer.Children.Remove(nw);
         SlideContainer.Children.Insert(0, nw);
         double h  = ScreenH();
         var oldTt = TT(old, 0, 0);
-        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, 300));
-        var fin = AE(0, -h, 500, In); fin.Completed += (_, _) => done();
+        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, dur * 0.6));
+        var fin = AE(0, -h, dur, In); fin.Completed += (_, _) => done();
         oldTt.BeginAnimation(TranslateTransform.YProperty, fin);
     }
 
-    private void PlayCrumple(Viewbox old, Viewbox nw, Action done)
+    private void PlayCrumple(Viewbox old, Viewbox nw, Action done, double dur)
     {
         SlideContainer.Children.Remove(nw);
         SlideContainer.Children.Insert(0, nw);
@@ -157,16 +162,16 @@ public partial class SlideShowWindow : Window
         old.RenderTransform = tg;
 
         double h = ScreenH();
-        sc.BeginAnimation(ScaleTransform.ScaleXProperty,   AE(1, 0.05, 600, In));
-        sc.BeginAnimation(ScaleTransform.ScaleYProperty,   AE(1, 0.05, 600, In));
-        rt.BeginAnimation(RotateTransform.AngleProperty,   A(0, 30, 500));
-        tr.BeginAnimation(TranslateTransform.YProperty,    AE(0, -h * 0.3, 600, In));
-        old.BeginAnimation(UIElement.OpacityProperty,      A(1, 0, 500));
-        var fin = A(0, 1, 600); fin.Completed += (_, _) => done();
+        sc.BeginAnimation(ScaleTransform.ScaleXProperty,   AE(1, 0.05, dur, In));
+        sc.BeginAnimation(ScaleTransform.ScaleYProperty,   AE(1, 0.05, dur, In));
+        rt.BeginAnimation(RotateTransform.AngleProperty,   A(0, 30, dur * 0.83));
+        tr.BeginAnimation(TranslateTransform.YProperty,    AE(0, -h * 0.3, dur, In));
+        old.BeginAnimation(UIElement.OpacityProperty,      A(1, 0, dur * 0.83));
+        var fin = A(0, 1, dur); fin.Completed += (_, _) => done();
         nw.BeginAnimation(UIElement.OpacityProperty, fin);
     }
 
-    private void PlayMorph(Viewbox old, Viewbox nw, Action done)
+    private void PlayMorph(Viewbox old, Viewbox nw, Action done, double dur)
     {
         nw.Opacity = 0;
         var oldSc = new ScaleTransform(1, 1);
@@ -176,16 +181,37 @@ public partial class SlideShowWindow : Window
         nw.RenderTransformOrigin = new Point(0.5, 0.5);
         nw.RenderTransform = newSc;
 
-        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, 600));
-        oldSc.BeginAnimation(ScaleTransform.ScaleXProperty, A(1, 1.06, 600));
-        oldSc.BeginAnimation(ScaleTransform.ScaleYProperty, A(1, 1.06, 600));
-        newSc.BeginAnimation(ScaleTransform.ScaleXProperty, AE(0.92, 1, 600, Out));
-        newSc.BeginAnimation(ScaleTransform.ScaleYProperty, AE(0.92, 1, 600, Out));
-        var fin = A(0, 1, 600); fin.Completed += (_, _) => done();
+        old.BeginAnimation(UIElement.OpacityProperty, A(1, 0, dur));
+        oldSc.BeginAnimation(ScaleTransform.ScaleXProperty, A(1, 1.06, dur));
+        oldSc.BeginAnimation(ScaleTransform.ScaleYProperty, A(1, 1.06, dur));
+        newSc.BeginAnimation(ScaleTransform.ScaleXProperty, AE(0.92, 1, dur, Out));
+        newSc.BeginAnimation(ScaleTransform.ScaleYProperty, AE(0.92, 1, dur, Out));
+        var fin = A(0, 1, dur); fin.Completed += (_, _) => done();
         nw.BeginAnimation(UIElement.OpacityProperty, fin);
     }
 
     // ── Shape animation playback ──────────────────────────────────────
+
+    private void FlushAutoPlay()
+    {
+        if (_activeCanvas is null) return;
+        var remaining = new Queue<ShapeAnimation>();
+        while (_pendingAnims.Count > 0)
+        {
+            var a = _pendingAnims.Dequeue();
+            if (a.AutoPlay)
+            {
+                var el = FindShape(_activeCanvas, a.TreeIndex);
+                if (el is not null) { el.Visibility = Visibility.Visible; PlayShapeAnim(el, a); }
+            }
+            else
+            {
+                remaining.Enqueue(a);
+            }
+        }
+        while (remaining.Count > 0)
+            _pendingAnims.Enqueue(remaining.Dequeue());
+    }
 
     private void PlayNextAnimation()
     {
@@ -201,21 +227,29 @@ public partial class SlideShowWindow : Window
     {
         el.RenderTransformOrigin = new Point(0.5, 0.5);
         double dur = anim.DurationMs;
+        var    rep = anim.RepeatCount == 0
+                     ? RepeatBehavior.Forever
+                     : new RepeatBehavior(anim.RepeatCount);
 
         switch (anim.Kind)
         {
             case AnimationKind.FadeIn:
+            {
                 el.Opacity = 0;
-                el.BeginAnimation(UIElement.OpacityProperty, A(0, 1, dur));
+                var a = A(0, 1, dur); a.RepeatBehavior = rep;
+                el.BeginAnimation(UIElement.OpacityProperty, a);
                 break;
+            }
 
             case AnimationKind.FlyIn:
             {
                 el.Opacity = 0;
                 var tt = new TranslateTransform(0, 60);
                 el.RenderTransform = tt;
-                el.BeginAnimation(UIElement.OpacityProperty, A(0, 1, dur * 0.6));
-                tt.BeginAnimation(TranslateTransform.YProperty, AE(60, 0, dur, Out));
+                var aOp = A(0, 1, dur * 0.6); aOp.RepeatBehavior = rep;
+                var aTr = AE(60, 0, dur, Out); aTr.RepeatBehavior = rep;
+                el.BeginAnimation(UIElement.OpacityProperty, aOp);
+                tt.BeginAnimation(TranslateTransform.YProperty, aTr);
                 break;
             }
 
@@ -223,8 +257,10 @@ public partial class SlideShowWindow : Window
             {
                 var sc = new ScaleTransform(1, 1);
                 el.RenderTransform = sc;
-                sc.BeginAnimation(ScaleTransform.ScaleXProperty, PulseKF(dur));
-                sc.BeginAnimation(ScaleTransform.ScaleYProperty, PulseKF(dur));
+                var kfx = PulseKF(dur); kfx.RepeatBehavior = rep;
+                var kfy = PulseKF(dur); kfy.RepeatBehavior = rep;
+                sc.BeginAnimation(ScaleTransform.ScaleXProperty, kfx);
+                sc.BeginAnimation(ScaleTransform.ScaleYProperty, kfy);
                 break;
             }
 
@@ -232,7 +268,7 @@ public partial class SlideShowWindow : Window
             {
                 var tt = new TranslateTransform(0, 0);
                 el.RenderTransform = tt;
-                var kf = new DoubleAnimationUsingKeyFrames { Duration = D(dur) };
+                var kf = new DoubleAnimationUsingKeyFrames { Duration = D(dur), RepeatBehavior = rep };
                 kf.KeyFrames.Add(new EasingDoubleKeyFrame(0,   KeyTime.FromPercent(0.00)));
                 kf.KeyFrames.Add(new EasingDoubleKeyFrame(-45, KeyTime.FromPercent(0.30),
                     new CubicEase { EasingMode = EasingMode.EaseOut }));
@@ -248,8 +284,10 @@ public partial class SlideShowWindow : Window
                 el.Opacity = 0;
                 var tt = new TranslateTransform(-w - 20, 0);
                 el.RenderTransform = tt;
-                el.BeginAnimation(UIElement.OpacityProperty, A(0, 1, dur * 0.4));
-                tt.BeginAnimation(TranslateTransform.XProperty, AE(-w - 20, 0, dur, Out));
+                var aOp = A(0, 1, dur * 0.4); aOp.RepeatBehavior = rep;
+                var aTr = AE(-w - 20, 0, dur, Out); aTr.RepeatBehavior = rep;
+                el.BeginAnimation(UIElement.OpacityProperty, aOp);
+                tt.BeginAnimation(TranslateTransform.XProperty, aTr);
                 break;
             }
         }

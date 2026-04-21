@@ -1642,7 +1642,12 @@ public sealed class PresentationModel : IDisposable
         // Recover in-memory Morph override if set
         if (_morphSlides.Contains(slideIndex)) kind = TransitionKind.Morph;
 
-        return new SlideTransition { Kind = kind };
+        var durAttr = tr.GetAttribute("dur", "");
+        double durationMs = 700;
+        if (durAttr.Value is string dv && dv != "auto" && uint.TryParse(dv, out var d))
+            durationMs = d;
+
+        return new SlideTransition { Kind = kind, DurationMs = durationMs };
     }
 
     public void SetSlideTransition(int slideIndex, SlideTransition tr, bool allSlides = false)
@@ -1687,6 +1692,7 @@ public sealed class PresentationModel : IDisposable
 
         var pTr = new Transition();
         pTr.SetAttribute(new OpenXmlAttribute("spd", "", "med"));
+        pTr.SetAttribute(new OpenXmlAttribute("dur", "", ((int)tr.DurationMs).ToString()));
 
         OpenXmlElement child = tr.Kind switch
         {
@@ -1747,15 +1753,29 @@ public sealed class PresentationModel : IDisposable
         return list.FirstOrDefault(a => a.TreeIndex == treeIndex)?.Kind ?? AnimationKind.None;
     }
 
+    public ShapeAnimation GetShapeAnimation(int slideIndex, int treeIndex)
+    {
+        if (_slideAnimations.TryGetValue(slideIndex, out var list))
+        {
+            var existing = list.FirstOrDefault(a => a.TreeIndex == treeIndex);
+            if (existing is not null) return existing;
+        }
+        return new ShapeAnimation { TreeIndex = treeIndex };
+    }
+
     public void SetShapeAnimation(int slideIndex, int treeIndex, AnimationKind kind,
-                                   double durationMs = 500)
+                                   double durationMs = 500, bool autoPlay = false, int repeatCount = 1)
     {
         if (!_slideAnimations.TryGetValue(slideIndex, out var list))
             _slideAnimations[slideIndex] = list = new List<ShapeAnimation>();
 
         list.RemoveAll(a => a.TreeIndex == treeIndex);
         if (kind != AnimationKind.None)
-            list.Add(new ShapeAnimation { TreeIndex = treeIndex, Kind = kind, DurationMs = durationMs });
+            list.Add(new ShapeAnimation
+            {
+                TreeIndex = treeIndex, Kind = kind, DurationMs = durationMs,
+                AutoPlay = autoPlay, RepeatCount = repeatCount
+            });
         _modified = true;
     }
 
