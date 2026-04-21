@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\PPEditor.ico</ApplicationIcon>
     <Copyright>Copyright © 2026 Noh JinMoon (HANDTECH)</Copyright>
     <Company>HANDTECH - 상상공작소</Company>
     <Authors>Noh JinMoon</Authors>

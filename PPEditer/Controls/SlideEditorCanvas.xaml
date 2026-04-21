@@ -1,35 +1,37 @@
 <UserControl x:Class="PPEditer.Controls.SlideEditorCanvas"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#646464">
+             Background="{DynamicResource CanvasBg}">
     <Grid>
         <ScrollViewer x:Name="Scroller"
                       HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto"
-                      Background="#646464"
+                      Background="{DynamicResource CanvasBg}"
                       Focusable="False">
-            <!-- Outer container centres the slide inside the scroll area -->
-            <Grid x:Name="CenterGrid" HorizontalAlignment="Center" VerticalAlignment="Center"
+            <Grid x:Name="CenterGrid"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="40">
-
                 <!-- Drop shadow -->
                 <Border Background="#80000000" Margin="4,4,-4,-4"/>
 
-                <!-- Slide border + viewbox -->
+                <!-- Slide border -->
                 <Border x:Name="SlideBorder"
                         BorderBrush="#AAAAAA" BorderThickness="1"
                         Background="White">
+                    <!--
+                        The Viewbox scales the native canvas to fit.
+                        The native canvas is set as Viewbox.Child in code-behind.
+                    -->
                     <Viewbox x:Name="SlideViewbox" Stretch="Uniform">
-                        <!-- Slide canvas is injected here in code-behind -->
                         <Canvas x:Name="SlideCanvas" Width="960" Height="540"/>
                     </Viewbox>
                 </Border>
             </Grid>
         </ScrollViewer>
 
-        <!-- No-document message -->
+        <!-- No-document overlay -->
         <TextBlock x:Name="NoDocMsg"
-                   Text="파일을 여세요 (Ctrl+O)"
+                   Text="{DynamicResource NoDoc}"
                    HorizontalAlignment="Center" VerticalAlignment="Center"
                    Foreground="#CCCCCC" FontSize="20"/>
     </Grid>

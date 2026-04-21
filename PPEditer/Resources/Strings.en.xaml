@@ -1,0 +1,136 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ══ Menu ══════════════════════════════════════════════════════════ -->
+    <sys:String x:Key="Ms_File">_File</sys:String>
+    <sys:String x:Key="Ms_New">_New</sys:String>
+    <sys:String x:Key="Ms_Open">_Open...</sys:String>
+    <sys:String x:Key="Ms_Recent">_Recent Files</sys:String>
+    <sys:String x:Key="Ms_Save">_Save</sys:String>
+    <sys:String x:Key="Ms_SaveAs">Save _As...</sys:String>
+    <sys:String x:Key="Ms_ExportPdf">_Export PDF...</sys:String>
+    <sys:String x:Key="Ms_Exit">E_xit</sys:String>
+    <sys:String x:Key="Ms_Edit">_Edit</sys:String>
+    <sys:String x:Key="Ms_Undo">_Undo</sys:String>
+    <sys:String x:Key="Ms_Redo">_Redo</sys:String>
+    <sys:String x:Key="Ms_Cut">Cu_t</sys:String>
+    <sys:String x:Key="Ms_Copy">_Copy</sys:String>
+    <sys:String x:Key="Ms_Paste">_Paste</sys:String>
+    <sys:String x:Key="Ms_SelectAll">Select _All</sys:String>
+    <sys:String x:Key="Ms_View">_View</sys:String>
+    <sys:String x:Key="Ms_ZoomIn">Zoom _In</sys:String>
+    <sys:String x:Key="Ms_ZoomOut">Zoom _Out</sys:String>
+    <sys:String x:Key="Ms_ZoomFit">_Fit to Window</sys:String>
+    <sys:String x:Key="Ms_SlidePanel">Slide _Panel</sys:String>
+    <sys:String x:Key="Ms_StatusBar">_Status Bar</sys:String>
+    <sys:String x:Key="Ms_Insert">_Insert</sys:String>
+    <sys:String x:Key="Ms_InsertTextBox">_Text Box...</sys:String>
+    <sys:String x:Key="Ms_Slide">S_lide</sys:String>
+    <sys:String x:Key="Ms_AddSlide">_New Slide</sys:String>
+    <sys:String x:Key="Ms_DupSlide">_Duplicate Slide</sys:String>
+    <sys:String x:Key="Ms_DelSlide">_Delete Slide</sys:String>
+    <sys:String x:Key="Ms_SlideUp">Move _Up</sys:String>
+    <sys:String x:Key="Ms_SlideDown">Move _Down</sys:String>
+    <sys:String x:Key="Ms_Settings">_Settings</sys:String>
+    <sys:String x:Key="Ms_FontFilter">_Font License Filter</sys:String>
+    <sys:String x:Key="Ms_Language">_Language</sys:String>
+    <sys:String x:Key="Ms_LangKo">한국어</sys:String>
+    <sys:String x:Key="Ms_LangEn">English</sys:String>
+    <sys:String x:Key="Ms_Theme">_Theme</sys:String>
+    <sys:String x:Key="Ms_ThemeLight">Light Theme</sys:String>
+    <sys:String x:Key="Ms_ThemeDark">Dark Theme</sys:String>
+    <sys:String x:Key="Ms_DocPassword">Document _Password</sys:String>
+    <sys:String x:Key="Ms_Help">_Help</sys:String>
+    <sys:String x:Key="Ms_About">_About PPEditer...</sys:String>
+
+    <!-- ══ Toolbar ════════════════════════════════════════════════════════ -->
+    <sys:String x:Key="Tb_New">New</sys:String>
+    <sys:String x:Key="Tb_Open">Open</sys:String>
+    <sys:String x:Key="Tb_Save">Save</sys:String>
+    <sys:String x:Key="Tb_Undo">↩ Undo</sys:String>
+    <sys:String x:Key="Tb_Redo">↪ Redo</sys:String>
+    <sys:String x:Key="Tb_AddSlide">+ Slide</sys:String>
+    <sys:String x:Key="Tb_DelSlide">− Slide</sys:String>
+    <sys:String x:Key="Tb_TextBox">T TextBox</sys:String>
+    <sys:String x:Key="Tb_ExportPdf">Export PDF</sys:String>
+    <sys:String x:Key="Tb_ZoomLabel">Zoom:</sys:String>
+    <sys:String x:Key="Tb_ZoomFit">Fit</sys:String>
+    <sys:String x:Key="Tb_OpenFontsOnly">Open-source fonts only</sys:String>
+    <sys:String x:Key="Tb_CommitEdit">✓ Done</sys:String>
+    <sys:String x:Key="Tb_SlidePanel">  Slides</sys:String>
+
+    <!-- ══ Tooltips ═══════════════════════════════════════════════════════ -->
+    <sys:String x:Key="Tt_New">New (Ctrl+N)</sys:String>
+    <sys:String x:Key="Tt_Open">Open (Ctrl+O)</sys:String>
+    <sys:String x:Key="Tt_Save">Save (Ctrl+S)</sys:String>
+    <sys:String x:Key="Tt_Undo">Undo (Ctrl+Z)</sys:String>
+    <sys:String x:Key="Tt_Redo">Redo (Ctrl+Y)</sys:String>
+    <sys:String x:Key="Tt_AddSlide">New Slide (Ctrl+M)</sys:String>
+    <sys:String x:Key="Tt_DelSlide">Delete Slide</sys:String>
+    <sys:String x:Key="Tt_TextBox">Insert Text Box (Ctrl+Shift+T)</sys:String>
+    <sys:String x:Key="Tt_ExportPdf">Export PDF (Ctrl+Shift+E)</sys:String>
+    <sys:String x:Key="Tt_ZoomFit">Fit to Window (Ctrl+0)</sys:String>
+    <sys:String x:Key="Tt_FontFamily">Select font</sys:String>
+    <sys:String x:Key="Tt_FontSize">Font size (pt)</sys:String>
+    <sys:String x:Key="Tt_Bold">Bold (Ctrl+B)</sys:String>
+    <sys:String x:Key="Tt_Italic">Italic (Ctrl+I)</sys:String>
+    <sys:String x:Key="Tt_Underline">Underline (Ctrl+U)</sys:String>
+    <sys:String x:Key="Tt_AlignLeft">Align Left (Ctrl+L)</sys:String>
+    <sys:String x:Key="Tt_AlignCenter">Center (Ctrl+E)</sys:String>
+    <sys:String x:Key="Tt_AlignRight">Align Right (Ctrl+R)</sys:String>
+    <sys:String x:Key="Tt_TextColor">Text color</sys:String>
+    <sys:String x:Key="Tt_OpenFontsOnly">Show only open-source fonts with clear licenses.</sys:String>
+    <sys:String x:Key="Tt_CommitEdit">Finish editing (Esc)</sys:String>
+
+    <!-- ══ Canvas / Status ════════════════════════════════════════════════ -->
+    <sys:String x:Key="NoDoc">Open a file (Ctrl+O)</sys:String>
+    <sys:String x:Key="St_Ready">Ready</sys:String>
+
+    <!-- ══ Status bar messages ════════════════════════════════════════════ -->
+    <sys:String x:Key="Msg_NewCreated">New presentation created.</sys:String>
+    <sys:String x:Key="Msg_Saved">Saved.</sys:String>
+    <sys:String x:Key="Msg_TextSaved">Text edit saved.</sys:String>
+    <sys:String x:Key="Msg_TextBoxAdded">Text box added.</sys:String>
+    <sys:String x:Key="Msg_PwdEnabled">Document password set.</sys:String>
+    <sys:String x:Key="Msg_PwdDisabled">Document password removed.</sys:String>
+    <sys:String x:Key="Msg_PwdNoSupport">Document password is not yet supported. The file will be saved without encryption.</sys:String>
+    <sys:String x:Key="Msg_Opened">Opened: {0}</sys:String>
+    <sys:String x:Key="Msg_SavedAs">Saved as: {0}</sys:String>
+    <sys:String x:Key="Msg_PdfDone">PDF exported: {0}</sys:String>
+    <sys:String x:Key="Msg_Exporting">Exporting... {0}/{1}</sys:String>
+
+    <!-- ══ Dialog titles / buttons ════════════════════════════════════════ -->
+    <sys:String x:Key="Dlg_OpenFilter">Presentation files|*.pptx;*.ppt|All files|*.*</sys:String>
+    <sys:String x:Key="Dlg_OpenTitle">Open File</sys:String>
+    <sys:String x:Key="Dlg_SaveFilter">PowerPoint files|*.pptx|All files|*.*</sys:String>
+    <sys:String x:Key="Dlg_SaveTitle">Save As</sys:String>
+    <sys:String x:Key="Dlg_PdfFilter">PDF files|*.pdf|All files|*.*</sys:String>
+    <sys:String x:Key="Dlg_PdfTitle">Export PDF</sys:String>
+    <sys:String x:Key="Dlg_Exporting">Exporting</sys:String>
+    <sys:String x:Key="Dlg_Password">Set Password</sys:String>
+    <sys:String x:Key="Dlg_PasswordPrompt">Enter document password:</sys:String>
+    <sys:String x:Key="Dlg_PasswordConfirm">Confirm password:</sys:String>
+    <sys:String x:Key="Dlg_PasswordMismatch">Passwords do not match.</sys:String>
+    <sys:String x:Key="Dlg_ColorPicker">Choose Text Color</sys:String>
+    <sys:String x:Key="Btn_Ok">OK</sys:String>
+    <sys:String x:Key="Btn_Cancel">Cancel</sys:String>
+
+    <!-- ══ Error / warning messages ═══════════════════════════════════════ -->
+    <sys:String x:Key="Err_OpenFailed">Cannot open file:</sys:String>
+    <sys:String x:Key="Err_SaveFailed">Save failed:</sys:String>
+    <sys:String x:Key="Err_PdfFailed">PDF export failed.</sys:String>
+    <sys:String x:Key="Err_LastSlide">Cannot delete the last slide.</sys:String>
+    <sys:String x:Key="Err_FileNotFound">File not found:</sys:String>
+    <sys:String x:Key="Msg_ConfirmDelete">Delete slide {0}?</sys:String>
+    <sys:String x:Key="Msg_UnsavedChanges">Save changes to '{0}'?</sys:String>
+    <sys:String x:Key="Lbl_OpenError">Open Error</sys:String>
+    <sys:String x:Key="Lbl_SaveError">Save Error</sys:String>
+    <sys:String x:Key="Lbl_Error">Error</sys:String>
+    <sys:String x:Key="Lbl_DeleteFail">Cannot Delete</sys:String>
+    <sys:String x:Key="Lbl_DeleteConfirm">Delete Slide</sys:String>
+    <sys:String x:Key="Lbl_FileNotFound">File Not Found</sys:String>
+    <sys:String x:Key="Lbl_UnsavedChanges">Unsaved Changes</sys:String>
+    <sys:String x:Key="Lbl_PdfFailed">Error</sys:String>
+
+</ResourceDictionary>

@@ -1,6 +1,8 @@
 using System.IO;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
+using A = DocumentFormat.OpenXml.Drawing;
 
 namespace PPEditer.Models;
 
@@ -105,8 +107,9 @@ public sealed class PresentationModel : IDisposable
     {
         PushUndo();
         var pp     = _doc!.PresentationPart!;
-        var layout = pp.SlideLayoutParts.Skip(1).FirstOrDefault()
-                     ?? pp.SlideLayoutParts.First();
+        var masterPart = pp.SlideMasterParts.FirstOrDefault();
+        var layout = masterPart?.SlideLayoutParts.Skip(1).FirstOrDefault()
+                  ?? masterPart?.SlideLayoutParts.FirstOrDefault();
         var slidePart = pp.AddNewPart<SlidePart>();
         new Slide(
             new CommonSlideData(new ShapeTree(
@@ -212,6 +215,134 @@ public sealed class PresentationModel : IDisposable
 
         pp.Presentation.Save();
         _modified = true;
+    }
+
+    // ── Shape content ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Replace the text content of a shape identified by its index in the slide's ShapeTree.
+    /// Preserves BodyProperties and ListStyle; rebuilds paragraphs from <paramref name="paragraphs"/>.
+    /// </summary>
+    public void UpdateShapeContent(int slideIndex, int shapeTreeIndex,
+                                    IReadOnlyList<Services.PptxConverter.PptxParagraph> paragraphs)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex >= elements.Count) return;
+        if (elements[shapeTreeIndex] is not Shape shape) return;
+        if (shape.TextBody is null) return;
+
+        PushUndo();
+
+        // Preserve structural children
+        var bodyProps  = shape.TextBody.GetFirstChild<A.BodyProperties>()?.CloneNode(true);
+        var listStyle  = shape.TextBody.GetFirstChild<A.ListStyle>()?.CloneNode(true);
+        shape.TextBody.RemoveAllChildren();
+        if (bodyProps is not null) shape.TextBody.Append(bodyProps);
+        if (listStyle is not null) shape.TextBody.Append(listStyle);
+
+        foreach (var para in paragraphs)
+        {
+            var aPara = new A.Paragraph();
+
+            // Paragraph alignment
+            var alignVal = para.Alignment switch
+            {
+                System.Windows.TextAlignment.Center  => A.TextAlignmentTypeValues.Center,
+                System.Windows.TextAlignment.Right   => A.TextAlignmentTypeValues.Right,
+                System.Windows.TextAlignment.Justify => A.TextAlignmentTypeValues.Justify,
+                _                                    => A.TextAlignmentTypeValues.Left,
+            };
+            aPara.ParagraphProperties = new A.ParagraphProperties { Alignment = alignVal };
+
+            foreach (var run in para.Runs)
+            {
+                var aRun  = new A.Run();
+                var rProps = new A.RunProperties { Language = "ko-KR", DirtyFont = false };
+
+                if (!string.IsNullOrEmpty(run.FontFamily))
+                {
+                    rProps.Append(new A.LatinFont    { Typeface = run.FontFamily });
+                    rProps.Append(new A.EastAsianFont { Typeface = run.FontFamily });
+                }
+                if (run.FontSizePt.HasValue)
+                    rProps.FontSize = (int)Math.Round(run.FontSizePt.Value * 100);
+                if (run.Bold)          rProps.Bold      = true;
+                if (run.Italic)        rProps.Italic    = true;
+                if (run.Underline)     rProps.Underline = A.TextUnderlineValues.Single;
+                if (run.Color.HasValue)
+                    rProps.Append(new A.SolidFill(new A.RgbColorModelHex
+                    {
+                        Val = $"{run.Color.Value.R:X2}{run.Color.Value.G:X2}{run.Color.Value.B:X2}"
+                    }));
+
+                aRun.RunProperties = rProps;
+                aRun.Text = new A.Text(run.Text)
+                    { Space = SpaceProcessingModeValues.Preserve };
+                aPara.Append(aRun);
+            }
+
+            if (!para.Runs.Any())
+                aPara.Append(new A.EndParagraphRunProperties { Language = "ko-KR" });
+
+            shape.TextBody.Append(aPara);
+        }
+
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
+    /// <summary>Add a new text box to the slide at the specified position (in EMU).</summary>
+    public int AddTextBox(int slideIndex, long leftEmu, long topEmu,
+                           long widthEmu, long heightEmu)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return -1;
+
+        PushUndo();
+
+        var tree  = slidePart.Slide.CommonSlideData!.ShapeTree!;
+        uint maxId = tree.Elements<Shape>()
+            .Select(s => s.NonVisualShapeProperties?.NonVisualDrawingProperties?.Id?.Value ?? 0u)
+            .DefaultIfEmpty(1u).Max();
+
+        var newShape = new Shape(
+            new NonVisualShapeProperties(
+                new NonVisualDrawingProperties { Id = maxId + 1, Name = $"TextBox {maxId + 1}" },
+                new NonVisualShapeDrawingProperties { TextBox = true },
+                new ApplicationNonVisualDrawingProperties()),
+            new ShapeProperties(
+                new A.Transform2D(
+                    new A.Offset  { X = leftEmu, Y = topEmu },
+                    new A.Extents { Cx = widthEmu, Cy = heightEmu }),
+                new A.PresetGeometry(new A.AdjustValueList())
+                    { Preset = A.ShapeTypeValues.Rectangle },
+                new A.NoFill(),
+                new A.Outline(new A.NoFill())),
+            new TextBody(
+                new A.BodyProperties
+                {
+                    Wrap         = A.TextWrappingValues.Square,
+                    LeftInset    = 91440L,
+                    TopInset     = 45720L,
+                    RightInset   = 91440L,
+                    BottomInset  = 45720L,
+                },
+                new A.ListStyle(),
+                new A.Paragraph(
+                    new A.Run(
+                        new A.RunProperties { Language = "ko-KR", FontSize = 1800 },
+                        new A.Text("텍스트를 입력하세요")))));
+
+        tree.Append(newShape);
+        slidePart.Slide.Save();
+        _modified = true;
+
+        // Return the index of the new element in the ShapeTree
+        return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(newShape);
     }
 
     // ── Undo / Redo ─────────────────────────────────────────────────────

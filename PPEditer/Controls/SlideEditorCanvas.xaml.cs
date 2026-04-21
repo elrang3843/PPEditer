@@ -1,212 +1,289 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Presentation;
 using PPEditer.Models;
 using PPEditer.Rendering;
+using PPEditer.Services;
 
 namespace PPEditer.Controls;
 
 public partial class SlideEditorCanvas : UserControl
 {
-    public event Action<int, string>? ShapeTextEdited;  // (shapeIndex, newText)
+    // ── Events ─────────────────────────────────────────────────────────
+
+    /// <summary>Text editing session started. Payload = the active RichTextBox.</summary>
+    public event Action<RichTextBox>? EditingStarted;
+    /// <summary>User committed a text edit. (slideIdx, shapeTreeIdx, paragraphs)</summary>
+    public event Action<int, int, IReadOnlyList<PptxConverter.PptxParagraph>>? TextCommitted;
+    /// <summary>Fired when the canvas wants MainWindow to add a text box at default position.</summary>
+    public event Action? AddTextBoxRequested;
+
+    // ── State ──────────────────────────────────────────────────────────
 
     private PresentationModel? _model;
+    private SlidePart?         _slidePart;
     private int                _slideIndex;
+    private Canvas?            _nativeCanvas;      // the live SlideRenderer canvas
     private double             _zoom = 1.0;
 
-    // Desired display size at zoom=1 (fit-to-window baseline)
-    private const double ThumbFitW = 960.0;
-    private const double ThumbFitH = 540.0;
+    private int       _selectedIdx  = -1;          // canvas child index
+    private Rectangle? _selRect;                   // selection highlight
+    private RichTextBox? _editor;                  // active inline editor
+    private int       _editingTreeIdx = -1;        // shape-tree index being edited
+
+    // ── Native canvas dimensions (EMU→WPF native pixels) ──────────────
+    private double NativeW => _model is not null ? _model.SlideWidth  / 914400.0 * 96.0 : 960;
+    private double NativeH => _model is not null ? _model.SlideHeight / 914400.0 * 96.0 : 540;
 
     public SlideEditorCanvas()
     {
         InitializeComponent();
-        Loaded  += (_, _) => UpdateViewboxSize();
-        SizeChanged += (_, _) => { if (_zoom == 1.0) FitToWindow(); };
+        Loaded      += (_, _) => UpdateViewboxSize();
+        SizeChanged += (_, _) => { if (_zoom == 1.0) UpdateViewboxSize(); };
     }
 
     // ── Public API ─────────────────────────────────────────────────────
 
     public void ShowSlide(PresentationModel model, int slideIndex)
     {
+        CommitEdit(save: false);
         _model      = model;
         _slideIndex = slideIndex;
+        _slidePart  = model.GetSlidePart(slideIndex);
         Rebuild();
     }
 
-    public void Invalidate() => Rebuild();
+    public void Invalidate()
+    {
+        CommitEdit(save: false);
+        Rebuild();
+    }
 
-    public void ZoomIn()  { _zoom = Math.Min(3.0, Math.Round(_zoom + 0.1, 1)); ApplyZoom(); }
-    public void ZoomOut() { _zoom = Math.Max(0.25, Math.Round(_zoom - 0.1, 1)); ApplyZoom(); }
-    public void FitToWindow() { _zoom = 1.0; ApplyZoom(); }
-    public void SetZoom(double zoom) { _zoom = Math.Max(0.25, Math.Min(3.0, zoom)); ApplyZoom(); }
-    public double ZoomFactor => _zoom;
+    public void ZoomIn()      { _zoom = Math.Min(3.0,  Math.Round(_zoom + 0.1, 1)); ApplyZoom(); }
+    public void ZoomOut()     { _zoom = Math.Max(0.25, Math.Round(_zoom - 0.1, 1)); ApplyZoom(); }
+    public void FitToWindow() { _zoom = 1.0; UpdateViewboxSize(); }
+    public void SetZoom(double z) { _zoom = Math.Clamp(z, 0.25, 3.0); ApplyZoom(); }
+    public double ZoomFactor  => _zoom;
 
-    // ── Rebuild ────────────────────────────────────────────────────────
+    // ── Rebuild (re-render slide) ──────────────────────────────────────
 
     private void Rebuild()
     {
-        SlideCanvas.Children.Clear();
+        _selectedIdx    = -1;
+        _selRect        = null;
+        _editingTreeIdx = -1;
         NoDocMsg.Visibility = Visibility.Collapsed;
 
-        if (_model is null || !_model.IsOpen)
+        if (_model is null || !_model.IsOpen || _slidePart is null)
         {
+            SlideViewbox.Child  = new Canvas { Width = 960, Height = 540 };
+            _nativeCanvas       = null;
             NoDocMsg.Visibility = Visibility.Visible;
             return;
         }
 
-        var slidePart = _model.GetSlidePart(_slideIndex);
-        if (slidePart is null) return;
+        var canvas = SlideRenderer.BuildCanvas(_slidePart, _model.SlideWidth, _model.SlideHeight);
+        canvas.MouseLeftButtonDown += Canvas_MouseDown;
+        canvas.KeyDown             += Canvas_KeyDown;
+        canvas.Focusable            = true;
 
-        // Build canvas at native pixel size
-        var canvas = SlideRenderer.BuildCanvas(slidePart, _model.SlideWidth, _model.SlideHeight);
-
-        // Swap into our Viewbox child
+        _nativeCanvas      = canvas;
         SlideViewbox.Child = canvas;
-        SlideCanvas        = canvas;   // keep reference for future reuse
-
-        // Enable double-click to edit text
-        canvas.MouseLeftButtonDown += Canvas_MouseLeftButtonDown;
-
         UpdateViewboxSize();
     }
 
     // ── Zoom & sizing ──────────────────────────────────────────────────
 
-    private void ApplyZoom()
-    {
-        UpdateViewboxSize();
-    }
+    private void ApplyZoom()    => UpdateViewboxSize();
 
     private void UpdateViewboxSize()
     {
-        if (_model is null || !_model.IsOpen)
-        {
-            SlideViewbox.Width  = ThumbFitW;
-            SlideViewbox.Height = ThumbFitH;
-            return;
-        }
-
-        double aspect = (double)_model.SlideWidth / _model.SlideHeight;
+        double aspect = NativeW / Math.Max(1, NativeH);
 
         if (_zoom == 1.0)
         {
-            // Fit inside available area
             double availW = Math.Max(200, Scroller.ActualWidth  - 80);
             double availH = Math.Max(120, Scroller.ActualHeight - 80);
-
-            double w = availW;
+            double w = availW / aspect <= availH ? availW : availH * aspect;
             double h = w / aspect;
-            if (h > availH)
-            {
-                h = availH;
-                w = h * aspect;
-            }
             SlideViewbox.Width  = w;
             SlideViewbox.Height = h;
         }
         else
         {
-            // Manual zoom: base = native 96-dpi pixel size
-            double baseW = _model.SlideWidth  / 914400.0 * 96.0;
-            double baseH = _model.SlideHeight / 914400.0 * 96.0;
-            SlideViewbox.Width  = baseW * _zoom;
-            SlideViewbox.Height = baseH * _zoom;
+            SlideViewbox.Width  = NativeW * _zoom;
+            SlideViewbox.Height = NativeH * _zoom;
         }
     }
 
-    // ── Mouse / editing ────────────────────────────────────────────────
+    // ── Mouse handling ─────────────────────────────────────────────────
 
-    private void Canvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void Canvas_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount < 2) return;
+        var canvas   = (Canvas)sender;
+        var clickPos = e.GetPosition(canvas);
 
-        var canvas    = (Canvas)sender;
-        var clickPos  = e.GetPosition(canvas);
+        if (e.ClickCount == 1)
+        {
+            CommitEdit(save: true);
+            int idx = HitTest(canvas, clickPos);
+            SelectShape(canvas, idx);
+        }
+        else if (e.ClickCount == 2)
+        {
+            int idx = HitTest(canvas, clickPos);
+            if (idx >= 0) StartEdit(canvas, idx);
+        }
+        canvas.Focus();
+        e.Handled = true;
+    }
 
-        // Find topmost UIElement whose bounds contain the click
-        int idx = -1;
+    private void Canvas_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            CommitEdit(save: true);
+            SelectShape((Canvas)sender, -1);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete && _selectedIdx >= 0 && _editor is null)
+        {
+            // Future: delete selected shape
+        }
+    }
+
+    // ── Hit testing ───────────────────────────────────────────────────
+
+    /// <summary>Returns canvas child index at <paramref name="pos"/> (top of Z-order wins).</summary>
+    private static int HitTest(Canvas canvas, Point pos)
+    {
         for (int i = canvas.Children.Count - 1; i >= 0; i--)
         {
-            if (canvas.Children[i] is UIElement el)
+            if (canvas.Children[i] is FrameworkElement fe && fe.Tag is int)
             {
-                var topLeft = new Point(
-                    Canvas.GetLeft(el),
-                    Canvas.GetTop(el));
-                var bounds = new Rect(topLeft,
-                    new Size(el is FrameworkElement fe ? fe.Width : 0,
-                             el is FrameworkElement fe2 ? fe2.Height : 0));
-                if (bounds.Contains(clickPos))
-                {
-                    idx = i;
-                    break;
-                }
+                double l = Canvas.GetLeft(fe), t = Canvas.GetTop(fe);
+                if (new Rect(l, t, fe.Width, fe.Height).Contains(pos))
+                    return i;
             }
         }
-        if (idx < 0) return;
-
-        // Find text in that element and open inline editor
-        OpenTextEditor(canvas, idx);
+        return -1;
     }
 
-    private void OpenTextEditor(Canvas canvas, int shapeIndex)
+    // ── Selection ─────────────────────────────────────────────────────
+
+    private void SelectShape(Canvas canvas, int idx)
     {
-        if (canvas.Children[shapeIndex] is not Grid container) return;
-
-        // Collect current text from TextBlocks
-        string currentText = string.Join("\n",
-            FindTextBlocks(container).Select(tb => tb.Inlines
-                .OfType<Run>().Select(r => r.Text).Aggregate("", (a, b) => a + b)));
-
-        double left   = Canvas.GetLeft(container);
-        double top    = Canvas.GetTop(container);
-        double width  = container.Width;
-        double height = container.Height;
-
-        var editor = new TextBox
+        // Remove old selection overlay
+        if (_selRect is not null)
         {
-            AcceptsReturn   = true,
-            TextWrapping    = TextWrapping.Wrap,
-            Text            = currentText,
-            Background      = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
-            BorderBrush     = new SolidColorBrush(Color.FromRgb(0, 120, 212)),
-            BorderThickness = new Thickness(2),
-            Width           = width,
-            Height          = height,
-            FontSize        = 14,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-        };
+            canvas.Children.Remove(_selRect);
+            _selRect = null;
+        }
 
-        Canvas.SetLeft(editor, left);
-        Canvas.SetTop(editor, top);
-        canvas.Children.Add(editor);
-        editor.Focus();
-        editor.SelectAll();
+        _selectedIdx = idx;
+        if (idx < 0 || canvas.Children[idx] is not FrameworkElement target) return;
 
-        editor.LostFocus += (_, _) =>
+        _selRect = new Rectangle
         {
-            ShapeTextEdited?.Invoke(shapeIndex, editor.Text);
-            canvas.Children.Remove(editor);
+            Width           = target.Width,
+            Height          = target.Height,
+            Stroke          = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
+            StrokeThickness = 2,
+            StrokeDashArray = new DoubleCollection { 5, 3 },
+            Fill            = new SolidColorBrush(Color.FromArgb(20, 0, 0x78, 0xD4)),
+            IsHitTestVisible = false,
         };
-        editor.KeyDown += (_, e) =>
-        {
-            if (e.Key == Key.Escape)
-            {
-                canvas.Children.Remove(editor);
-                e.Handled = true;
-            }
-        };
+        Canvas.SetLeft(_selRect, Canvas.GetLeft(target));
+        Canvas.SetTop(_selRect,  Canvas.GetTop(target));
+        Panel.SetZIndex(_selRect, 9999);
+        canvas.Children.Add(_selRect);
     }
 
-    private static IEnumerable<TextBlock> FindTextBlocks(DependencyObject parent)
+    // ── Inline text editing ────────────────────────────────────────────
+
+    private void StartEdit(Canvas canvas, int canvasIdx)
     {
-        for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+        if (canvas.Children[canvasIdx] is not FrameworkElement target) return;
+        if (target.Tag is not int treeIdx) return;
+
+        // Only shapes with text bodies are editable
+        var elements = _slidePart?.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || treeIdx >= elements.Count) return;
+        if (elements[treeIdx] is not Shape shape || shape.TextBody is null) return;
+
+        CommitEdit(save: false);
+        SelectShape(canvas, canvasIdx);
+
+        // Build FlowDocument from PPTX text body
+        var doc = PptxConverter.ToFlowDocument(shape.TextBody);
+
+        _editor = new RichTextBox(doc)
         {
-            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
-            if (child is TextBlock tb) yield return tb;
-            foreach (var nested in FindTextBlocks(child)) yield return nested;
+            Width            = target.Width,
+            Height           = target.Height,
+            Background       = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255)),
+            BorderBrush      = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
+            BorderThickness  = new Thickness(2),
+            AcceptsReturn    = true,
+            VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            FontFamily       = new FontFamily("맑은 고딕"),
+        };
+        Panel.SetZIndex(_editor, 10000);
+        Canvas.SetLeft(_editor, Canvas.GetLeft(target));
+        Canvas.SetTop(_editor,  Canvas.GetTop(target));
+
+        _editingTreeIdx = treeIdx;
+        canvas.Children.Add(_editor);
+        _editor.Focus();
+        _editor.SelectAll();
+
+        // Notify MainWindow to enable the formatting toolbar
+        EditingStarted?.Invoke(_editor);
+
+        _editor.LostFocus += (_, _) => CommitEdit(save: true);
+        _editor.KeyDown   += Editor_KeyDown;
+    }
+
+    private void Editor_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            CommitEdit(save: false);
+            e.Handled = true;
         }
     }
+
+    public void CommitEdit(bool save)
+    {
+        if (_editor is null || _nativeCanvas is null) return;
+
+        if (save && _editingTreeIdx >= 0)
+        {
+            var paragraphs = PptxConverter.FromFlowDocument(_editor.Document);
+            TextCommitted?.Invoke(_slideIndex, _editingTreeIdx, paragraphs);
+        }
+
+        _nativeCanvas.Children.Remove(_editor);
+        _editor         = null;
+        _editingTreeIdx = -1;
+    }
+
+    // ── Public helpers for formatting toolbar ──────────────────────────
+
+    /// <summary>Apply a property value to the current RichTextBox selection.</summary>
+    public void ApplySelectionProperty(DependencyProperty prop, object value)
+        => _editor?.Selection.ApplyPropertyValue(prop, value);
+
+    public object? GetSelectionProperty(DependencyProperty prop)
+        => _editor?.Selection.GetPropertyValue(prop);
+
+    public bool IsEditing => _editor is not null;
 }
