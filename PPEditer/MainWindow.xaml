@@ -1,0 +1,140 @@
+<Window x:Class="PPEditer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PPEditer.Controls"
+        Title="PPEditer"
+        Height="760" Width="1280"
+        MinHeight="480" MinWidth="800"
+        Closing="Window_Closing">
+    <DockPanel>
+
+        <!-- ══ Menu bar ══════════════════════════════════════════════ -->
+        <Menu DockPanel.Dock="Top" FontFamily="맑은 고딕, Segoe UI">
+            <!-- 파일 -->
+            <MenuItem Header="파일(_F)">
+                <MenuItem Header="새로 만들기(_N)" InputGestureText="Ctrl+N" Click="OnNew"/>
+                <MenuItem Header="열기(_O)..."     InputGestureText="Ctrl+O" Click="OnOpen"/>
+                <MenuItem x:Name="RecentMenu" Header="최근 파일(_R)"/>
+                <Separator/>
+                <MenuItem x:Name="MenuSave"   Header="저장(_S)"                     InputGestureText="Ctrl+S"       Click="OnSave"/>
+                <MenuItem x:Name="MenuSaveAs" Header="다른 이름으로 저장(_A)..."    InputGestureText="Ctrl+Shift+S" Click="OnSaveAs"/>
+                <Separator/>
+                <MenuItem x:Name="MenuExportPdf" Header="PDF로 내보내기(_E)..."     InputGestureText="Ctrl+Shift+E" Click="OnExportPdf"/>
+                <Separator/>
+                <MenuItem Header="끝내기(_X)" InputGestureText="Alt+F4" Click="OnExit"/>
+            </MenuItem>
+
+            <!-- 편집 -->
+            <MenuItem Header="편집(_E)">
+                <MenuItem x:Name="MenuUndo" Header="실행 취소(_Z)" InputGestureText="Ctrl+Z" Click="OnUndo"/>
+                <MenuItem x:Name="MenuRedo" Header="다시 실행(_Y)" InputGestureText="Ctrl+Y" Click="OnRedo"/>
+                <Separator/>
+                <MenuItem Header="잘라내기(_T)"  InputGestureText="Ctrl+X"
+                          Command="ApplicationCommands.Cut"/>
+                <MenuItem Header="복사(_C)"      InputGestureText="Ctrl+C"
+                          Command="ApplicationCommands.Copy"/>
+                <MenuItem Header="붙여넣기(_P)"  InputGestureText="Ctrl+V"
+                          Command="ApplicationCommands.Paste"/>
+                <Separator/>
+                <MenuItem Header="모두 선택(_A)" InputGestureText="Ctrl+A"
+                          Command="ApplicationCommands.SelectAll"/>
+            </MenuItem>
+
+            <!-- 보기 -->
+            <MenuItem Header="보기(_V)">
+                <MenuItem Header="확대(_I)"    InputGestureText="Ctrl+="  Click="OnZoomIn"/>
+                <MenuItem Header="축소(_O)"    InputGestureText="Ctrl+-"  Click="OnZoomOut"/>
+                <MenuItem Header="창 맞춤(_F)" InputGestureText="Ctrl+0"  Click="OnZoomFit"/>
+                <Separator/>
+                <MenuItem x:Name="MenuTogglePanel" Header="슬라이드 패널(_P)"
+                          IsCheckable="True" IsChecked="True" Click="OnTogglePanel"/>
+                <MenuItem x:Name="MenuToggleStatus" Header="상태 표시줄(_S)"
+                          IsCheckable="True" IsChecked="True" Click="OnToggleStatus"/>
+            </MenuItem>
+
+            <!-- 슬라이드 -->
+            <MenuItem Header="슬라이드(_L)">
+                <MenuItem x:Name="MenuAddSlide" Header="새 슬라이드(_N)"
+                          InputGestureText="Ctrl+M" Click="OnAddSlide"/>
+                <MenuItem x:Name="MenuDupSlide" Header="슬라이드 복제(_D)"
+                          InputGestureText="Ctrl+D" Click="OnDupSlide"/>
+                <MenuItem x:Name="MenuDelSlide" Header="슬라이드 삭제(_X)"
+                          InputGestureText="Ctrl+Shift+Delete" Click="OnDelSlide"/>
+                <Separator/>
+                <MenuItem x:Name="MenuSlideUp"   Header="위로 이동(_U)"
+                          InputGestureText="Ctrl+Shift+Up"   Click="OnSlideUp"/>
+                <MenuItem x:Name="MenuSlideDown" Header="아래로 이동(_W)"
+                          InputGestureText="Ctrl+Shift+Down" Click="OnSlideDown"/>
+            </MenuItem>
+
+            <!-- 도움말 -->
+            <MenuItem Header="도움말(_H)">
+                <MenuItem Header="PPEditer 정보(_A)..." Click="OnAbout"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- ══ Toolbar ═══════════════════════════════════════════════ -->
+        <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
+            <ToolBar Band="1" BandIndex="1" FontFamily="맑은 고딕, Segoe UI" FontSize="12">
+                <Button ToolTip="새로 만들기 (Ctrl+N)"  Click="OnNew">새로 만들기</Button>
+                <Button ToolTip="열기 (Ctrl+O)"         Click="OnOpen">열기</Button>
+                <Button x:Name="TbSave" ToolTip="저장 (Ctrl+S)"  Click="OnSave" IsEnabled="False">저장</Button>
+                <Separator/>
+                <Button x:Name="TbUndo" ToolTip="실행 취소 (Ctrl+Z)" Click="OnUndo" IsEnabled="False">↩ 취소</Button>
+                <Button x:Name="TbRedo" ToolTip="다시 실행 (Ctrl+Y)" Click="OnRedo" IsEnabled="False">↪ 재실행</Button>
+                <Separator/>
+                <Button x:Name="TbAddSlide" ToolTip="새 슬라이드 (Ctrl+M)" Click="OnAddSlide" IsEnabled="False">+ 슬라이드</Button>
+                <Button x:Name="TbDelSlide" ToolTip="슬라이드 삭제"         Click="OnDelSlide" IsEnabled="False">− 슬라이드</Button>
+                <Separator/>
+                <Button x:Name="TbExportPdf" ToolTip="PDF 내보내기 (Ctrl+Shift+E)" Click="OnExportPdf" IsEnabled="False">PDF 내보내기</Button>
+                <Separator/>
+                <Label VerticalAlignment="Center">확대/축소:</Label>
+                <ComboBox x:Name="ZoomCombo" Width="72" IsEditable="True"
+                          SelectionChanged="ZoomCombo_SelectionChanged"
+                          LostFocus="ZoomCombo_LostFocus">
+                    <ComboBoxItem Content="50%"/>
+                    <ComboBoxItem Content="75%"/>
+                    <ComboBoxItem Content="100%" IsSelected="True"/>
+                    <ComboBoxItem Content="125%"/>
+                    <ComboBoxItem Content="150%"/>
+                    <ComboBoxItem Content="200%"/>
+                </ComboBox>
+                <Button ToolTip="창 맞춤 (Ctrl+0)" Click="OnZoomFit">창 맞춤</Button>
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- ══ Status bar ════════════════════════════════════════════ -->
+        <StatusBar x:Name="AppStatusBar" DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusMsg" Text="준비"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock x:Name="SlideInfoText"/>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock x:Name="ZoomText" Text="100%"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- ══ Main content ══════════════════════════════════════════ -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="PanelCol" Width="200" MinWidth="120" MaxWidth="320"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: slide thumbnail panel -->
+            <controls:SlideThumbnailPanel x:Name="SlidePanel"
+                                          Grid.Column="0"
+                                          BorderBrush="#CCCCCC" BorderThickness="0,0,1,0"/>
+
+            <GridSplitter Grid.Column="1"
+                          Width="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          Background="#DDDDDD" ShowsPreview="True"/>
+
+            <!-- Right: slide editor canvas -->
+            <controls:SlideEditorCanvas x:Name="EditorCanvas" Grid.Column="2"/>
+        </Grid>
+    </DockPanel>
+</Window>
