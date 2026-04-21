@@ -57,6 +57,12 @@
     <sys:String x:Key="St_DrawHint_Click">Click to add points, double-click to finish. (Esc = cancel)</sys:String>
     <sys:String x:Key="St_DrawHint_3Click">Click 3 points to draw the triangle. (Esc = cancel)</sys:String>
     <sys:String x:Key="Msg_ShapeDrawn">Shape added.</sys:String>
+    <sys:String x:Key="Ms_Group">_Group</sys:String>
+    <sys:String x:Key="Ms_Ungroup">_Ungroup</sys:String>
+    <sys:String x:Key="Ctx_Group">Group</sys:String>
+    <sys:String x:Key="Ctx_Ungroup">Ungroup</sys:String>
+    <sys:String x:Key="Msg_Grouped">Objects grouped.</sys:String>
+    <sys:String x:Key="Msg_Ungrouped">Group dissolved.</sys:String>
     <sys:String x:Key="Ms_InsertMath">_Math/Science Symbols...</sys:String>
     <sys:String x:Key="Ms_InsertCharMap">S_pecial Character...</sys:String>
     <sys:String x:Key="Ms_InsertEmoji">_Emoji...</sys:String>
@@ -164,6 +170,22 @@
     <sys:String x:Key="Dlg_ShapeProps_H">Height:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_InvalidInput">Please enter valid numeric values.</sys:String>
     <sys:String x:Key="Msg_ShapePropsSaved">Object properties updated.</sys:String>
+    <sys:String x:Key="Dlg_ShapeTab_Pos">Position/Size</sys:String>
+    <sys:String x:Key="Dlg_ShapeTab_Fill">Fill</sys:String>
+    <sys:String x:Key="Dlg_ShapeTab_Outline">Outline</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_FillType">Fill Type:</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_FillColor">Fill Color:</sys:String>
+    <sys:String x:Key="Dlg_FillNone">None</sys:String>
+    <sys:String x:Key="Dlg_FillSolid">Solid</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_LineType">Line Type:</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_LineWidth">Line Width:</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_LineColor">Line Color:</sys:String>
+    <sys:String x:Key="Dlg_OutlineNone">None</sys:String>
+    <sys:String x:Key="Dlg_OutlineSolid">Solid</sys:String>
+    <sys:String x:Key="Dlg_OutlineDash">Dash (--)</sys:String>
+    <sys:String x:Key="Dlg_OutlineDot">Dot (..)</sys:String>
+    <sys:String x:Key="Dlg_OutlineDashDot">DashDot (-.)</sys:String>
+    <sys:String x:Key="Dlg_OutlineDashDotDot">DashDotDot (-..) </sys:String>
     <sys:String x:Key="Dlg_CharMap">Special Characters</sys:String>
     <sys:String x:Key="Dlg_Emoji">Emoji</sys:String>
     <sys:String x:Key="Dlg_CharMap_Cat0">General</sys:String>

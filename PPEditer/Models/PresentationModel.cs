@@ -478,8 +478,8 @@ public sealed class PresentationModel : IDisposable
         var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
         if (shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return shapeTreeIndex;
 
-        // Find the first actual content element (Shape or Picture) — don't go before structural nodes
-        int firstContent = elements.FindIndex(e => e is Shape or Picture);
+        // Find the first actual content element — don't go before structural nodes
+        int firstContent = elements.FindIndex(e => e is Shape or Picture or GroupShape);
         if (firstContent < 0 || shapeTreeIndex == firstContent) return shapeTreeIndex;
 
         PushUndo();
@@ -694,6 +694,298 @@ public sealed class PresentationModel : IDisposable
         xfrm.Extents.Cy = heightEmu;
         slidePart.Slide.Save();
         _modified = true;
+    }
+
+    // ── Shape style (fill / outline / position) ─────────────────────────
+
+    /// <summary>Read the fill, outline, and transform of a shape into a ShapeStyle object.</summary>
+    public ShapeStyle? GetShapeStyle(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return null;
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return null;
+
+        var elem      = elements[shapeTreeIndex];
+        bool isPicture = elem is Picture;
+
+        string name = elem switch
+        {
+            Shape s      => s.NonVisualShapeProperties?.NonVisualDrawingProperties?.Name?.Value ?? "",
+            Picture p    => p.NonVisualPictureProperties?.NonVisualDrawingProperties?.Name?.Value ?? "",
+            GroupShape g => g.NonVisualGroupShapeProperties?.NonVisualDrawingProperties?.Name?.Value ?? "",
+            _            => "",
+        };
+
+        ShapeProperties? spPr = elem switch
+        {
+            Shape s   => s.ShapeProperties,
+            Picture p => p.ShapeProperties,
+            _         => null,
+        };
+
+        var style = new ShapeStyle { Name = name, IsPicture = isPicture };
+
+        if (spPr is not null)
+        {
+            var xfrm = spPr.GetFirstChild<A.Transform2D>();
+            style.X  = xfrm?.Offset?.X?.Value  ?? 0;
+            style.Y  = xfrm?.Offset?.Y?.Value  ?? 0;
+            style.Cx = xfrm?.Extents?.Cx?.Value ?? 0;
+            style.Cy = xfrm?.Extents?.Cy?.Value ?? 0;
+
+            // Fill
+            if (spPr.GetFirstChild<A.NoFill>() is not null)
+            {
+                style.FillKind = FillKind.None;
+            }
+            else if (spPr.GetFirstChild<A.SolidFill>() is A.SolidFill sf)
+            {
+                style.FillKind = FillKind.Solid;
+                var hex = sf.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
+                if (hex is not null) style.FillColor = RgbColor.FromHex(hex);
+            }
+
+            // Outline
+            var ol = spPr.GetFirstChild<A.Outline>();
+            if (ol is null || ol.GetFirstChild<A.NoFill>() is not null)
+            {
+                style.OutlineKind = OutlineKind.None;
+            }
+            else
+            {
+                style.OutlineWidthPt = (ol.Width?.Value ?? 19050) / 12700.0;
+                var hex = ol.GetFirstChild<A.SolidFill>()?.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
+                if (hex is not null) style.OutlineColor = RgbColor.FromHex(hex);
+
+                var dash = ol.GetFirstChild<A.PresetDash>()?.Val?.Value;
+                if      (dash == A.PresetLineDashValues.Dash)       style.OutlineKind = OutlineKind.Dash;
+                else if (dash == A.PresetLineDashValues.Dot)        style.OutlineKind = OutlineKind.Dot;
+                else if (dash == A.PresetLineDashValues.DashDot)    style.OutlineKind = OutlineKind.DashDot;
+                else if (dash == A.PresetLineDashValues.DashDotDot) style.OutlineKind = OutlineKind.DashDotDot;
+                else                                                 style.OutlineKind = OutlineKind.Solid;
+            }
+        }
+        else if (elem is GroupShape gs)
+        {
+            var tg   = gs.GroupShapeProperties?.GetFirstChild<A.TransformGroup>();
+            style.X  = tg?.Offset?.X?.Value  ?? 0;
+            style.Y  = tg?.Offset?.Y?.Value  ?? 0;
+            style.Cx = tg?.Extents?.Cx?.Value ?? 0;
+            style.Cy = tg?.Extents?.Cy?.Value ?? 0;
+        }
+
+        return style;
+    }
+
+    /// <summary>Apply a ShapeStyle (position/size/fill/outline) back to the shape.</summary>
+    public void UpdateShapeStyle(int slideIndex, int shapeTreeIndex, ShapeStyle style)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return;
+
+        var elem      = elements[shapeTreeIndex];
+        bool isPicture = elem is Picture;
+        ShapeProperties? spPr = elem switch
+        {
+            Shape s   => s.ShapeProperties,
+            Picture p => p.ShapeProperties,
+            _         => null,
+        };
+        if (spPr is null) return;
+
+        PushUndo();
+
+        // Position & size
+        var xfrm = spPr.GetFirstChild<A.Transform2D>();
+        if (xfrm is null) { xfrm = new A.Transform2D(); spPr.InsertAt(xfrm, 0); }
+        if (xfrm.Offset  is null) xfrm.Offset  = new A.Offset();
+        if (xfrm.Extents is null) xfrm.Extents = new A.Extents();
+        xfrm.Offset.X   = style.X;
+        xfrm.Offset.Y   = style.Y;
+        xfrm.Extents.Cx = style.Cx;
+        xfrm.Extents.Cy = style.Cy;
+
+        if (!isPicture)
+        {
+            spPr.RemoveAllChildren<A.NoFill>();
+            spPr.RemoveAllChildren<A.SolidFill>();
+            spPr.RemoveAllChildren<A.GradientFill>();
+            spPr.RemoveAllChildren<A.PatternFill>();
+            spPr.RemoveAllChildren<A.GroupFill>();
+
+            if (style.FillKind == FillKind.None)
+                spPr.Append(new A.NoFill());
+            else
+                spPr.Append(new A.SolidFill(
+                    new A.RgbColorModelHex { Val = style.FillColor.ToHex() }));
+        }
+
+        spPr.RemoveAllChildren<A.Outline>();
+        if (style.OutlineKind != OutlineKind.None)
+        {
+            int widthEmu = Math.Max(3175, (int)(style.OutlineWidthPt * 12700.0));
+            var ol = new A.Outline { Width = widthEmu };
+            ol.Append(new A.SolidFill(new A.RgbColorModelHex { Val = style.OutlineColor.ToHex() }));
+            if (style.OutlineKind != OutlineKind.Solid)
+            {
+                var dv = style.OutlineKind == OutlineKind.Dash       ? A.PresetLineDashValues.Dash :
+                         style.OutlineKind == OutlineKind.Dot        ? A.PresetLineDashValues.Dot  :
+                         style.OutlineKind == OutlineKind.DashDot    ? A.PresetLineDashValues.DashDot :
+                                                                        A.PresetLineDashValues.DashDotDot;
+                ol.Append(new A.PresetDash { Val = dv });
+            }
+            spPr.Append(ol);
+        }
+
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
+    // ── Group / Ungroup ───────────────────────────────────────────────────
+
+    /// <summary>Returns true if the element at shapeTreeIndex is a GroupShape.</summary>
+    public bool IsGroupShape(int slideIndex, int shapeTreeIndex)
+    {
+        var elements = GetSlidePart(slideIndex)?.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        return elements is not null && shapeTreeIndex >= 0 && shapeTreeIndex < elements.Count
+               && elements[shapeTreeIndex] is GroupShape;
+    }
+
+    /// <summary>Wrap the given shape-tree indices into a single GroupShape. Returns new tree index.</summary>
+    public int GroupShapes(int slideIndex, int[] shapeTreeIndices)
+    {
+        if (shapeTreeIndices.Length < 2) return shapeTreeIndices.Length > 0 ? shapeTreeIndices[0] : -1;
+
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return -1;
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return -1;
+
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        var sorted   = shapeTreeIndices.Where(i => i >= 0 && i < elements.Count)
+                                       .OrderBy(i => i).ToArray();
+        if (sorted.Length < 2) return sorted.Length > 0 ? sorted[0] : -1;
+
+        // Bounding box
+        long minX = long.MaxValue, minY = long.MaxValue, maxX = 0, maxY = 0;
+        foreach (int idx in sorted)
+        {
+            A.Transform2D? xfrm = elements[idx] switch
+            {
+                Shape s   => s.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+                Picture p => p.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+                _         => null,
+            };
+            if (xfrm?.Offset is null || xfrm.Extents is null) continue;
+            long x  = xfrm.Offset.X?.Value  ?? 0;
+            long y  = xfrm.Offset.Y?.Value  ?? 0;
+            long cx = xfrm.Extents.Cx?.Value ?? 0;
+            long cy = xfrm.Extents.Cy?.Value ?? 0;
+            if (x      < minX) minX = x;
+            if (y      < minY) minY = y;
+            if (x + cx > maxX) maxX = x + cx;
+            if (y + cy > maxY) maxY = y + cy;
+        }
+        if (minX == long.MaxValue) return -1;
+
+        PushUndo();
+        uint maxId = GetMaxShapeId(tree);
+        long w = maxX - minX, h = maxY - minY;
+
+        var grp = new GroupShape();
+        grp.Append(new NonVisualGroupShapeProperties(
+            new NonVisualDrawingProperties { Id = maxId + 1, Name = $"Group {maxId + 1}" },
+            new NonVisualGroupShapeDrawingProperties(),
+            new ApplicationNonVisualDrawingProperties()));
+        grp.Append(new GroupShapeProperties(
+            new A.TransformGroup(
+                new A.Offset       { X = minX, Y = minY },
+                new A.Extents      { Cx = w,   Cy = h   },
+                new A.ChildOffset  { X = minX, Y = minY },
+                new A.ChildExtents { Cx = w,   Cy = h   })));
+
+        foreach (int idx in sorted)
+            grp.Append((OpenXmlCompositeElement)elements[idx].CloneNode(true));
+
+        elements[sorted[0]].InsertBeforeSelf(grp);
+        foreach (int idx in sorted.Reverse())
+            elements[idx].Remove();
+
+        slidePart.Slide.Save();
+        _modified = true;
+
+        return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(grp);
+    }
+
+    /// <summary>Dissolve a GroupShape, restoring its children to the slide's top-level tree.
+    /// Returns the new tree indices of the extracted children.</summary>
+    public int[] UngroupShape(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return [];
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return [];
+
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        if (shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return [];
+        if (elements[shapeTreeIndex] is not GroupShape grp) return [];
+
+        PushUndo();
+
+        var tg      = grp.GroupShapeProperties?.GetFirstChild<A.TransformGroup>();
+        long gOffX  = tg?.Offset?.X?.Value       ?? 0;
+        long gOffY  = tg?.Offset?.Y?.Value       ?? 0;
+        long gCx    = tg?.Extents?.Cx?.Value     ?? 1;
+        long gCy    = tg?.Extents?.Cy?.Value     ?? 1;
+        long gChOffX = tg?.ChildOffset?.X?.Value  ?? gOffX;
+        long gChOffY = tg?.ChildOffset?.Y?.Value  ?? gOffY;
+        long gChCx   = tg?.ChildExtents?.Cx?.Value ?? gCx;
+        long gChCy   = tg?.ChildExtents?.Cy?.Value ?? gCy;
+
+        double scaleX = gChCx > 0 ? (double)gCx / gChCx : 1.0;
+        double scaleY = gChCy > 0 ? (double)gCy / gChCy : 1.0;
+
+        var children = grp.Elements<OpenXmlCompositeElement>()
+            .Where(e => e is Shape or Picture or GroupShape)
+            .Select(e => (OpenXmlCompositeElement)e.CloneNode(true))
+            .ToList();
+
+        foreach (var child in children)
+        {
+            A.Transform2D? xfrm = child switch
+            {
+                Shape s   => s.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+                Picture p => p.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+                _         => null,
+            };
+            if (xfrm?.Offset is not null && xfrm.Extents is not null)
+            {
+                long lx = xfrm.Offset.X?.Value  ?? 0;
+                long ly = xfrm.Offset.Y?.Value  ?? 0;
+                long cx = xfrm.Extents.Cx?.Value ?? 0;
+                long cy = xfrm.Extents.Cy?.Value ?? 0;
+                xfrm.Offset.X   = gOffX + (long)((lx - gChOffX) * scaleX);
+                xfrm.Offset.Y   = gOffY + (long)((ly - gChOffY) * scaleY);
+                xfrm.Extents.Cx = (long)(cx * scaleX);
+                xfrm.Extents.Cy = (long)(cy * scaleY);
+            }
+        }
+
+        foreach (var child in children)
+            grp.InsertBeforeSelf(child);
+        grp.Remove();
+
+        slidePart.Slide.Save();
+        _modified = true;
+
+        var newElements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        return children.Select(c => newElements.IndexOf(c)).Where(i => i >= 0).ToArray();
     }
 
     /// <summary>Embed an image file into the slide as a Picture element.</summary>

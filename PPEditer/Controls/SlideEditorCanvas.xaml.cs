@@ -33,6 +33,10 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int, int>? ShapeOrderChanged;
     /// <summary>User finished drawing a shape. (slideIdx, tool, pointsInCanvasPx)</summary>
     public event Action<int, DrawTool, System.Windows.Point[]>? ShapeDrawn;
+    /// <summary>User requested grouping of multiple shapes. (slideIdx, treeIndices[])</summary>
+    public event Action<int, int[]>? ShapesGroupRequested;
+    /// <summary>User requested ungrouping of a GroupShape. (slideIdx, treeIdx)</summary>
+    public event Action<int, int>? ShapeUngroupRequested;
 
     // ── Public properties ──────────────────────────────────────────────
 
@@ -56,6 +60,22 @@ public partial class SlideEditorCanvas : UserControl
     /// <summary>Exposes the canvas EMU-per-pixel ratio so callers can convert point coordinates to EMU.</summary>
     public double EmuPerPixel => EmuPerPx;
 
+    /// <summary>Primary selected shape-tree index (-1 if none).</summary>
+    public int SelectedTreeIndex => _selectedTreeIdx;
+
+    /// <summary>All selected shape-tree indices (primary + multi-select).</summary>
+    public int[] SelectedTreeIndices
+    {
+        get
+        {
+            if (_selectedTreeIdx < 0) return [];
+            if (_multiTreeIdxs.Count == 0) return [_selectedTreeIdx];
+            var all = new List<int> { _selectedTreeIdx };
+            all.AddRange(_multiTreeIdxs);
+            return [.. all.Distinct()];
+        }
+    }
+
     // ── State ──────────────────────────────────────────────────────────
 
     private PresentationModel? _model;
@@ -76,6 +96,10 @@ public partial class SlideEditorCanvas : UserControl
     private Canvas?  _selOverlay;             // selection overlay (border + 8 handles)
     private RichTextBox? _editor;
     private int      _editingTreeIdx  = -1;
+
+    // ── Multi-select state ─────────────────────────────────────────────
+    private readonly HashSet<int>            _multiTreeIdxs  = [];
+    private readonly Dictionary<int, Canvas> _multiOverlays  = [];
 
     // ── Drag state ─────────────────────────────────────────────────────
 
@@ -167,6 +191,8 @@ public partial class SlideEditorCanvas : UserControl
         _editingTreeIdx  = -1;
         _dragMode        = DragMode.None;
         _resizeHandle    = -1;
+        _multiTreeIdxs.Clear();
+        _multiOverlays.Clear();
         NoDocMsg.Visibility = Visibility.Collapsed;
 
         if (_model is null || !_model.IsOpen || _slidePart is null)
@@ -235,7 +261,23 @@ public partial class SlideEditorCanvas : UserControl
         {
             CommitEdit(save: true);
             int idx = HitTest(canvas, clickPos);
-            SelectShape(canvas, idx);
+            if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && idx >= 0 && _selectedIdx >= 0)
+            {
+                int treeIdx = canvas.Children[idx] is FrameworkElement fe2 &&
+                              fe2.Tag is int ti ? ti : -1;
+                if (treeIdx >= 0 && treeIdx != _selectedTreeIdx)
+                {
+                    if (_multiTreeIdxs.Contains(treeIdx))
+                        RemoveMultiOverlay(canvas, treeIdx);
+                    else
+                        AddMultiSelect(canvas, idx);
+                }
+            }
+            else
+            {
+                RemoveAllMultiOverlays(canvas);
+                SelectShape(canvas, idx);
+            }
         }
         else if (e.ClickCount == 2)
         {
@@ -391,6 +433,24 @@ public partial class SlideEditorCanvas : UserControl
         menu.Items.Add(propItem);
 
         menu.Items.Add(new Separator());
+
+        // ── Group / Ungroup ──────────────────────────────────────────
+        bool hasMulti = _multiTreeIdxs.Count > 0;
+        bool isGroup  = _model?.IsGroupShape(_slideIndex, _selectedTreeIdx) ?? false;
+        if (hasMulti)
+        {
+            var groupItem = new MenuItem { Header = Res("Ctx_Group", "그룹으로 묶기") };
+            groupItem.Click += (_, _) => ShapesGroupRequested?.Invoke(_slideIndex, SelectedTreeIndices);
+            menu.Items.Add(groupItem);
+            menu.Items.Add(new Separator());
+        }
+        else if (isGroup)
+        {
+            var ungroupItem = new MenuItem { Header = Res("Ctx_Ungroup", "그룹 해제") };
+            ungroupItem.Click += (_, _) => ShapeUngroupRequested?.Invoke(_slideIndex, _selectedTreeIdx);
+            menu.Items.Add(ungroupItem);
+            menu.Items.Add(new Separator());
+        }
 
         // ── Z-order ──────────────────────────────────────────────────
         var frontItem = new MenuItem { Header = Res("Ctx_BringToFront", "맨 앞으로 가져오기") };
@@ -754,6 +814,60 @@ public partial class SlideEditorCanvas : UserControl
                 return;
             }
         }
+    }
+
+    // ── Multi-select helpers ───────────────────────────────────────────
+
+    private void AddMultiSelect(Canvas canvas, int canvasIdx)
+    {
+        if (canvas.Children[canvasIdx] is not FrameworkElement fe) return;
+        if (fe.Tag is not int treeIdx) return;
+        if (_multiTreeIdxs.Contains(treeIdx)) return;
+
+        _multiTreeIdxs.Add(treeIdx);
+        double l = Canvas.GetLeft(fe);
+        double t = Canvas.GetTop(fe);
+        var overlay = BuildSimpleOverlay(l, t, fe.Width, fe.Height);
+        Panel.SetZIndex(overlay, 9999);
+        canvas.Children.Add(overlay);
+        _multiOverlays[treeIdx] = overlay;
+    }
+
+    private void RemoveMultiOverlay(Canvas canvas, int treeIdx)
+    {
+        if (_multiOverlays.TryGetValue(treeIdx, out var overlay))
+        {
+            canvas.Children.Remove(overlay);
+            _multiOverlays.Remove(treeIdx);
+        }
+        _multiTreeIdxs.Remove(treeIdx);
+    }
+
+    private void RemoveAllMultiOverlays(Canvas canvas)
+    {
+        foreach (var overlay in _multiOverlays.Values)
+            canvas.Children.Remove(overlay);
+        _multiOverlays.Clear();
+        _multiTreeIdxs.Clear();
+    }
+
+    private static Canvas BuildSimpleOverlay(double l, double t, double w, double h)
+    {
+        var overlay = new Canvas { Width = w, Height = h };
+        Canvas.SetLeft(overlay, l);
+        Canvas.SetTop(overlay,  t);
+        var border = new Rectangle
+        {
+            Width           = w,
+            Height          = h,
+            Stroke          = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
+            StrokeThickness = 1.5,
+            StrokeDashArray = new DoubleCollection { 4, 2 },
+            Fill            = new SolidColorBrush(Color.FromArgb(8, 0, 0x78, 0xD4)),
+            IsHitTestVisible = false,
+        };
+        overlay.Children.Add(border);
+        return overlay;
     }
 
     // ── Resize calculation ─────────────────────────────────────────────

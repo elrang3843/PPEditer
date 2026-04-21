@@ -36,6 +36,8 @@ public partial class MainWindow : Window
         EditorCanvas.ShapePropertiesRequested += OnShapePropertiesRequested;
         EditorCanvas.ShapeOrderChanged        += OnShapeOrderChanged;
         EditorCanvas.ShapeDrawn               += OnShapeDrawn;
+        EditorCanvas.ShapesGroupRequested     += OnShapesGroupRequested;
+        EditorCanvas.ShapeUngroupRequested    += OnShapeUngroupRequested;
 
         RegisterKeyBindings();
         InitSettings();
@@ -93,6 +95,8 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(OnInsertMath),    Key.M, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertCharMap), Key.K, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertEmoji),   Key.J, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnGroup),         Key.G, ModifierKeys.Control));
+        kb.Add(new KeyBinding(new RelayCommand(OnUngroup),       Key.G, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     // ── File commands ─────────────────────────────────────────────────
@@ -422,17 +426,22 @@ public partial class MainWindow : Window
 
     private void OnShapePropertiesRequested(int slideIdx, int treeIdx)
     {
-        var t = _model.GetShapeTransform(slideIdx, treeIdx);
-        if (t is null) return;
-        var (x, y, cx, cy) = t.Value;
+        var style = _model.GetShapeStyle(slideIdx, treeIdx);
+        if (style is null) return;
+        if (string.IsNullOrEmpty(style.Name))
+            style.Name = $"개체 {treeIdx}";
 
-        string name = $"개체 {treeIdx}";
-        var dlg = new PPEditer.Dialogs.ShapePropertiesDialog(name, x, y, cx, cy)
+        var dlg = new PPEditer.Dialogs.ShapePropertiesDialog(style) { Owner = this };
+        EditorCanvas.SuppressLostFocusCommit = true;
+        try
         {
-            Owner = this,
-        };
-        if (dlg.ShowDialog() != true) return;
-        _model.ResizeShape(slideIdx, treeIdx, dlg.ResultX, dlg.ResultY, dlg.ResultCx, dlg.ResultCy);
+            if (dlg.ShowDialog() != true) return;
+        }
+        finally
+        {
+            EditorCanvas.SuppressLostFocusCommit = false;
+        }
+        _model.UpdateShapeStyle(slideIdx, treeIdx, dlg.Result);
         EditorCanvas.Invalidate();
         SlidePanel.RefreshSingle(slideIdx);
         UpdateTitle();
@@ -486,6 +495,46 @@ public partial class MainWindow : Window
         UpdateTitle();
         UpdateActions();
         SetStatus(S("Msg_ShapeDrawn"));
+    }
+
+    // ── Group / Ungroup ───────────────────────────────────────────────
+
+    private void OnGroup(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        var indices = EditorCanvas.SelectedTreeIndices;
+        if (indices.Length < 2) return;
+        OnShapesGroupRequested(_currentSlide, indices);
+    }
+
+    private void OnUngroup(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        int treeIdx = EditorCanvas.SelectedTreeIndex;
+        if (treeIdx < 0 || !_model.IsGroupShape(_currentSlide, treeIdx)) return;
+        OnShapeUngroupRequested(_currentSlide, treeIdx);
+    }
+
+    private void OnShapesGroupRequested(int slideIdx, int[] treeIndices)
+    {
+        if (treeIndices.Length < 2) return;
+        int newIdx = _model.GroupShapes(slideIdx, treeIndices);
+        EditorCanvas.Invalidate(newIdx >= 0 ? newIdx : 0);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_Grouped"));
+    }
+
+    private void OnShapeUngroupRequested(int slideIdx, int treeIdx)
+    {
+        int[] newIndices = _model.UngroupShape(slideIdx, treeIdx);
+        int sel = newIndices.Length > 0 ? newIndices[0] : 0;
+        EditorCanvas.Invalidate(sel);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_Ungrouped"));
     }
 
     // ── Insert media ──────────────────────────────────────────────────
@@ -872,8 +921,11 @@ public partial class MainWindow : Window
 
     private void UpdateActions()
     {
-        bool has = _model.IsOpen;
+        bool has     = _model.IsOpen;
         bool editing = EditorCanvas.IsEditing;
+        int  selIdx  = EditorCanvas.SelectedTreeIndex;
+        bool hasMulti = has && EditorCanvas.SelectedTreeIndices.Length >= 2;
+        bool isGroup  = has && selIdx >= 0 && _model.IsGroupShape(_currentSlide, selIdx);
 
         MenuSave.IsEnabled      = has && _model.Modified;
         MenuSaveAs.IsEnabled    = has;
@@ -902,6 +954,9 @@ public partial class MainWindow : Window
         TbDelSlide.IsEnabled   = MenuDelSlide.IsEnabled;
         TbExportPdf.IsEnabled  = has;
         TbInsertTxBox.IsEnabled = has && !editing;
+
+        MenuGroup.IsEnabled   = hasMulti;
+        MenuUngroup.IsEnabled = isGroup;
     }
 
     private void SetStatus(string msg) => StatusMsg.Text = msg;

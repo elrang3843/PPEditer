@@ -36,6 +36,11 @@
                 <Separator/>
                 <MenuItem x:Name="MenuDocInfo" Header="{DynamicResource Ms_DocInfo}"
                           InputGestureText="Ctrl+Shift+I" Click="OnDocInfo"/>
+                <Separator/>
+                <MenuItem x:Name="MenuGroup"   Header="{DynamicResource Ms_Group}"
+                          InputGestureText="Ctrl+G"       Click="OnGroup"   IsEnabled="False"/>
+                <MenuItem x:Name="MenuUngroup" Header="{DynamicResource Ms_Ungroup}"
+                          InputGestureText="Ctrl+Shift+G" Click="OnUngroup" IsEnabled="False"/>
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_View}">

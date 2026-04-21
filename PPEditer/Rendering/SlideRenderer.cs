@@ -94,10 +94,37 @@ public static class SlideRenderer
     {
         return element switch
         {
-            Shape   shape   => BuildShape(shape, slidePart),
-            Picture picture => BuildPicture(picture, slidePart),
-            _               => null,
+            Shape      shape   => BuildShape(shape, slidePart),
+            Picture    picture => BuildPicture(picture, slidePart),
+            GroupShape group   => BuildGroupShape(group, slidePart),
+            _                  => null,
         };
+    }
+
+    private static UIElement? BuildGroupShape(GroupShape group, SlidePart slidePart)
+    {
+        var xfrm   = group.GroupShapeProperties?.GetFirstChild<A.TransformGroup>();
+        if (xfrm is null) return null;
+        double left   = EmuToPx(xfrm.Offset?.X   ?? 0);
+        double top    = EmuToPx(xfrm.Offset?.Y   ?? 0);
+        double width  = EmuToPx(xfrm.Extents?.Cx ?? 0);
+        double height = EmuToPx(xfrm.Extents?.Cy ?? 0);
+        if (width <= 0 || height <= 0) return null;
+
+        var container = new Canvas { Width = width, Height = height };
+        foreach (var child in group.Elements<OpenXmlCompositeElement>())
+        {
+            var el = BuildElement(child, slidePart);
+            if (el is FrameworkElement fe)
+            {
+                Canvas.SetLeft(fe, Canvas.GetLeft(fe) - left);
+                Canvas.SetTop(fe,  Canvas.GetTop(fe)  - top);
+                container.Children.Add(fe);
+            }
+        }
+        Canvas.SetLeft(container, left);
+        Canvas.SetTop(container,  top);
+        return container;
     }
 
     // ── Shape ─────────────────────────────────────────────────────────
