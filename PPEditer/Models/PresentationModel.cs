@@ -656,23 +656,23 @@ public sealed class PresentationModel : IDisposable
         }
         else if (tool is DrawTool.Arc)
         {
-            // The arc bulges toward the drag-start corner
             bool fH = xs[0] > xs[1];
             bool fV = ys[0] > ys[1];
-            // adj1 = start angle (60000ths of a degree); adj2 = swing = 90°
-            long adj1 = (fH, fV) switch
+            // The arc ellipse is centered at the OPPOSITE corner from the drag-start,
+            // so its quarter-arc spans the two corners adjacent to the drag-start corner.
+            //   TL start → center BR, arc BL→TR  (upper-left region)
+            //   TR start → center BL, arc BR→TL  (upper-right region)
+            //   BL start → center TR, arc TL→BR  (lower-left region)
+            //   BR start → center TL, arc TR→BL  (lower-right region)
+            var (moveX, moveY, stAng, swAng) = (fH, fV) switch
             {
-                (false, false) => 10800000L, // TL start → bulges TL (180°)
-                (true,  false) => 16200000L, // TR start → bulges TR (270°, PPTX default)
-                (false, true)  =>  5400000L, // BL start → bulges BL (90°)
-                (true,  true)  =>        0L, // BR start → bulges BR (0°)
+                (false, false) => (0L,  h, 10800000L,  5400000L),
+                (true,  false) => (w,   h,        0L, -5400000L),
+                (false, true)  => (0L, 0L, 10800000L, -5400000L),
+                (true,  true)  => (w,  0L,        0L,  5400000L),
             };
-            const long adj2 = 5400000L; // 90° sweep
             xfrm = MakeXfrm(left, top, w, h);
-            var adjList = new A.AdjustValueList(
-                new A.ShapeGuide { Name = "adj1", Formula = $"val {adj1}" },
-                new A.ShapeGuide { Name = "adj2", Formula = $"val {adj2}" });
-            geom = new A.PresetGeometry(adjList) { Preset = A.ShapeTypeValues.Arc };
+            geom = BuildArcPath(moveX, moveY, w, h, stAng, swAng);
         }
         else
         {
@@ -780,6 +780,20 @@ public sealed class PresentationModel : IDisposable
     }
 
     private static A.Point APt(long x, long y) => new A.Point { X = x.ToString(), Y = y.ToString() };
+
+    private static A.CustomGeometry BuildArcPath(long mx, long my, long w, long h, long stAng, long swAng)
+    {
+        var path = new A.Path { Width = w, Height = h, Fill = A.PathFillModeValues.None };
+        path.Append(new A.MoveTo(APt(mx, my)));
+        path.Append(new A.ArcTo
+        {
+            WidthRadius  = w.ToString(),
+            HeightRadius = h.ToString(),
+            StartAngle   = stAng.ToString(),
+            SwingAngle   = swAng.ToString(),
+        });
+        return WrapInCustGeom(path);
+    }
 
     private static A.CustomGeometry WrapInCustGeom(A.Path path)
     {

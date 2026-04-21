@@ -349,6 +349,7 @@ public static class SlideRenderer
 
             var figure  = new PathFigure { IsClosed = false, IsFilled = true };
             bool started = false;
+            double curX = 0, curY = 0;  // current path position; needed for ArcTo center calc
 
             foreach (var el in aPath.ChildElements)
             {
@@ -364,26 +365,56 @@ public static class SlideRenderer
                         figure = new PathFigure { IsClosed = false, IsFilled = true };
                     }
                     figure.StartPoint = new System.Windows.Point(px, py);
+                    curX = px; curY = py;
                     started = true;
                 }
                 else if (el is A.LineTo lineTo)
                 {
                     var pt = lineTo.Point;
                     if (pt is null) continue;
+                    double ex = EmuToPx(ParsePtVal(pt.X)) * sx;
+                    double ey = EmuToPx(ParsePtVal(pt.Y)) * sy;
                     figure.Segments.Add(new LineSegment(
-                        new System.Windows.Point(EmuToPx(ParsePtVal(pt.X)) * sx,
-                                                 EmuToPx(ParsePtVal(pt.Y)) * sy),
-                        isStroked: true));
+                        new System.Windows.Point(ex, ey), isStroked: true));
+                    curX = ex; curY = ey;
                 }
                 else if (el is A.CubicBezierCurveTo cubicBez)
                 {
                     var pts = cubicBez.Elements<A.Point>().ToList();
                     if (pts.Count < 3) continue;
+                    double ex = EmuToPx(ParsePtVal(pts[2].X)) * sx;
+                    double ey = EmuToPx(ParsePtVal(pts[2].Y)) * sy;
                     figure.Segments.Add(new BezierSegment(
                         new System.Windows.Point(EmuToPx(ParsePtVal(pts[0].X)) * sx, EmuToPx(ParsePtVal(pts[0].Y)) * sy),
                         new System.Windows.Point(EmuToPx(ParsePtVal(pts[1].X)) * sx, EmuToPx(ParsePtVal(pts[1].Y)) * sy),
-                        new System.Windows.Point(EmuToPx(ParsePtVal(pts[2].X)) * sx, EmuToPx(ParsePtVal(pts[2].Y)) * sy),
+                        new System.Windows.Point(ex, ey),
                         isStroked: true));
+                    curX = ex; curY = ey;
+                }
+                else if (el is A.ArcTo arcTo && started)
+                {
+                    // Radii are in path coordinate units; convert same as x/y coords
+                    double wR     = EmuToPx(ParsePtVal(arcTo.WidthRadius))  * sx;
+                    double hR     = EmuToPx(ParsePtVal(arcTo.HeightRadius)) * sy;
+                    long   stAng  = ParsePtVal(arcTo.StartAngle);
+                    long   swAng  = ParsePtVal(arcTo.SwingAngle);
+                    double stRad  = stAng * Math.PI / (60000.0 * 180.0);
+                    double endRad = stRad + swAng * Math.PI / (60000.0 * 180.0);
+                    // Derive ellipse center from current point and start angle
+                    double cx = curX - wR * Math.Cos(stRad);
+                    double cy = curY - hR * Math.Sin(stRad);
+                    double ex = cx   + wR * Math.Cos(endRad);
+                    double ey = cy   + hR * Math.Sin(endRad);
+                    figure.Segments.Add(new System.Windows.Media.ArcSegment(
+                        new System.Windows.Point(ex, ey),
+                        new System.Windows.Size(wR, hR),
+                        rotationAngle:  0,
+                        isLargeArc:     Math.Abs(swAng) > 10800000L,
+                        sweepDirection: swAng >= 0
+                            ? System.Windows.Media.SweepDirection.Clockwise
+                            : System.Windows.Media.SweepDirection.Counterclockwise,
+                        isStroked: true));
+                    curX = ex; curY = ey;
                 }
                 else if (el is A.CloseShapePath)
                 {
