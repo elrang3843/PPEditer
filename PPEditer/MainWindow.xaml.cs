@@ -31,8 +31,10 @@ public partial class MainWindow : Window
         EditorCanvas.EditingStarted += OnEditorEditingStarted;
         EditorCanvas.TextCommitted  += OnEditorTextCommitted;
         EditorCanvas.ShapeMoved     += OnShapeMoved;
-        EditorCanvas.ShapeDeleted   += OnShapeDeleted;
-        EditorCanvas.ShapeResized   += OnShapeResized;
+        EditorCanvas.ShapeDeleted            += OnShapeDeleted;
+        EditorCanvas.ShapeResized            += OnShapeResized;
+        EditorCanvas.ShapePropertiesRequested += OnShapePropertiesRequested;
+        EditorCanvas.ShapeOrderChanged        += OnShapeOrderChanged;
 
         RegisterKeyBindings();
         InitSettings();
@@ -87,6 +89,7 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(OnZoomFit),       Key.D0, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertTextBox), Key.T, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnDocInfo),       Key.I, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnInsertMath),    Key.M, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertCharMap), Key.K, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnInsertEmoji),   Key.J, ModifierKeys.Control | ModifierKeys.Shift));
     }
@@ -416,6 +419,37 @@ public partial class MainWindow : Window
         UpdateActions();
     }
 
+    private void OnShapePropertiesRequested(int slideIdx, int treeIdx)
+    {
+        var t = _model.GetShapeTransform(slideIdx, treeIdx);
+        if (t is null) return;
+        var (x, y, cx, cy) = t.Value;
+
+        string name = $"개체 {treeIdx}";
+        var dlg = new PPEditer.Dialogs.ShapePropertiesDialog(name, x, y, cx, cy)
+        {
+            Owner = this,
+        };
+        if (dlg.ShowDialog() != true) return;
+        _model.ResizeShape(slideIdx, treeIdx, dlg.ResultX, dlg.ResultY, dlg.ResultCx, dlg.ResultCy);
+        EditorCanvas.Invalidate();
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_ShapePropsSaved"));
+    }
+
+    private void OnShapeOrderChanged(int slideIdx, int treeIdx, int delta)
+    {
+        int newIdx = delta > 0
+            ? _model.BringShapeForward(slideIdx, treeIdx)
+            : _model.SendShapeBackward(slideIdx, treeIdx);
+        EditorCanvas.Invalidate(newIdx);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+    }
+
     // ── Insert media ──────────────────────────────────────────────────
 
     private void OnInsertImage(object? _ = null)
@@ -506,6 +540,20 @@ public partial class MainWindow : Window
         EditorCanvas.SuppressLostFocusCommit = true;
         var dlg = new PPEditer.Dialogs.EmojiPickerDialog { Owner = this };
         dlg.EmojiInserted += em => EditorCanvas.InsertText(em);
+        dlg.Closed += (_, _) =>
+        {
+            EditorCanvas.SuppressLostFocusCommit = false;
+            _activeEditor?.Focus();
+        };
+        dlg.Show();
+    }
+
+    private void OnInsertMath(object? _ = null)
+    {
+        if (!EditorCanvas.IsEditing) return;
+        EditorCanvas.SuppressLostFocusCommit = true;
+        var dlg = new PPEditer.Dialogs.MathSymbolDialog { Owner = this };
+        dlg.SymbolInserted += sym => EditorCanvas.InsertText(sym);
         dlg.Closed += (_, _) =>
         {
             EditorCanvas.SuppressLostFocusCommit = false;
@@ -803,6 +851,7 @@ public partial class MainWindow : Window
         MenuInsertImage.IsEnabled   = has;
         MenuInsertVideo.IsEnabled   = has;
         MenuInsertAudio.IsEnabled   = has;
+        MenuInsertMath.IsEnabled    = has && editing;
         MenuInsertCharMap.IsEnabled = has && editing;
         MenuInsertEmoji.IsEnabled   = has && editing;
         MenuDocInfo.IsEnabled       = has;
@@ -917,6 +966,7 @@ public partial class MainWindow : Window
     private void OnInsertImage(object s, RoutedEventArgs e)   => OnInsertImage();
     private void OnInsertVideo(object s, RoutedEventArgs e)   => OnInsertVideo();
     private void OnInsertAudio(object s, RoutedEventArgs e)   => OnInsertAudio();
+    private void OnInsertMath(object s, RoutedEventArgs e)     => OnInsertMath();
     private void OnInsertCharMap(object s, RoutedEventArgs e) => OnInsertCharMap();
     private void OnInsertEmoji(object s, RoutedEventArgs e)   => OnInsertEmoji();
 }

@@ -364,6 +364,8 @@ public sealed class PresentationModel : IDisposable
         A.Transform2D? xfrm = null;
         if (elements[shapeTreeIndex] is Shape s)
             xfrm = s.ShapeProperties?.GetFirstChild<A.Transform2D>();
+        else if (elements[shapeTreeIndex] is Picture p)
+            xfrm = p.ShapeProperties?.GetFirstChild<A.Transform2D>();
 
         if (xfrm?.Offset is null) return;
 
@@ -372,6 +374,73 @@ public sealed class PresentationModel : IDisposable
         xfrm.Offset.Y = (xfrm.Offset.Y?.Value ?? 0L) + deltaYEmu;
         slidePart.Slide.Save();
         _modified = true;
+    }
+
+    /// <summary>Get position and size of a shape in EMU. Returns null if the shape has no transform.</summary>
+    public (long x, long y, long cx, long cy)? GetShapeTransform(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return null;
+
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return null;
+
+        A.Transform2D? xfrm = elements[shapeTreeIndex] switch
+        {
+            Shape s   => s.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+            Picture p => p.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+            _         => null,
+        };
+        if (xfrm?.Offset is null || xfrm.Extents is null) return null;
+        return (xfrm.Offset.X?.Value ?? 0L, xfrm.Offset.Y?.Value ?? 0L,
+                xfrm.Extents.Cx?.Value ?? 0L, xfrm.Extents.Cy?.Value ?? 0L);
+    }
+
+    /// <summary>Move a shape one position toward the front of the shape tree. Returns new tree index.</summary>
+    public int BringShapeForward(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return shapeTreeIndex;
+
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return shapeTreeIndex;
+
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        if (shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count - 1) return shapeTreeIndex;
+
+        PushUndo();
+        var elem = elements[shapeTreeIndex];
+        var next = elements[shapeTreeIndex + 1];
+        elem.Remove();
+        next.InsertAfterSelf(elem);
+        slidePart.Slide.Save();
+        _modified = true;
+        return shapeTreeIndex + 1;
+    }
+
+    /// <summary>Move a shape one position toward the back of the shape tree. Returns new tree index.</summary>
+    public int SendShapeBackward(int slideIndex, int shapeTreeIndex)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return shapeTreeIndex;
+
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return shapeTreeIndex;
+
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        if (shapeTreeIndex <= 0) return shapeTreeIndex;
+
+        var prevElem = elements[shapeTreeIndex - 1];
+        if (prevElem is not (Shape or Picture)) return shapeTreeIndex; // don't swap with structural elements
+
+        PushUndo();
+        var elem = elements[shapeTreeIndex];
+        elem.Remove();
+        prevElem.InsertBeforeSelf(elem);
+        slidePart.Slide.Save();
+        _modified = true;
+        return shapeTreeIndex - 1;
     }
 
     /// <summary>Delete a shape identified by its shape-tree index.</summary>

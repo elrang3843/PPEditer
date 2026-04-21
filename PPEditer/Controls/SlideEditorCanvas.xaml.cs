@@ -27,6 +27,10 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int>? ShapeDeleted;
     /// <summary>User resized the selected shape. (slideIdx, treeIdx, leftEmu, topEmu, widthEmu, heightEmu)</summary>
     public event Action<int, int, long, long, long, long>? ShapeResized;
+    /// <summary>User requested object properties via context menu. (slideIdx, treeIdx)</summary>
+    public event Action<int, int>? ShapePropertiesRequested;
+    /// <summary>User changed z-order via context menu. (slideIdx, treeIdx, delta: +1=forward/-1=backward)</summary>
+    public event Action<int, int, int>? ShapeOrderChanged;
 
     // ── Public property ────────────────────────────────────────────────
 
@@ -93,6 +97,14 @@ public partial class SlideEditorCanvas : UserControl
             SelectShapeByTreeIndex(savedTreeIdx);
     }
 
+    public void Invalidate(int treeIdxToSelect)
+    {
+        CommitEdit(save: false);
+        Rebuild();
+        if (treeIdxToSelect >= 0 && _nativeCanvas is not null)
+            SelectShapeByTreeIndex(treeIdxToSelect);
+    }
+
     public void ZoomIn()      { _zoom = Math.Min(3.0,  Math.Round(_zoom + 0.1, 1)); ApplyZoom(); }
     public void ZoomOut()     { _zoom = Math.Max(0.25, Math.Round(_zoom - 0.1, 1)); ApplyZoom(); }
     public void FitToWindow() { _zoom = 1.0; UpdateViewboxSize(); }
@@ -140,11 +152,12 @@ public partial class SlideEditorCanvas : UserControl
         }
 
         var canvas = SlideRenderer.BuildCanvas(_slidePart, _model.SlideWidth, _model.SlideHeight);
-        canvas.MouseLeftButtonDown += Canvas_MouseDown;
-        canvas.MouseMove           += Canvas_MouseMove;
-        canvas.MouseLeftButtonUp   += Canvas_MouseUp;
-        canvas.KeyDown             += Canvas_KeyDown;
-        canvas.Focusable            = true;
+        canvas.MouseLeftButtonDown  += Canvas_MouseDown;
+        canvas.MouseMove            += Canvas_MouseMove;
+        canvas.MouseLeftButtonUp    += Canvas_MouseUp;
+        canvas.MouseRightButtonUp   += Canvas_RightMouseUp;
+        canvas.KeyDown              += Canvas_KeyDown;
+        canvas.Focusable             = true;
 
         _nativeCanvas      = canvas;
         SlideViewbox.Child = canvas;
@@ -275,6 +288,64 @@ public partial class SlideEditorCanvas : UserControl
         }
     }
 
+    private void Canvas_RightMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        var canvas   = (Canvas)sender;
+        var clickPos = e.GetPosition(canvas);
+        int idx = HitTest(canvas, clickPos);
+        if (idx >= 0)
+        {
+            CommitEdit(save: true);
+            SelectShape(canvas, idx);
+            canvas.Focus();
+            ShowShapeContextMenu();
+        }
+        e.Handled = true;
+    }
+
+    private void OverlayBody_RightMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_selectedIdx >= 0) ShowShapeContextMenu();
+        e.Handled = true;
+    }
+
+    private void ShowShapeContextMenu()
+    {
+        if (_selectedIdx < 0 || _selectedTreeIdx < 0) return;
+
+        string Res(string key, string fallback) =>
+            Application.Current.TryFindResource(key) is string s ? s : fallback;
+
+        var menu = new ContextMenu();
+
+        var propItem = new MenuItem { Header = Res("Ctx_ShapeProperties", "개체 속성 편집...") };
+        propItem.Click += (_, _) => ShapePropertiesRequested?.Invoke(_slideIndex, _selectedTreeIdx);
+        menu.Items.Add(propItem);
+
+        menu.Items.Add(new Separator());
+
+        var fwdItem = new MenuItem { Header = Res("Ctx_BringForward", "앞으로 가져오기") };
+        fwdItem.Click += (_, _) => ShapeOrderChanged?.Invoke(_slideIndex, _selectedTreeIdx, 1);
+        menu.Items.Add(fwdItem);
+
+        var bkdItem = new MenuItem { Header = Res("Ctx_SendBackward", "뒤로 보내기") };
+        bkdItem.Click += (_, _) => ShapeOrderChanged?.Invoke(_slideIndex, _selectedTreeIdx, -1);
+        menu.Items.Add(bkdItem);
+
+        menu.Items.Add(new Separator());
+
+        var delItem = new MenuItem { Header = Res("Ctx_Delete", "삭제") };
+        delItem.Click += (_, _) =>
+        {
+            if (_selectedTreeIdx >= 0)
+                ShapeDeleted?.Invoke(_slideIndex, _selectedTreeIdx);
+        };
+        menu.Items.Add(delItem);
+
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse;
+        menu.IsOpen    = true;
+    }
+
     // ── Hit testing ───────────────────────────────────────────────────
 
     private static int HitTest(Canvas canvas, Point pos)
@@ -336,7 +407,8 @@ public partial class SlideEditorCanvas : UserControl
             Cursor          = Cursors.SizeAll,
             IsHitTestVisible = true,
         };
-        border.MouseLeftButtonDown += OverlayBody_MouseDown;
+        border.MouseLeftButtonDown  += OverlayBody_MouseDown;
+        border.MouseRightButtonUp  += OverlayBody_RightMouseUp;
         overlay.Children.Add(border);
 
         // 8 resize handles
