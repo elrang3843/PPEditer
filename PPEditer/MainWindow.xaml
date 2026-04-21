@@ -96,14 +96,6 @@
                               Click="OnThemeDark"/>
                 </MenuItem>
 
-                <Separator/>
-
-                <!-- 문서 암호 -->
-                <MenuItem x:Name="MenuDocPassword"
-                          Header="{DynamicResource Ms_DocPassword}"
-                          IsCheckable="True"
-                          Click="OnDocPasswordToggle"/>
-
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Help}">

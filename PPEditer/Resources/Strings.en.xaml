@@ -41,7 +41,6 @@
     <sys:String x:Key="Ms_Theme">_Theme</sys:String>
     <sys:String x:Key="Ms_ThemeLight">Light Theme</sys:String>
     <sys:String x:Key="Ms_ThemeDark">Dark Theme</sys:String>
-    <sys:String x:Key="Ms_DocPassword">Document _Password</sys:String>
     <sys:String x:Key="Ms_Help">_Help</sys:String>
     <sys:String x:Key="Ms_About">_About PPEditer...</sys:String>
 
@@ -93,9 +92,6 @@
     <sys:String x:Key="Msg_Saved">Saved.</sys:String>
     <sys:String x:Key="Msg_TextSaved">Text edit saved.</sys:String>
     <sys:String x:Key="Msg_TextBoxAdded">Text box added.</sys:String>
-    <sys:String x:Key="Msg_PwdEnabled">Document password set.</sys:String>
-    <sys:String x:Key="Msg_PwdDisabled">Document password removed.</sys:String>
-    <sys:String x:Key="Msg_PwdNoSupport">Document password is not yet supported. The file will be saved without encryption.</sys:String>
     <sys:String x:Key="Msg_Opened">Opened: {0}</sys:String>
     <sys:String x:Key="Msg_SavedAs">Saved as: {0}</sys:String>
     <sys:String x:Key="Msg_PdfDone">PDF exported: {0}</sys:String>
@@ -109,9 +105,6 @@
     <sys:String x:Key="Dlg_PdfFilter">PDF files|*.pdf|All files|*.*</sys:String>
     <sys:String x:Key="Dlg_PdfTitle">Export PDF</sys:String>
     <sys:String x:Key="Dlg_Exporting">Exporting</sys:String>
-    <sys:String x:Key="Dlg_Password">Set Password</sys:String>
-    <sys:String x:Key="Dlg_PasswordPrompt">Enter document password:</sys:String>
-    <sys:String x:Key="Dlg_PasswordConfirm">Confirm password:</sys:String>
     <sys:String x:Key="Dlg_PasswordMismatch">Passwords do not match.</sys:String>
     <sys:String x:Key="Dlg_ColorPicker">Choose Text Color</sys:String>
     <sys:String x:Key="Btn_Ok">OK</sys:String>

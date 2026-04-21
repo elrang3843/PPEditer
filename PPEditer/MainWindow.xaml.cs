@@ -44,7 +44,6 @@ public partial class MainWindow : Window
         var s = AppSettings.Current;
         MenuFontFilter.IsChecked   = s.FontLicenseFilterEnabled;
         ChkOpenFontsOnly.IsChecked = s.FontLicenseFilterEnabled;
-        MenuDocPassword.IsChecked  = s.DocumentPasswordEnabled;
         SyncLangMenu(s.Language);
         SyncThemeMenu(s.Theme);
         PopulateFontCombo(s.FontLicenseFilterEnabled);
@@ -588,78 +587,6 @@ public partial class MainWindow : Window
         AppSettings.Current.Theme = "Dark";
         AppSettings.Current.Save();
         SyncThemeMenu("Dark");
-    }
-
-    private void OnDocPasswordToggle(object sender, RoutedEventArgs e)
-    {
-        if (MenuDocPassword.IsChecked)
-        {
-            if (!PromptNewPassword())
-                MenuDocPassword.IsChecked = false;
-        }
-        else
-        {
-            AppSettings.Current.DocumentPasswordEnabled = false;
-            AppSettings.Current.DocumentPassword = string.Empty;
-            AppSettings.Current.Save();
-        }
-    }
-
-    private bool PromptNewPassword()
-    {
-        var dlg = new Window
-        {
-            Title  = S("Dlg_Password"),
-            Width  = 320, Height = 200,
-            Owner  = this,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            ResizeMode = ResizeMode.NoResize,
-        };
-        var grid = new Grid { Margin = new Thickness(16) };
-        for (int i = 0; i < 5; i++)
-            grid.RowDefinitions.Add(new RowDefinition
-                { Height = i == 3 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
-
-        var lbl1   = new TextBlock { Text = S("Dlg_PasswordPrompt"),  Margin = new Thickness(0, 0, 0, 4) };
-        var pw1    = new PasswordBox { Margin = new Thickness(0, 0, 0, 8) };
-        var lbl2   = new TextBlock { Text = S("Dlg_PasswordConfirm"), Margin = new Thickness(0, 0, 0, 4) };
-        var pw2    = new PasswordBox { Margin = new Thickness(0, 0, 0, 8) };
-
-        var btnRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-        };
-        var btnOk     = new Button { Content = S("Btn_Ok"),     Width = 72, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
-        var btnCancel = new Button { Content = S("Btn_Cancel"), Width = 72, IsCancel  = true };
-        btnRow.Children.Add(btnOk);
-        btnRow.Children.Add(btnCancel);
-
-        Grid.SetRow(lbl1, 0); Grid.SetRow(pw1, 1);
-        Grid.SetRow(lbl2, 2); Grid.SetRow(pw2, 3);
-        Grid.SetRow(btnRow, 4);
-        foreach (UIElement el in new UIElement[] { lbl1, pw1, lbl2, pw2, btnRow })
-            grid.Children.Add(el);
-        dlg.Content = grid;
-
-        bool ok = false;
-        btnOk.Click += (_, _) =>
-        {
-            if (pw1.Password != pw2.Password)
-            {
-                MessageBox.Show(dlg, S("Dlg_PasswordMismatch"), S("Dlg_Password"),
-                                MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            AppSettings.Current.DocumentPasswordEnabled = true;
-            AppSettings.Current.DocumentPassword = pw1.Password;
-            AppSettings.Current.Save();
-            ok = true;
-            dlg.Close();
-        };
-        btnCancel.Click += (_, _) => dlg.Close();
-        dlg.ShowDialog();
-        return ok;
     }
 
     private void SyncLangMenu(string lang)

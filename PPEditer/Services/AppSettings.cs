@@ -17,8 +17,6 @@ public sealed class AppSettings
     public bool   FontLicenseFilterEnabled { get; set; } = true;
     public string Language                  { get; set; } = "ko";
     public string Theme                     { get; set; } = "Light";
-    public bool   DocumentPasswordEnabled   { get; set; } = false;
-    public string DocumentPassword          { get; set; } = string.Empty;
 
     // ── Load / Save ────────────────────────────────────────────────────
     public static AppSettings Load()

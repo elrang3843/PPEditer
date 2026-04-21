@@ -41,7 +41,6 @@
     <sys:String x:Key="Ms_Theme">테마(_T)</sys:String>
     <sys:String x:Key="Ms_ThemeLight">밝은 테마</sys:String>
     <sys:String x:Key="Ms_ThemeDark">어두운 테마</sys:String>
-    <sys:String x:Key="Ms_DocPassword">문서 암호(_P)</sys:String>
     <sys:String x:Key="Ms_Help">도움말(_H)</sys:String>
     <sys:String x:Key="Ms_About">PPEditer 정보(_A)...</sys:String>
 
@@ -93,9 +92,6 @@
     <sys:String x:Key="Msg_Saved">저장되었습니다.</sys:String>
     <sys:String x:Key="Msg_TextSaved">텍스트 편집이 저장되었습니다.</sys:String>
     <sys:String x:Key="Msg_TextBoxAdded">텍스트 상자가 추가되었습니다.</sys:String>
-    <sys:String x:Key="Msg_PwdEnabled">문서 암호가 설정되었습니다.</sys:String>
-    <sys:String x:Key="Msg_PwdDisabled">문서 암호가 해제되었습니다.</sys:String>
-    <sys:String x:Key="Msg_PwdNoSupport">문서 암호 기능은 추후 지원 예정입니다. 현재는 일반 형식으로 저장됩니다.</sys:String>
     <sys:String x:Key="Msg_Opened">열었습니다: {0}</sys:String>
     <sys:String x:Key="Msg_SavedAs">저장되었습니다: {0}</sys:String>
     <sys:String x:Key="Msg_PdfDone">PDF 저장 완료: {0}</sys:String>
@@ -109,9 +105,6 @@
     <sys:String x:Key="Dlg_PdfFilter">PDF 파일|*.pdf|모든 파일|*.*</sys:String>
     <sys:String x:Key="Dlg_PdfTitle">PDF로 내보내기</sys:String>
     <sys:String x:Key="Dlg_Exporting">내보내기</sys:String>
-    <sys:String x:Key="Dlg_Password">암호 설정</sys:String>
-    <sys:String x:Key="Dlg_PasswordPrompt">문서 암호를 입력하세요:</sys:String>
-    <sys:String x:Key="Dlg_PasswordConfirm">암호 확인:</sys:String>
     <sys:String x:Key="Dlg_PasswordMismatch">암호가 일치하지 않습니다.</sys:String>
     <sys:String x:Key="Dlg_ColorPicker">글자 색 선택</sys:String>
     <sys:String x:Key="Btn_Ok">확인</sys:String>
