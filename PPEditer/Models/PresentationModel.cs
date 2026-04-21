@@ -286,6 +286,21 @@ public sealed class PresentationModel : IDisposable
                         Val = $"{run.Color.Value.R:X2}{run.Color.Value.G:X2}{run.Color.Value.B:X2}"
                     }));
 
+                // Extended character properties
+                if (run.Strikethrough) rProps.Strike = A.TextStrikeValues.SingleStrike;
+                if (run.Script == ScriptKind.Superscript) rProps.Baseline = 30000;
+                else if (run.Script == ScriptKind.Subscript) rProps.Baseline = -25000;
+                if (run.SpacingPt100 != 0) rProps.Spacing = run.SpacingPt100;
+                if (run.BackColor.HasValue)
+                    rProps.Append(new A.Highlight(new A.RgbColorModelHex
+                        { Val = $"{run.BackColor.Value.R:X2}{run.BackColor.Value.G:X2}{run.BackColor.Value.B:X2}" }));
+                if (run.UnderlineColor.HasValue)
+                    rProps.Append(new A.UnderlineFill(new A.SolidFill(
+                        new A.RgbColorModelHex { Val = $"{run.UnderlineColor.Value.R:X2}{run.UnderlineColor.Value.G:X2}{run.UnderlineColor.Value.B:X2}" })));
+                if (run.HasOutline)
+                    rProps.Append(new A.Outline(new A.SolidFill(
+                        new A.RgbColorModelHex { Val = "000000" })));
+
                 aRun.RunProperties = rProps;
                 aRun.Text = new A.Text(run.Text);
                 aPara.Append(aRun);

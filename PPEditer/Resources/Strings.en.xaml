@@ -59,6 +59,8 @@
     <sys:String x:Key="Msg_ShapeDrawn">Shape added.</sys:String>
     <sys:String x:Key="Ms_Group">_Group</sys:String>
     <sys:String x:Key="Ms_Ungroup">_Ungroup</sys:String>
+    <sys:String x:Key="Ms_CharProps">Character Properties(_F)...</sys:String>
+    <sys:String x:Key="Ctx_CharProperties">Character Properties...</sys:String>
     <sys:String x:Key="Ctx_Group">Group</sys:String>
     <sys:String x:Key="Ctx_Ungroup">Ungroup</sys:String>
     <sys:String x:Key="Msg_Grouped">Objects grouped.</sys:String>
@@ -259,5 +261,28 @@
     <sys:String x:Key="Dlg_DocInfo_OpenPwdNote">File open password (OLE encryption) is not supported in this version. It will be supported in a future update.</sys:String>
     <sys:String x:Key="Dlg_DocInfo_PwdEmpty">Please enter a password.</sys:String>
     <sys:String x:Key="St_DocInfoSaved">Document info saved.</sys:String>
+
+    <!-- ══ Character Properties dialog ════════════════════════════════════ -->
+    <sys:String x:Key="Dlg_CharProps">Character Properties</sys:String>
+    <sys:String x:Key="Dlg_Char_Tab_Font">Font</sys:String>
+    <sys:String x:Key="Dlg_Char_Tab_Style">Style</sys:String>
+    <sys:String x:Key="Dlg_Char_Font">Font:</sys:String>
+    <sys:String x:Key="Dlg_Char_Size">Size:</sys:String>
+    <sys:String x:Key="Dlg_Char_Spacing">Spacing:</sys:String>
+    <sys:String x:Key="Dlg_Char_ForeColor">Foreground:</sys:String>
+    <sys:String x:Key="Dlg_Char_BackColor">Background:</sys:String>
+    <sys:String x:Key="Dlg_Char_UlColor">Underline Color:</sys:String>
+    <sys:String x:Key="Dlg_Char_Bold">Bold</sys:String>
+    <sys:String x:Key="Dlg_Char_Italic">Italic</sys:String>
+    <sys:String x:Key="Dlg_Char_Outline">Outline</sys:String>
+    <sys:String x:Key="Dlg_Char_Underline">Underline</sys:String>
+    <sys:String x:Key="Dlg_Char_Strike">Strikethrough</sys:String>
+    <sys:String x:Key="Dlg_Char_Overline">Overline</sys:String>
+    <sys:String x:Key="Dlg_Char_ScriptLabel">Position</sys:String>
+    <sys:String x:Key="Dlg_Char_ScriptNone">Normal</sys:String>
+    <sys:String x:Key="Dlg_Char_Super">Superscript</sys:String>
+    <sys:String x:Key="Dlg_Char_Sub">Subscript</sys:String>
+    <sys:String x:Key="Dlg_Char_OverlineNote">Note: Overline is displayed in WPF only and is not saved to PPTX.</sys:String>
+    <sys:String x:Key="Dlg_Char_NoColor">(none)</sys:String>
 
 </ResourceDictionary>

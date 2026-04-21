@@ -37,6 +37,8 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int[]>? ShapesGroupRequested;
     /// <summary>User requested ungrouping of a GroupShape. (slideIdx, treeIdx)</summary>
     public event Action<int, int>? ShapeUngroupRequested;
+    /// <summary>User requested character properties while editing. (slideIdx, treeIdx)</summary>
+    public event Action<int, int>? CharPropertiesRequested;
 
     // ── Public properties ──────────────────────────────────────────────
 
@@ -989,6 +991,18 @@ public partial class SlideEditorCanvas : UserControl
         _editor.Focus();
         _editor.SelectAll();
 
+        // Add context menu for character properties
+        var charCtx  = new ContextMenu();
+        var cpItem   = new MenuItem
+        {
+            Header = Application.Current.TryFindResource("Ctx_CharProperties") as string ?? "문자 속성...",
+        };
+        int capturedSlideIdx = _slideIndex;
+        int capturedTreeIdx  = treeIdx;
+        cpItem.Click += (_, _) => CharPropertiesRequested?.Invoke(capturedSlideIdx, capturedTreeIdx);
+        charCtx.Items.Add(cpItem);
+        _editor.ContextMenu = charCtx;
+
         EditingStarted?.Invoke(_editor);
 
         _editor.LostFocus += (_, _) => { if (!SuppressLostFocusCommit) CommitEdit(save: true); };
@@ -1026,4 +1040,125 @@ public partial class SlideEditorCanvas : UserControl
 
     public object? GetSelectionProperty(DependencyProperty prop)
         => _editor?.Selection.GetPropertyValue(prop);
+
+    // ── Character style (GetEditorCharStyle / ApplyEditorCharStyle) ────
+
+    public CharStyle GetEditorCharStyle()
+    {
+        if (_editor is null) return new CharStyle();
+        var sel = _editor.Selection;
+
+        string? ff = (sel.GetPropertyValue(TextElement.FontFamilyProperty) as FontFamily)?.Source;
+        double? sizePt = sel.GetPropertyValue(TextElement.FontSizeProperty) is double d && d > 0
+            ? d * 72.0 / 96.0 : (double?)null;
+        bool? bold   = sel.GetPropertyValue(TextElement.FontWeightProperty) is FontWeight w
+            ? w == FontWeights.Bold : (bool?)null;
+        bool? italic = sel.GetPropertyValue(TextElement.FontStyleProperty) is FontStyle fstyle
+            ? fstyle == FontStyles.Italic : (bool?)null;
+
+        var decos = sel.GetPropertyValue(Inline.TextDecorationsProperty) as TextDecorationCollection;
+        bool? ul    = decos?.Any(d => d.Location == TextDecorationLocation.Underline);
+        bool? strike = decos?.Any(d => d.Location == TextDecorationLocation.Strikethrough);
+        bool? overl  = decos?.Any(d => d.Location == TextDecorationLocation.OverLine);
+
+        var fv     = sel.GetPropertyValue(Typography.VariantsProperty) is FontVariants variants
+            ? variants : FontVariants.Normal;
+        var script = fv == FontVariants.Superscript ? ScriptKind.Superscript :
+                     fv == FontVariants.Subscript   ? ScriptKind.Subscript   :
+                                                      ScriptKind.None;
+
+        RgbColor? fore = sel.GetPropertyValue(TextElement.ForegroundProperty) is SolidColorBrush fg
+            ? new RgbColor(fg.Color.R, fg.Color.G, fg.Color.B) : (RgbColor?)null;
+        RgbColor? back = sel.GetPropertyValue(TextElement.BackgroundProperty) is SolidColorBrush bg
+                         && bg.Color.A > 0
+            ? new RgbColor(bg.Color.R, bg.Color.G, bg.Color.B) : (RgbColor?)null;
+
+        // Extra props from first Run in selection
+        int spacing = 0;
+        RgbColor? ulColor   = null;
+        bool hasOutline     = false;
+        var tp = sel.Start.GetAdjacentElement(LogicalDirection.Forward) as Run;
+        if (tp?.Tag is PPEditer.Services.PptxConverter.CharExtraProps ex)
+        {
+            spacing    = ex.SpacingPt100;
+            ulColor    = ex.UnderlineColor;
+            hasOutline = ex.HasOutline;
+        }
+
+        return new CharStyle
+        {
+            FontFamily     = ff,
+            FontSizePt     = sizePt,
+            Bold           = bold,
+            Italic         = italic,
+            HasUnderline   = ul,
+            HasStrike      = strike,
+            HasOverline    = overl,
+            HasOutline     = hasOutline,
+            Script         = script,
+            SpacingPt100   = spacing,
+            ForeColor      = fore,
+            HighlightColor = back,
+            UnderlineColor = ulColor,
+        };
+    }
+
+    public void ApplyEditorCharStyle(CharStyle style)
+    {
+        if (_editor is null) return;
+        var sel = _editor.Selection;
+        if (sel.IsEmpty) _editor.SelectAll();
+
+        if (style.FontFamily is not null)
+            sel.ApplyPropertyValue(TextElement.FontFamilyProperty, new FontFamily(style.FontFamily));
+        if (style.FontSizePt.HasValue)
+            sel.ApplyPropertyValue(TextElement.FontSizeProperty, style.FontSizePt.Value * 96.0 / 72.0);
+        if (style.Bold.HasValue)
+            sel.ApplyPropertyValue(TextElement.FontWeightProperty,
+                style.Bold.Value ? FontWeights.Bold : FontWeights.Normal);
+        if (style.Italic.HasValue)
+            sel.ApplyPropertyValue(TextElement.FontStyleProperty,
+                style.Italic.Value ? FontStyles.Italic : FontStyles.Normal);
+
+        var decos = new TextDecorationCollection();
+        if (style.HasUnderline == true) decos.Add(TextDecorations.Underline[0]);
+        if (style.HasStrike    == true) decos.Add(TextDecorations.Strikethrough[0]);
+        if (style.HasOverline  == true) decos.Add(TextDecorations.OverLine[0]);
+        sel.ApplyPropertyValue(Inline.TextDecorationsProperty, decos);
+
+        var fv = style.Script switch
+        {
+            ScriptKind.Superscript => FontVariants.Superscript,
+            ScriptKind.Subscript   => FontVariants.Subscript,
+            _                      => FontVariants.Normal,
+        };
+        sel.ApplyPropertyValue(Typography.VariantsProperty, fv);
+
+        if (style.ForeColor.HasValue)
+            sel.ApplyPropertyValue(TextElement.ForegroundProperty,
+                new SolidColorBrush(Color.FromRgb(style.ForeColor.Value.R,
+                                                  style.ForeColor.Value.G,
+                                                  style.ForeColor.Value.B)));
+        if (style.HighlightColor.HasValue)
+            sel.ApplyPropertyValue(TextElement.BackgroundProperty,
+                new SolidColorBrush(Color.FromRgb(style.HighlightColor.Value.R,
+                                                  style.HighlightColor.Value.G,
+                                                  style.HighlightColor.Value.B)));
+
+        // Update extra props (spacing, ulColor, outline) on each Run in selection
+        foreach (var block in _editor.Document.Blocks.OfType<Paragraph>())
+            foreach (var inline in block.Inlines.OfType<Run>())
+            {
+                if (inline.ContentEnd.CompareTo(sel.Start) < 0 ||
+                    inline.ContentStart.CompareTo(sel.End) > 0) continue;
+                var ex = inline.Tag as PPEditer.Services.PptxConverter.CharExtraProps
+                         ?? new PPEditer.Services.PptxConverter.CharExtraProps();
+                ex.SpacingPt100 = style.SpacingPt100;
+                if (style.UnderlineColor.HasValue) ex.UnderlineColor = style.UnderlineColor;
+                if (style.HasOutline.HasValue)     ex.HasOutline     = style.HasOutline.Value;
+                if (style.HasOverline.HasValue)    ex.HasOverline    = style.HasOverline.Value;
+                inline.Tag = ex;
+            }
+        _editor.Focus();
+    }
 }

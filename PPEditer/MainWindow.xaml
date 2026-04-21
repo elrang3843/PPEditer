@@ -41,6 +41,9 @@
                           InputGestureText="Ctrl+G"       Click="OnGroup"   IsEnabled="False"/>
                 <MenuItem x:Name="MenuUngroup" Header="{DynamicResource Ms_Ungroup}"
                           InputGestureText="Ctrl+Shift+G" Click="OnUngroup" IsEnabled="False"/>
+                <Separator/>
+                <MenuItem x:Name="MenuCharProps" Header="{DynamicResource Ms_CharProps}"
+                          InputGestureText="Ctrl+Shift+F" Click="OnCharProperties" IsEnabled="False"/>
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_View}">

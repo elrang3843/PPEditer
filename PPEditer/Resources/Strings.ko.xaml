@@ -59,6 +59,8 @@
     <sys:String x:Key="Msg_ShapeDrawn">도형이 추가되었습니다.</sys:String>
     <sys:String x:Key="Ms_Group">그룹으로 묶기(_G)</sys:String>
     <sys:String x:Key="Ms_Ungroup">그룹 해제(_U)</sys:String>
+    <sys:String x:Key="Ms_CharProps">문자 속성(_F)...</sys:String>
+    <sys:String x:Key="Ctx_CharProperties">문자 속성...</sys:String>
     <sys:String x:Key="Ctx_Group">그룹으로 묶기</sys:String>
     <sys:String x:Key="Ctx_Ungroup">그룹 해제</sys:String>
     <sys:String x:Key="Msg_Grouped">개체를 그룹으로 묶었습니다.</sys:String>
@@ -259,5 +261,28 @@
     <sys:String x:Key="Dlg_DocInfo_OpenPwdNote">파일 열기 암호(OLE 암호화)는 현재 버전에서 지원하지 않습니다. 향후 업데이트에서 지원할 예정입니다.</sys:String>
     <sys:String x:Key="Dlg_DocInfo_PwdEmpty">암호를 입력하세요.</sys:String>
     <sys:String x:Key="St_DocInfoSaved">문서 정보가 저장되었습니다.</sys:String>
+
+    <!-- ══ 문자 속성 대화상자 ════════════════════════════════════════════════ -->
+    <sys:String x:Key="Dlg_CharProps">문자 속성</sys:String>
+    <sys:String x:Key="Dlg_Char_Tab_Font">글꼴</sys:String>
+    <sys:String x:Key="Dlg_Char_Tab_Style">스타일</sys:String>
+    <sys:String x:Key="Dlg_Char_Font">글꼴:</sys:String>
+    <sys:String x:Key="Dlg_Char_Size">크기:</sys:String>
+    <sys:String x:Key="Dlg_Char_Spacing">간격:</sys:String>
+    <sys:String x:Key="Dlg_Char_ForeColor">전경색:</sys:String>
+    <sys:String x:Key="Dlg_Char_BackColor">배경색:</sys:String>
+    <sys:String x:Key="Dlg_Char_UlColor">줄 색:</sys:String>
+    <sys:String x:Key="Dlg_Char_Bold">두껍게</sys:String>
+    <sys:String x:Key="Dlg_Char_Italic">기울이기</sys:String>
+    <sys:String x:Key="Dlg_Char_Outline">외곽선</sys:String>
+    <sys:String x:Key="Dlg_Char_Underline">밑줄</sys:String>
+    <sys:String x:Key="Dlg_Char_Strike">삭제선</sys:String>
+    <sys:String x:Key="Dlg_Char_Overline">윗줄</sys:String>
+    <sys:String x:Key="Dlg_Char_ScriptLabel">위치</sys:String>
+    <sys:String x:Key="Dlg_Char_ScriptNone">보통</sys:String>
+    <sys:String x:Key="Dlg_Char_Super">위첨자</sys:String>
+    <sys:String x:Key="Dlg_Char_Sub">아래첨자</sys:String>
+    <sys:String x:Key="Dlg_Char_OverlineNote">※ 윗줄은 WPF 화면에서만 표시되며 PPTX 파일에 저장되지 않습니다.</sys:String>
+    <sys:String x:Key="Dlg_Char_NoColor">(없음)</sys:String>
 
 </ResourceDictionary>

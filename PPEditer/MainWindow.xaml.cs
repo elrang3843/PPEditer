@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         EditorCanvas.ShapeDrawn               += OnShapeDrawn;
         EditorCanvas.ShapesGroupRequested     += OnShapesGroupRequested;
         EditorCanvas.ShapeUngroupRequested    += OnShapeUngroupRequested;
+        EditorCanvas.CharPropertiesRequested  += (_, _) => OnCharProperties();
 
         RegisterKeyBindings();
         InitSettings();
@@ -97,6 +98,7 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(OnInsertEmoji),   Key.J, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnGroup),         Key.G, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(OnUngroup),       Key.G, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnCharProperties), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
     }
 
     // ── File commands ─────────────────────────────────────────────────
@@ -537,6 +539,19 @@ public partial class MainWindow : Window
         SetStatus(S("Msg_Ungrouped"));
     }
 
+    // ── Character properties ──────────────────────────────────────────
+
+    private void OnCharProperties(object? _ = null)
+    {
+        if (!_model.IsOpen || !EditorCanvas.IsEditing) return;
+        var style = EditorCanvas.GetEditorCharStyle();
+        var dlg   = new PPEditer.Dialogs.CharPropertiesDialog(style) { Owner = this };
+        EditorCanvas.SuppressLostFocusCommit = true;
+        try { if (dlg.ShowDialog() != true) return; }
+        finally { EditorCanvas.SuppressLostFocusCommit = false; }
+        EditorCanvas.ApplyEditorCharStyle(dlg.Result);
+    }
+
     // ── Insert media ──────────────────────────────────────────────────
 
     private void OnInsertImage(object? _ = null)
@@ -955,8 +970,9 @@ public partial class MainWindow : Window
         TbExportPdf.IsEnabled  = has;
         TbInsertTxBox.IsEnabled = has && !editing;
 
-        MenuGroup.IsEnabled   = hasMulti;
-        MenuUngroup.IsEnabled = isGroup;
+        MenuGroup.IsEnabled     = hasMulti;
+        MenuUngroup.IsEnabled   = isGroup;
+        MenuCharProps.IsEnabled = has && editing;
     }
 
     private void SetStatus(string msg) => StatusMsg.Text = msg;
@@ -1063,6 +1079,7 @@ public partial class MainWindow : Window
     private void OnInsertMath(object s, RoutedEventArgs e)     => OnInsertMath();
     private void OnInsertCharMap(object s, RoutedEventArgs e) => OnInsertCharMap();
     private void OnInsertEmoji(object s, RoutedEventArgs e)   => OnInsertEmoji();
+    private void OnCharProperties(object s, RoutedEventArgs e) => OnCharProperties();
 }
 
 // ── Tiny relay command ─────────────────────────────────────────────────────────
