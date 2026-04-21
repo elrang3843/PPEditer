@@ -104,6 +104,7 @@ public partial class SlideEditorCanvas : UserControl
     private Canvas?  _selOverlay;             // selection overlay (border + 8 handles)
     private RichTextBox? _editor;
     private int      _editingTreeIdx  = -1;
+    private FrameworkElement? _hiddenShape;   // original shape hidden while editing
 
     // ── Multi-select state ─────────────────────────────────────────────
     private readonly HashSet<int>            _multiTreeIdxs  = [];
@@ -211,6 +212,7 @@ public partial class SlideEditorCanvas : UserControl
         _selectedTreeIdx = -1;
         _selOverlay      = null;
         _editingTreeIdx  = -1;
+        _hiddenShape     = null;
         _dragMode        = DragMode.None;
         _resizeHandle    = -1;
         _multiTreeIdxs.Clear();
@@ -1012,20 +1014,26 @@ public partial class SlideEditorCanvas : UserControl
         CommitEdit(save: false);
         SelectShape(canvas, canvasIdx);
 
+        // Hide the rendered shape so the editor appears clean (no double rendering)
+        target.Visibility = Visibility.Hidden;
+        _hiddenShape = target;
+
         var doc = PptxConverter.ToFlowDocument(shape.TextBody);
 
         _editor = new RichTextBox(doc)
         {
             Width            = target.Width,
             Height           = target.Height,
-            Background       = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255)),
+            Background       = Brushes.White,
             BorderBrush      = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
             BorderThickness  = new Thickness(2),
+            Padding          = new Thickness(0),
             AcceptsReturn    = true,
             VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             FontFamily       = new FontFamily("맑은 고딕"),
         };
+        _editor.Document.PagePadding = new Thickness(0);
         Panel.SetZIndex(_editor, 10000);
         Canvas.SetLeft(_editor, Canvas.GetLeft(target));
         Canvas.SetTop(_editor,  Canvas.GetTop(target));
@@ -1081,6 +1089,13 @@ public partial class SlideEditorCanvas : UserControl
         _nativeCanvas.Children.Remove(_editor);
         _editor         = null;
         _editingTreeIdx = -1;
+
+        // Restore the hidden shape
+        if (_hiddenShape is not null)
+        {
+            _hiddenShape.Visibility = Visibility.Visible;
+            _hiddenShape = null;
+        }
     }
 
     // ── Public helpers for formatting toolbar ──────────────────────────
