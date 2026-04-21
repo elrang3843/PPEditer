@@ -46,6 +46,8 @@ public partial class SlideEditorCanvas : UserControl
     /// <summary>User finished drawing a text box. (slideIdx, leftEmu, topEmu, widthEmu, heightEmu)</summary>
     public event Action<int, long, long, long, long>? TextBoxDrawn;
 
+    public event Action? SelectionChanged;
+
     // ── Public properties ──────────────────────────────────────────────
 
     /// <summary>Set true before opening a dialog so LostFocus does not commit and close the editor.</summary>
@@ -743,14 +745,17 @@ public partial class SlideEditorCanvas : UserControl
 
         _selectedIdx     = idx;
         _selectedTreeIdx = -1;
-        if (idx < 0 || canvas.Children[idx] is not FrameworkElement target) return;
-        if (target.Tag is int ti) _selectedTreeIdx = ti;
+        if (idx >= 0 && canvas.Children[idx] is FrameworkElement target)
+        {
+            if (target.Tag is int ti) _selectedTreeIdx = ti;
+            double l = Canvas.GetLeft(target);
+            double t = Canvas.GetTop(target);
+            _selOverlay = BuildOverlay(l, t, target.Width, target.Height);
+            Panel.SetZIndex(_selOverlay, 9999);
+            canvas.Children.Add(_selOverlay);
+        }
 
-        double l = Canvas.GetLeft(target);
-        double t = Canvas.GetTop(target);
-        _selOverlay = BuildOverlay(l, t, target.Width, target.Height);
-        Panel.SetZIndex(_selOverlay, 9999);
-        canvas.Children.Add(_selOverlay);
+        SelectionChanged?.Invoke();
     }
 
     private void RemoveOverlay(Canvas canvas)

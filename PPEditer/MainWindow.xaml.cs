@@ -41,6 +41,7 @@ public partial class MainWindow : Window
         EditorCanvas.CharPropertiesRequested  += (_, _) => OnCharProperties();
         EditorCanvas.ParaPropertiesRequested  += (_, _) => OnParaProperties();
         EditorCanvas.TextBoxDrawn             += OnTextBoxDrawn;
+        EditorCanvas.SelectionChanged         += UpdateActions;
 
         RegisterKeyBindings();
         InitSettings();
