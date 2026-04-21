@@ -67,7 +67,7 @@ public partial class MainWindow : Window
         if (FontFamilyCombo is null) return;   // guard: called before InitializeComponent finishes
         _suppressFormatEvents = true;
         FontFamilyCombo.ItemsSource = openOnly
-            ? FontService.GetRecommendedFonts()
+            ? FontService.GetLicenseFilteredFonts()
             : FontService.GetAllFonts();
         _suppressFormatEvents = false;
     }

@@ -206,14 +206,24 @@
             <ToolBar x:Name="FormatToolBar" Band="2" BandIndex="1"
                      FontFamily="맑은 고딕, Segoe UI" FontSize="12" IsEnabled="False">
 
-                <!-- Open-source fonts only toggle -->
+                <!-- Font license filter toggle -->
                 <CheckBox x:Name="ChkOpenFontsOnly"
-                          Content="{DynamicResource Tb_OpenFontsOnly}"
                           IsChecked="True"
                           VerticalAlignment="Center"
                           Margin="4,0"
                           ToolTip="{DynamicResource Tt_OpenFontsOnly}"
-                          Checked="FontFilterChanged" Unchecked="FontFilterChanged"/>
+                          Checked="FontFilterChanged" Unchecked="FontFilterChanged">
+                    <CheckBox.Style>
+                        <Style TargetType="CheckBox">
+                            <Setter Property="Content" Value="{DynamicResource Tb_FontFilter_Off}"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Content" Value="{DynamicResource Tb_FontFilter_On}"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </CheckBox.Style>
+                </CheckBox>
 
                 <!-- Font family -->
                 <ComboBox x:Name="FontFamilyCombo" Width="180" IsEditable="True"

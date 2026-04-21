@@ -129,6 +129,8 @@
     <sys:String x:Key="Tb_ZoomLabel">확대/축소:</sys:String>
     <sys:String x:Key="Tb_ZoomFit">창 맞춤</sys:String>
     <sys:String x:Key="Tb_OpenFontsOnly">오픈소스 글꼴만</sys:String>
+    <sys:String x:Key="Tb_FontFilter_On">글꼴 제한</sys:String>
+    <sys:String x:Key="Tb_FontFilter_Off">모든 글꼴 허용</sys:String>
     <sys:String x:Key="Tb_CommitEdit">✓ 완료</sys:String>
     <sys:String x:Key="Tb_SlidePanel">  슬라이드</sys:String>
 

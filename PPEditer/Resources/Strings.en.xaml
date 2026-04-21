@@ -129,6 +129,8 @@
     <sys:String x:Key="Tb_ZoomLabel">Zoom:</sys:String>
     <sys:String x:Key="Tb_ZoomFit">Fit</sys:String>
     <sys:String x:Key="Tb_OpenFontsOnly">Open-source fonts only</sys:String>
+    <sys:String x:Key="Tb_FontFilter_On">Font Restricted</sys:String>
+    <sys:String x:Key="Tb_FontFilter_Off">All Fonts Allowed</sys:String>
     <sys:String x:Key="Tb_CommitEdit">✓ Done</sys:String>
     <sys:String x:Key="Tb_SlidePanel">  Slides</sys:String>
 
