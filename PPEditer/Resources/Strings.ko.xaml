@@ -111,8 +111,10 @@
     <sys:String x:Key="Ms_ThemeDark">어두운 테마</sys:String>
     <sys:String x:Key="Ms_Help">도움말(_H)</sys:String>
     <sys:String x:Key="Ms_UserManual">사용방법(_U)...</sys:String>
+    <sys:String x:Key="Ms_License">라이선스 정보(_L)...</sys:String>
     <sys:String x:Key="Ms_About">PPEditer 정보(_A)...</sys:String>
     <sys:String x:Key="Dlg_UserManual">PPEditer 사용 설명서</sys:String>
+    <sys:String x:Key="Dlg_License">라이선스 정보</sys:String>
 
     <!-- ══ 툴바 ══════════════════════════════════════════════════════════ -->
     <sys:String x:Key="Tb_New">새로 만들기</sys:String>

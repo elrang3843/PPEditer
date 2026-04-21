@@ -111,8 +111,10 @@
     <sys:String x:Key="Ms_ThemeDark">Dark Theme</sys:String>
     <sys:String x:Key="Ms_Help">_Help</sys:String>
     <sys:String x:Key="Ms_UserManual">_User Manual...</sys:String>
+    <sys:String x:Key="Ms_License">_License Information...</sys:String>
     <sys:String x:Key="Ms_About">_About PPEditer...</sys:String>
     <sys:String x:Key="Dlg_UserManual">PPEditer User Manual</sys:String>
+    <sys:String x:Key="Dlg_License">License Information</sys:String>
 
     <!-- ══ Toolbar ════════════════════════════════════════════════════════ -->
     <sys:String x:Key="Tb_New">New</sys:String>
