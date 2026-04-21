@@ -665,7 +665,7 @@ public sealed class PresentationModel : IDisposable
                     DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
                     DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
                     DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
-                    DrawTool.Arrow                      => A.ShapeTypeValues.RightArrow,
+                    DrawTool.Arrow                      => ArrowPreset(xs, ys),
                     _                                   => A.ShapeTypeValues.Rectangle,
                 };
                 geom = new A.PresetGeometry(new A.AdjustValueList()) { Preset = preset };
@@ -697,6 +697,16 @@ public sealed class PresentationModel : IDisposable
         slidePart.Slide.Save();
         _modified = true;
         return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(shape);
+    }
+
+    private static A.ShapeTypeValues ArrowPreset(long[] xs, long[] ys)
+    {
+        long dx = xs[1] - xs[0];
+        long dy = ys[1] - ys[0];
+        if (Math.Abs(dx) >= Math.Abs(dy))
+            return dx >= 0 ? A.ShapeTypeValues.RightArrow : A.ShapeTypeValues.LeftArrow;
+        else
+            return dy >= 0 ? A.ShapeTypeValues.DownArrow : A.ShapeTypeValues.UpArrow;
     }
 
     private static A.Transform2D MakeXfrm(long l, long t, long w, long h)

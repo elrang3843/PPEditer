@@ -218,6 +218,9 @@ public static class SlideRenderer
             "isoTri"        => Polygon((w / 2, 0), (w, h), (0, h)),
             "rtTriangle"    => Polygon((0, 0), (w, h), (0, h)),
             "rightArrow"    => BuildArrow(w, h, a1, a2),
+            "leftArrow"     => BuildArrowLeft(w, h, a1, a2),
+            "upArrow"       => BuildArrowUp(w, h, a1, a2),
+            "downArrow"     => BuildArrowDown(w, h, a1, a2),
             "arc"           => BuildArc(w, h, pg),
             _               => null,
         };
@@ -248,16 +251,46 @@ public static class SlideRenderer
 
     private static PathGeometry BuildArrow(double w, double h, double adj1, double adj2)
     {
-        // adj1 = shaft height ratio (default 0.5 → half of h each side of center)
-        // adj2 = head start x ratio (default 0.5 → halfway)
-        double dy1 = h * adj1 / 2.0;  // shaft half-height
-        double dx1 = w * adj2;         // head starts here
-        double y1  = dy1;
-        double y2  = h - dy1;
+        double dy1 = h * adj1 / 2.0;
+        double dx1 = w * adj2;
+        double y1 = dy1, y2 = h - dy1;
         return Polygon(
-            (0,   y1),  (dx1, y1), (dx1, 0),
+            (0,   y1), (dx1, y1), (dx1, 0),
             (w,   h / 2),
-            (dx1, h),   (dx1, y2), (0,   y2));
+            (dx1, h),  (dx1, y2), (0, y2));
+    }
+
+    private static PathGeometry BuildArrowLeft(double w, double h, double adj1, double adj2)
+    {
+        double dy1 = h * adj1 / 2.0;
+        double dx1 = w * adj2;          // head ends at dx1 from left
+        double y1 = dy1, y2 = h - dy1;
+        return Polygon(
+            (w,   y1), (w - dx1, y1), (w - dx1, 0),
+            (0,   h / 2),
+            (w - dx1, h), (w - dx1, y2), (w, y2));
+    }
+
+    private static PathGeometry BuildArrowUp(double w, double h, double adj1, double adj2)
+    {
+        double dx1 = w * adj1 / 2.0;   // shaft half-width
+        double dy1 = h * adj2;          // head ends at dy1 from top
+        double x1 = w / 2 - dx1, x2 = w / 2 + dx1;
+        return Polygon(
+            (x1, h), (x2, h), (x2, dy1), (w, dy1),
+            (w / 2, 0),
+            (0, dy1), (x1, dy1));
+    }
+
+    private static PathGeometry BuildArrowDown(double w, double h, double adj1, double adj2)
+    {
+        double dx1 = w * adj1 / 2.0;
+        double dy1 = h * adj2;          // head starts at h-dy1 from top
+        double x1 = w / 2 - dx1, x2 = w / 2 + dx1;
+        return Polygon(
+            (x1, 0), (x2, 0), (x2, h - dy1), (w, h - dy1),
+            (w / 2, h),
+            (0, h - dy1), (x1, h - dy1));
     }
 
     private static PathGeometry BuildArc(double w, double h, A.PresetGeometry? pg)
