@@ -41,7 +41,8 @@ public sealed class PresentationModel : IDisposable
     public long SlideHeight => _doc?.PresentationPart?.Presentation.SlideSize?.Cy ?? 5143500L;
 
     public bool HasWriteProtection
-        => _doc?.PresentationPart?.Presentation.GetFirstChild<ModifyVerifier>() is not null;
+        => _doc?.PresentationPart?.Presentation
+               .ChildElements.Any(e => e.LocalName == "modifyVerifier") == true;
 
     public int SlideCount
     {
@@ -557,7 +558,8 @@ public sealed class PresentationModel : IDisposable
         var presentation = _doc.PresentationPart?.Presentation;
         if (presentation is not null)
         {
-            var existing = presentation.GetFirstChild<ModifyVerifier>();
+            var existing = presentation.ChildElements
+                .FirstOrDefault(e => e.LocalName == "modifyVerifier");
             if (removeProtection)
             {
                 if (existing is not null)
@@ -754,10 +756,12 @@ public sealed class PresentationModel : IDisposable
 
     // ── Write protection ─────────────────────────────────────────────────
 
-    private static ModifyVerifier BuildModifyVerifier(string password)
+    private static OpenXmlElement BuildModifyVerifier(string password)
     {
         var (salt, hash) = ComputePasswordHash(password);
-        var mv = new ModifyVerifier();
+        // ModifyVerifier is not accessible as a typed class in SDK v3 — use OpenXmlUnknownElement
+        const string pNs = "http://schemas.openxmlformats.org/presentationml/2006/main";
+        var mv = new OpenXmlUnknownElement("p", "modifyVerifier", pNs);
         mv.SetAttribute(new OpenXmlAttribute("cryptProviderType",   string.Empty, "rsaAES"));
         mv.SetAttribute(new OpenXmlAttribute("cryptAlgorithmClass", string.Empty, "hash"));
         mv.SetAttribute(new OpenXmlAttribute("cryptAlgorithmType",  string.Empty, "typeAny"));
