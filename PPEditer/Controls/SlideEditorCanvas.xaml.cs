@@ -169,9 +169,12 @@ public partial class SlideEditorCanvas : UserControl
             WatermarkHost.Content = null;
             return;
         }
+        // NativeW/NativeH are already in WPF pixels (EMU ÷ 914400 × 96).
+        // SlideCanvas.Width is the XAML-default 960 only before Rebuild(); after Rebuild()
+        // the detached canvas may return stale or unexpected values.
         WatermarkHost.Content = WatermarkRenderer.BuildOverlay(
             props.WatermarkText, props.WatermarkKind,
-            SlideCanvas.Width, SlideCanvas.Height);
+            NativeW, NativeH);
     }
 
     public void Invalidate(int treeIdxToSelect)
