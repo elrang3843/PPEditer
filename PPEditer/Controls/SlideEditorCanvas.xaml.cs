@@ -96,6 +96,11 @@ public partial class SlideEditorCanvas : UserControl
     private int                _slideIndex;
     private Canvas?            _nativeCanvas;
     private double             _zoom = 1.0;
+    private double             _editorScale = 1.0;
+    /// <summary>Scale applied to FlowDocument font/layout sizes in the active editor
+    /// (= Viewbox pixel size / native canvas size). Used by the format toolbar to
+    /// convert between displayed pt and stored WPF DIPs.</summary>
+    public double EditorScale => _editorScale;
 
     // ── Drawing state ──────────────────────────────────────────────────
     private DrawTool    _activeTool     = DrawTool.Select;
@@ -1114,13 +1119,18 @@ public partial class SlideEditorCanvas : UserControl
         target.Visibility = Visibility.Hidden;
         _hiddenShape = target;
 
-        var doc = PptxConverter.ToFlowDocument(shape.TextBody);
-
-        // Map the target shape's bounds into EditorOverlay coordinates (which is
-        // outside the Viewbox), so the RichTextBox renders at physical screen pixels
-        // and the 1px caret is never placed at a sub-pixel position.
+        // Map the target shape's bounds into EditorOverlay coordinates (outside the
+        // Viewbox) so the RichTextBox renders at physical screen pixels.
         var tl = target.TranslatePoint(new Point(0, 0), EditorOverlay);
         var br = target.TranslatePoint(new Point(target.ActualWidth, target.ActualHeight), EditorOverlay);
+
+        // Scale = Viewbox pixel size / native canvas size. Font sizes and layout
+        // metrics in the FlowDocument are in native DIPs; applying this scale makes
+        // the edit-mode text appear the same visual size as the rendered slide.
+        _editorScale = target.ActualWidth > 0 ? (br.X - tl.X) / target.ActualWidth : 1.0;
+
+        var doc = PptxConverter.ToFlowDocument(shape.TextBody);
+        ScaleFlowDoc(doc, _editorScale);
 
         _editor = new RichTextBox(doc)
         {
@@ -1209,8 +1219,31 @@ public partial class SlideEditorCanvas : UserControl
         // Fire AFTER canvas is clean so handlers can safely rebuild the canvas.
         if (save && treeIdx >= 0)
         {
+            // Reverse the display scale before reading back so FromFlowDocument
+            // sees native DIP values and writes correct pt sizes to the PPTX.
+            ScaleFlowDoc(editorDoc, 1.0 / _editorScale);
             var paragraphs = PptxConverter.FromFlowDocument(editorDoc);
             TextCommitted?.Invoke(_slideIndex, treeIdx, paragraphs);
+        }
+    }
+
+    // Scales all size-related FlowDocument properties by the given factor.
+    // Call with the Viewbox scale before display, with 1/scale before commit.
+    private static void ScaleFlowDoc(FlowDocument doc, double scale)
+    {
+        if (Math.Abs(scale - 1.0) < 0.001) return;
+        foreach (var para in doc.Blocks.OfType<Paragraph>())
+        {
+            if (para.ReadLocalValue(TextElement.FontSizeProperty) != DependencyProperty.UnsetValue)
+                para.FontSize *= scale;
+            if (para.LineHeight > 0 && !double.IsNaN(para.LineHeight))
+                para.LineHeight *= scale;
+            var m = para.Margin;
+            para.Margin    = new Thickness(m.Left * scale, m.Top * scale, m.Right * scale, m.Bottom * scale);
+            para.TextIndent *= scale;
+            foreach (var run in para.Inlines.OfType<Run>())
+                if (run.ReadLocalValue(TextElement.FontSizeProperty) != DependencyProperty.UnsetValue)
+                    run.FontSize *= scale;
         }
     }
 

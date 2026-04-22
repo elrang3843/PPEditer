@@ -811,7 +811,7 @@ public partial class MainWindow : Window
 
             var fsize = EditorCanvas.GetSelectionProperty(TextElement.FontSizeProperty);
             if (fsize is double sizePx && sizePx > 0)
-                FontSizeCombo.Text = $"{sizePx * 72.0 / 96.0:0.##}";
+                FontSizeCombo.Text = $"{sizePx / EditorCanvas.EditorScale * 72.0 / 96.0:0.##}";
         }
         finally
         {
@@ -853,7 +853,7 @@ public partial class MainWindow : Window
         if (FontSizeCombo.SelectedItem is ComboBoxItem item &&
             double.TryParse(item.Content?.ToString(), out double pt))
             EditorCanvas.ApplySelectionProperty(TextElement.FontSizeProperty,
-                pt * 96.0 / 72.0);
+                pt * 96.0 / 72.0 * EditorCanvas.EditorScale);
     }
 
     private void FontSizeCombo_LostFocus(object sender, RoutedEventArgs e)
@@ -861,7 +861,7 @@ public partial class MainWindow : Window
         if (_suppressFormatEvents || !EditorCanvas.IsEditing) return;
         if (double.TryParse(FontSizeCombo.Text.TrimEnd("pt ".ToCharArray()), out double pt) && pt > 0)
             EditorCanvas.ApplySelectionProperty(TextElement.FontSizeProperty,
-                pt * 96.0 / 72.0);
+                pt * 96.0 / 72.0 * EditorCanvas.EditorScale);
     }
 
     private void OnBoldClick(object sender, RoutedEventArgs e)
