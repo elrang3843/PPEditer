@@ -1628,10 +1628,10 @@ public sealed class PresentationModel : IDisposable
         try
         {
             var pp = _doc!.PackageProperties;
-            pp.Title          = string.IsNullOrEmpty(props.Title)   ? null : props.Title;
-            pp.Subject        = string.IsNullOrEmpty(props.Subject) ? null : props.Subject;
-            pp.Creator        = string.IsNullOrEmpty(props.Author)  ? null : props.Author;
-            pp.LastModifiedBy = Environment.UserName;
+            pp.Title          = string.IsNullOrEmpty(props.Title)          ? null : props.Title;
+            pp.Subject        = string.IsNullOrEmpty(props.Subject)        ? null : props.Subject;
+            pp.Creator        = string.IsNullOrEmpty(props.Author)         ? null : props.Author;
+            pp.LastModifiedBy = string.IsNullOrEmpty(props.LastModifiedBy) ? null : props.LastModifiedBy;
             pp.Modified       = DateTime.UtcNow;
             if (pp.Created is null) pp.Created = DateTime.UtcNow;
             pp.Revision = ((int.TryParse(pp.Revision, out int rev) ? rev : 0) + 1).ToString();

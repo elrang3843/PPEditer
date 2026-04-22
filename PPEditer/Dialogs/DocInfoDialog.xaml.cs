@@ -37,7 +37,7 @@ public partial class DocInfoDialog : Window
         TxManager.Text = props.Manager;
         TxCompany.Text = props.Company;
 
-        LblLastModifiedBy.Text = string.IsNullOrEmpty(props.LastModifiedBy) ? "-" : props.LastModifiedBy;
+        TxLastModifiedBy.Text  = props.LastModifiedBy;
         LblCreated.Text        = props.Created?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
         LblModified.Text       = props.Modified?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
         LblRevision.Text       = props.Revision > 0 ? props.Revision.ToString() : "-";
@@ -167,11 +167,12 @@ public partial class DocInfoDialog : Window
     {
         Result = new DocProperties
         {
-            Title   = TxTitle.Text.Trim(),
-            Subject = TxSubject.Text.Trim(),
-            Author  = TxAuthor.Text.Trim(),
-            Manager = TxManager.Text.Trim(),
-            Company = TxCompany.Text.Trim(),
+            Title          = TxTitle.Text.Trim(),
+            Subject        = TxSubject.Text.Trim(),
+            Author         = TxAuthor.Text.Trim(),
+            LastModifiedBy = TxLastModifiedBy.Text.Trim(),
+            Manager        = TxManager.Text.Trim(),
+            Company        = TxCompany.Text.Trim(),
 
             WatermarkKind        = SelectedWmKind(),
             WatermarkText        = TxWmText.Text.Trim(),

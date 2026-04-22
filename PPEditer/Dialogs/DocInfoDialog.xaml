@@ -74,9 +74,9 @@
                         <!-- Read-only fields -->
                         <TextBlock Grid.Row="6" Grid.Column="0"
                                    Text="{DynamicResource Dlg_DocInfo_LastModLbl}"
-                                   VerticalAlignment="Center" Foreground="#666666"/>
-                        <TextBlock Grid.Row="6" Grid.Column="1"
-                                   x:Name="LblLastModifiedBy" Foreground="#444444"/>
+                                   VerticalAlignment="Center"/>
+                        <TextBox   Grid.Row="6" Grid.Column="1"
+                                   x:Name="TxLastModifiedBy"/>
 
                         <TextBlock Grid.Row="8" Grid.Column="0"
                                    Text="{DynamicResource Dlg_DocInfo_CreatedLbl}"
