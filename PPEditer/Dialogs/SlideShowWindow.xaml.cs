@@ -335,7 +335,11 @@ public partial class SlideShowWindow : Window
 
         var props = _model.GetDocProperties();
         if (!props.WatermarkShowOnSlide) return;
-        var el = WatermarkRenderer.BuildOverlay(props, _model.SlideWidth, _model.SlideHeight);
+
+        // SlideWidth/Height are in EMU — convert to WPF pixels (same as SlideRenderer).
+        double slideW = _model.SlideWidth  / 914400.0 * 96.0;
+        double slideH = _model.SlideHeight / 914400.0 * 96.0;
+        var el = WatermarkRenderer.BuildOverlay(props, slideW, slideH);
         if (el is FrameworkElement wmEl)
         {
             wmEl.Tag = WatermarkTag;

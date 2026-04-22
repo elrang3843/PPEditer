@@ -24,6 +24,14 @@ public sealed class PresentationModel : IDisposable
     private readonly Stack<byte[]> _undoStack = new();
     private readonly Stack<byte[]> _redoStack = new();
 
+    // ── Watermark in-memory cache ────────────────────────────────────────
+    // Keeps the current session's watermark available even if custom-property
+    // persistence fails on some PPTX files.
+    private WatermarkKind _wmKind;
+    private string        _wmText        = string.Empty;
+    private bool          _wmShowOnPrint = true;
+    private bool          _wmShowOnSlide = true;
+
     // ── Properties ──────────────────────────────────────────────────────
 
     public bool   IsOpen    => _doc != null;
@@ -66,6 +74,7 @@ public sealed class PresentationModel : IDisposable
         _modified = false;
         _undoStack.Clear();
         _redoStack.Clear();
+        ResetWatermarkCache();
     }
 
     public void Open(string filePath)
@@ -79,6 +88,7 @@ public sealed class PresentationModel : IDisposable
         _filePath = filePath;
         _modified = false;
         _undoStack.Clear();
+        ResetWatermarkCache();
         _redoStack.Clear();
     }
 
@@ -1558,20 +1568,35 @@ public sealed class PresentationModel : IDisposable
             catch { }
         }
 
-        // Watermark (custom file properties)
-        try
+        // Watermark — prefer the in-memory cache (always current), fall back to file.
+        if (_wmKind != WatermarkKind.None || !string.IsNullOrEmpty(_wmText))
         {
-            var root   = GetCustomPropsRoot();
-            var kind   = ReadCustomProp(root, "PPEditer.WatermarkKind")  ?? "None";
-            var text   = ReadCustomProp(root, "PPEditer.WatermarkText")  ?? string.Empty;
-            var print  = ReadCustomProp(root, "PPEditer.WatermarkPrint") ?? "true";
-            var slide  = ReadCustomProp(root, "PPEditer.WatermarkSlide") ?? "true";
-            p.WatermarkKind        = Enum.TryParse<WatermarkKind>(kind, out var k) ? k : WatermarkKind.None;
-            p.WatermarkText        = text;
-            p.WatermarkShowOnPrint = print != "false";
-            p.WatermarkShowOnSlide = slide != "false";
+            p.WatermarkKind        = _wmKind;
+            p.WatermarkText        = _wmText;
+            p.WatermarkShowOnPrint = _wmShowOnPrint;
+            p.WatermarkShowOnSlide = _wmShowOnSlide;
         }
-        catch { }
+        else
+        {
+            try
+            {
+                var root  = GetCustomPropsRoot();
+                var kind  = ReadCustomProp(root, "PPEditer.WatermarkKind")  ?? "None";
+                var text  = ReadCustomProp(root, "PPEditer.WatermarkText")  ?? string.Empty;
+                var print = ReadCustomProp(root, "PPEditer.WatermarkPrint") ?? "true";
+                var slide = ReadCustomProp(root, "PPEditer.WatermarkSlide") ?? "true";
+                p.WatermarkKind        = Enum.TryParse<WatermarkKind>(kind, out var k) ? k : WatermarkKind.None;
+                p.WatermarkText        = text;
+                p.WatermarkShowOnPrint = print != "false";
+                p.WatermarkShowOnSlide = slide != "false";
+                // Populate cache for future calls.
+                _wmKind        = p.WatermarkKind;
+                _wmText        = p.WatermarkText;
+                _wmShowOnPrint = p.WatermarkShowOnPrint;
+                _wmShowOnSlide = p.WatermarkShowOnSlide;
+            }
+            catch { }
+        }
 
         return p;
     }
@@ -1585,6 +1610,13 @@ public sealed class PresentationModel : IDisposable
         SaveCorePropertiesFull(props);
         SaveExtendedProperties(props);
         SaveWatermarkProps(props);
+
+        // Update in-memory cache immediately so GetDocProperties() returns
+        // current values without needing to round-trip through the file.
+        _wmKind        = props.WatermarkKind;
+        _wmText        = props.WatermarkText;
+        _wmShowOnPrint = props.WatermarkShowOnPrint;
+        _wmShowOnSlide = props.WatermarkShowOnSlide;
 
         var presentation = _doc.PresentationPart?.Presentation;
         if (presentation is not null)
@@ -1666,6 +1698,14 @@ public sealed class PresentationModel : IDisposable
             xdoc.Save(ws);
         }
         catch { }
+    }
+
+    private void ResetWatermarkCache()
+    {
+        _wmKind = WatermarkKind.None;
+        _wmText = string.Empty;
+        _wmShowOnPrint = true;
+        _wmShowOnSlide = true;
     }
 
     private void SaveWatermarkProps(DocProperties props)

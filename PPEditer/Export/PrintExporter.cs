@@ -82,8 +82,7 @@ internal sealed class SlidePaginator : DocumentPaginator
         dc.DrawImage(bmp, imgRect);
 
         if (_docProps.WatermarkShowOnPrint)
-            WatermarkRenderer.DrawOnContext(dc, _docProps.WatermarkText,
-                _docProps.WatermarkKind, imgRect);
+            DrawWatermarkBitmap(dc, imgRect);
 
         if (notesH > 0)
         {
@@ -116,8 +115,7 @@ internal sealed class SlidePaginator : DocumentPaginator
             var    thumbRc = new Rect(4, top, thumbW, thumbH);
             dc.DrawImage(bmp, thumbRc);
             if (_docProps.WatermarkShowOnPrint)
-                WatermarkRenderer.DrawOnContext(dc, _docProps.WatermarkText,
-                    _docProps.WatermarkKind, thumbRc);
+                DrawWatermarkBitmap(dc, thumbRc);
 
             // Draw rule lines for handwritten notes
             const int lineCount = 6;
@@ -155,6 +153,23 @@ internal sealed class SlidePaginator : DocumentPaginator
             Trimming      = TextTrimming.CharacterEllipsis,
         };
         dc.DrawText(ft, bounds.Location);
+    }
+
+    private void DrawWatermarkBitmap(DrawingContext dc, Rect bounds)
+    {
+        if (_docProps.WatermarkKind == WatermarkKind.None ||
+            string.IsNullOrWhiteSpace(_docProps.WatermarkText)) return;
+
+        var overlay = (System.Windows.UIElement)WatermarkRenderer.BuildOverlay(
+            _docProps.WatermarkText, _docProps.WatermarkKind, bounds.Width, bounds.Height);
+        overlay.Measure(new Size(bounds.Width, bounds.Height));
+        overlay.Arrange(new Rect(0, 0, bounds.Width, bounds.Height));
+
+        int px = Math.Max(1, (int)bounds.Width);
+        int py = Math.Max(1, (int)bounds.Height);
+        var rtb = new RenderTargetBitmap(px, py, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(overlay);
+        dc.DrawImage(rtb, bounds);
     }
 
     private static (double w, double h) FitRect(double maxW, double maxH, double aspect) =>
