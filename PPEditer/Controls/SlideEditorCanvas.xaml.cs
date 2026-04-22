@@ -1122,15 +1122,15 @@ public partial class SlideEditorCanvas : UserControl
             Background       = Brushes.White,
             BorderBrush      = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
             BorderThickness  = new Thickness(2),
-            Padding          = new Thickness(0),
+            // Non-zero Padding gives the internal ScrollViewer a buffer so the
+            // caret is never clipped at the left/right edges of the control.
+            Padding          = new Thickness(4, 2, 4, 2),
             AcceptsReturn    = true,
             VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             FontFamily       = new FontFamily("맑은 고딕"),
         };
-        // A small page padding prevents the caret from being clipped at the
-        // right/bottom edge of the content area (WPF caret rendering quirk).
-        _editor.Document.PagePadding = new Thickness(2);
+        _editor.Document.PagePadding = new Thickness(0);
         Panel.SetZIndex(_editor, 10000);
         Canvas.SetLeft(_editor, Canvas.GetLeft(target));
         Canvas.SetTop(_editor,  Canvas.GetTop(target));
