@@ -167,6 +167,34 @@
                 <MenuItem Header="{DynamicResource Ms_DisplaySettings}"
                           Click="OnDisplaySettings"/>
 
+                <Separator/>
+
+                <!-- 자동 저장 -->
+                <MenuItem Header="{DynamicResource Ms_AutoSave}">
+                    <MenuItem x:Name="MenuAutoSaveOn"
+                              Header="{DynamicResource Ms_AutoSaveEnabled}"
+                              IsCheckable="True"
+                              Click="OnAutoSaveToggle"/>
+                    <Separator/>
+                    <MenuItem Header="{DynamicResource Ms_AutoSaveInterval}">
+                        <MenuItem x:Name="MenuAS1"  Tag="1"  IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave1m}"/>
+                        <MenuItem x:Name="MenuAS2"  Tag="2"  IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave2m}"/>
+                        <MenuItem x:Name="MenuAS5"  Tag="5"  IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave5m}"/>
+                        <MenuItem x:Name="MenuAS10" Tag="10" IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave10m}"/>
+                        <MenuItem x:Name="MenuAS30" Tag="30" IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave30m}"/>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem x:Name="MenuAutoSaveNag"
+                              Header="{DynamicResource Ms_AutoSaveNag}"
+                              IsCheckable="True"
+                              Click="OnAutoSaveNagToggle"/>
+                </MenuItem>
+
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Help}">

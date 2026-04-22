@@ -113,6 +113,17 @@
     <sys:String x:Key="Ms_ThemeLight">밝은 테마</sys:String>
     <sys:String x:Key="Ms_ThemeDark">어두운 테마</sys:String>
     <sys:String x:Key="Ms_DisplaySettings">디스플레이 설정(_D)...</sys:String>
+    <sys:String x:Key="Ms_AutoSave">자동 저장</sys:String>
+    <sys:String x:Key="Ms_AutoSaveEnabled">자동 저장 사용</sys:String>
+    <sys:String x:Key="Ms_AutoSaveInterval">저장 주기</sys:String>
+    <sys:String x:Key="Ms_AutoSave1m">1분</sys:String>
+    <sys:String x:Key="Ms_AutoSave2m">2분</sys:String>
+    <sys:String x:Key="Ms_AutoSave5m">5분 (기본)</sys:String>
+    <sys:String x:Key="Ms_AutoSave10m">10분</sys:String>
+    <sys:String x:Key="Ms_AutoSave30m">30분</sys:String>
+    <sys:String x:Key="Ms_AutoSaveNag">미저장 시 안내 메시지</sys:String>
+    <sys:String x:Key="Msg_AutoSaved">자동 저장됨</sys:String>
+    <sys:String x:Key="Msg_AutoSaveNag">파일이 아직 저장된 적이 없습니다. 지금 저장하시겠습니까?</sys:String>
     <sys:String x:Key="Dlg_DisplaySettings">디스플레이 설정</sys:String>
     <sys:String x:Key="Lbl_ShowMonitor">발표 화면 모니터</sys:String>
     <sys:String x:Key="Lbl_PresenterMonitor">발표자 도구 모니터</sys:String>

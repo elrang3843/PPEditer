@@ -23,6 +23,11 @@ public sealed class AppSettings
     /// <summary>Monitor index for the presenter view window. -1 = auto.</summary>
     public int PresenterMonitorIndex { get; set; } = -1;
 
+    public bool AutoSaveEnabled      { get; set; } = true;
+    public int  AutoSaveIntervalMins { get; set; } = 5;
+    /// <summary>Show a save prompt when the timer fires but the file has no path yet.</summary>
+    public bool AutoSaveNagEnabled   { get; set; } = true;
+
     // ── Load / Save ────────────────────────────────────────────────────
     public static AppSettings Load()
     {

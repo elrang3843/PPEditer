@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
@@ -22,6 +23,8 @@ public partial class MainWindow : Window
     private bool _suppressNotesEvents;
     private bool _notesDirty;
     private RichTextBox? _activeEditor;
+
+    private readonly DispatcherTimer _autoSaveTimer = new();
 
     private const int RecentMax = 10;
 
@@ -55,6 +58,7 @@ public partial class MainWindow : Window
 
         RegisterKeyBindings();
         InitSettings();
+        InitAutoSave();
         RebuildRecentMenu();
         UpdateActions();
     }
@@ -1267,6 +1271,83 @@ public partial class MainWindow : Window
     {
         var dlg = new Dialogs.DisplaySettingsDialog { Owner = this };
         dlg.ShowDialog();
+    }
+
+    // ── Auto-save ─────────────────────────────────────────────────────
+
+    private void InitAutoSave()
+    {
+        var s = AppSettings.Current;
+        MenuAutoSaveOn.IsChecked  = s.AutoSaveEnabled;
+        MenuAutoSaveNag.IsChecked = s.AutoSaveNagEnabled;
+        SyncAutoSaveIntervalMenu(s.AutoSaveIntervalMins);
+        _autoSaveTimer.Tick += OnAutoSaveTick;
+        RestartAutoSaveTimer();
+    }
+
+    private void SyncAutoSaveIntervalMenu(int mins)
+    {
+        foreach (var item in new[] { MenuAS1, MenuAS2, MenuAS5, MenuAS10, MenuAS30 })
+            item.IsChecked = int.Parse((string)item.Tag) == mins;
+    }
+
+    private void RestartAutoSaveTimer()
+    {
+        _autoSaveTimer.Stop();
+        var s = AppSettings.Current;
+        if (!s.AutoSaveEnabled) return;
+        _autoSaveTimer.Interval = TimeSpan.FromMinutes(s.AutoSaveIntervalMins);
+        _autoSaveTimer.Start();
+    }
+
+    private void OnAutoSaveTick(object? sender, EventArgs e)
+    {
+        if (!_model.IsOpen || !_model.Modified) return;
+
+        if (string.IsNullOrEmpty(_model.FilePath))
+        {
+            if (AppSettings.Current.AutoSaveNagEnabled)
+            {
+                var r = MessageBox.Show(this,
+                    S("Msg_AutoSaveNag"), S("Ms_AutoSave"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (r == MessageBoxResult.Yes) OnSaveAs();
+            }
+            return;
+        }
+
+        try
+        {
+            SaveCurrentNotes();
+            _model.Save();
+            UpdateTitle();
+            UpdateActions();
+            SetStatus(S("Msg_AutoSaved"));
+        }
+        catch { }
+    }
+
+    private void OnAutoSaveToggle(object sender, RoutedEventArgs e)
+    {
+        AppSettings.Current.AutoSaveEnabled = MenuAutoSaveOn.IsChecked;
+        AppSettings.Current.Save();
+        RestartAutoSaveTimer();
+    }
+
+    private void OnAutoSaveInterval(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi) return;
+        int mins = int.Parse((string)mi.Tag);
+        AppSettings.Current.AutoSaveIntervalMins = mins;
+        AppSettings.Current.Save();
+        SyncAutoSaveIntervalMenu(mins);
+        RestartAutoSaveTimer();
+    }
+
+    private void OnAutoSaveNagToggle(object sender, RoutedEventArgs e)
+    {
+        AppSettings.Current.AutoSaveNagEnabled = MenuAutoSaveNag.IsChecked;
+        AppSettings.Current.Save();
     }
 
     // ── XAML event bridges ────────────────────────────────────────────
