@@ -1,0 +1,16 @@
+<Window x:Class="PPEditer.Dialogs.SlideShowWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Slide Show"
+        WindowStyle="None"
+        WindowState="Maximized"
+        Background="Black"
+        ShowInTaskbar="True"
+        Topmost="True"
+        Cursor="None"
+        ContextMenu="{x:Null}"
+        KeyDown="OnKeyDown"
+        MouseLeftButtonDown="OnMouseLeft"
+        MouseRightButtonDown="OnMouseRight">
+    <Grid x:Name="SlideContainer" Background="Black"/>
+</Window>

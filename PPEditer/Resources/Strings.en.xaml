@@ -25,6 +25,8 @@
     <sys:String x:Key="Ms_ZoomFit">_Fit to Window</sys:String>
     <sys:String x:Key="Ms_SlidePanel">Slide _Panel</sys:String>
     <sys:String x:Key="Ms_StatusBar">_Status Bar</sys:String>
+    <sys:String x:Key="Ms_NotesPanel">_Notes Panel</sys:String>
+    <sys:String x:Key="Ms_Print">_Print...</sys:String>
     <sys:String x:Key="Ms_Insert">_Insert</sys:String>
     <sys:String x:Key="Ms_InsertTextBox">_Text Box...</sys:String>
     <sys:String x:Key="Ms_InsertImage">_Image...</sys:String>
@@ -56,6 +58,7 @@
     <sys:String x:Key="St_DrawHint_Drag">Drag to draw the shape. (Esc = cancel)</sys:String>
     <sys:String x:Key="St_DrawHint_Click">Click to add points, double-click to finish. (Esc = cancel)</sys:String>
     <sys:String x:Key="St_DrawHint_3Click">Click 3 points to draw the triangle. (Esc = cancel)</sys:String>
+    <sys:String x:Key="St_DrawHint_4Click">Click 4 points to draw the trapezoid. (Esc = cancel)</sys:String>
     <sys:String x:Key="Msg_ShapeDrawn">Shape added.</sys:String>
     <sys:String x:Key="Ms_Group">_Group</sys:String>
     <sys:String x:Key="Ms_Ungroup">_Ungroup</sys:String>
@@ -74,6 +77,33 @@
     <sys:String x:Key="Ms_DelSlide">_Delete Slide</sys:String>
     <sys:String x:Key="Ms_SlideUp">Move _Up</sys:String>
     <sys:String x:Key="Ms_SlideDown">Move _Down</sys:String>
+    <sys:String x:Key="Ms_SlideShow">Slide _Show</sys:String>
+    <sys:String x:Key="Ms_Effects">E_ffects</sys:String>
+    <sys:String x:Key="Ms_SlideTransition">Slide _Transition...</sys:String>
+    <sys:String x:Key="Ms_ShapeAnimation">Object _Animation...</sys:String>
+    <sys:String x:Key="Dlg_Transition">Slide Transition Effect</sys:String>
+    <sys:String x:Key="Dlg_Transition_Select">Select Transition:</sys:String>
+    <sys:String x:Key="Dlg_Transition_AllSlides">Apply to all slides</sys:String>
+    <sys:String x:Key="Tr_None">None (instant)</sys:String>
+    <sys:String x:Key="Tr_Fade">Fade — smoothly fade out and in</sys:String>
+    <sys:String x:Key="Tr_Push">Push — slide content pushes in from right</sys:String>
+    <sys:String x:Key="Tr_Wipe">Wipe — reveal from left edge</sys:String>
+    <sys:String x:Key="Tr_Flip">Flip — old slide flips away upward</sys:String>
+    <sys:String x:Key="Tr_Crumple">Crumple &amp; Throw — old slide crumples away</sys:String>
+    <sys:String x:Key="Tr_Morph">Morph — smoothly transform between slides</sys:String>
+    <sys:String x:Key="Dlg_Animation">Animation Effect</sys:String>
+    <sys:String x:Key="Dlg_Animation_Select">Select Animation:</sys:String>
+    <sys:String x:Key="An_None">None (instant appear)</sys:String>
+    <sys:String x:Key="An_FadeIn">Fade In — appears with fade</sys:String>
+    <sys:String x:Key="An_FlyIn">Fly In — flies in from below</sys:String>
+    <sys:String x:Key="An_Pulse">Pulse — scales up then back</sys:String>
+    <sys:String x:Key="An_Bounce">Bounce — pops up like popcorn</sys:String>
+    <sys:String x:Key="An_WipeIn">Wipe In — sweeps in from the left</sys:String>
+    <sys:String x:Key="Dlg_Duration">Duration (s):</sys:String>
+    <sys:String x:Key="Dlg_RepeatCount">Repeat (0=∞):</sys:String>
+    <sys:String x:Key="Dlg_AutoPlay">Auto-play on slide show</sys:String>
+    <sys:String x:Key="Msg_TransitionSet">Slide transition effect set.</sys:String>
+    <sys:String x:Key="Msg_AnimationSet">Animation effect set.</sys:String>
     <sys:String x:Key="Ms_Settings">_Settings</sys:String>
     <sys:String x:Key="Ms_FontFilter">_Font License Filter</sys:String>
     <sys:String x:Key="Ms_Language">_Language</sys:String>
@@ -82,8 +112,28 @@
     <sys:String x:Key="Ms_Theme">_Theme</sys:String>
     <sys:String x:Key="Ms_ThemeLight">Light Theme</sys:String>
     <sys:String x:Key="Ms_ThemeDark">Dark Theme</sys:String>
+    <sys:String x:Key="Ms_DisplaySettings">_Display Settings...</sys:String>
+    <sys:String x:Key="Ms_AutoSave">Auto Save</sys:String>
+    <sys:String x:Key="Ms_AutoSaveEnabled">Enable Auto Save</sys:String>
+    <sys:String x:Key="Ms_AutoSaveInterval">Save Interval</sys:String>
+    <sys:String x:Key="Ms_AutoSave1m">1 min</sys:String>
+    <sys:String x:Key="Ms_AutoSave2m">2 min</sys:String>
+    <sys:String x:Key="Ms_AutoSave5m">5 min (default)</sys:String>
+    <sys:String x:Key="Ms_AutoSave10m">10 min</sys:String>
+    <sys:String x:Key="Ms_AutoSave30m">30 min</sys:String>
+    <sys:String x:Key="Ms_AutoSaveNag">Notify When Unsaved</sys:String>
+    <sys:String x:Key="Msg_AutoSaved">Auto-saved</sys:String>
+    <sys:String x:Key="Msg_AutoSaveNag">This file has never been saved. Save now?</sys:String>
+    <sys:String x:Key="Dlg_DisplaySettings">Display Settings</sys:String>
+    <sys:String x:Key="Lbl_ShowMonitor">Presentation Monitor</sys:String>
+    <sys:String x:Key="Lbl_PresenterMonitor">Presenter View Monitor</sys:String>
+    <sys:String x:Key="Opt_AutoDetect">Auto Detect</sys:String>
     <sys:String x:Key="Ms_Help">_Help</sys:String>
+    <sys:String x:Key="Ms_UserManual">_User Manual...</sys:String>
+    <sys:String x:Key="Ms_License">_License Information...</sys:String>
     <sys:String x:Key="Ms_About">_About PPEditer...</sys:String>
+    <sys:String x:Key="Dlg_UserManual">PPEditer User Manual</sys:String>
+    <sys:String x:Key="Dlg_License">License Information</sys:String>
 
     <!-- ══ Toolbar ════════════════════════════════════════════════════════ -->
     <sys:String x:Key="Tb_New">New</sys:String>
@@ -98,6 +148,8 @@
     <sys:String x:Key="Tb_ZoomLabel">Zoom:</sys:String>
     <sys:String x:Key="Tb_ZoomFit">Fit</sys:String>
     <sys:String x:Key="Tb_OpenFontsOnly">Open-source fonts only</sys:String>
+    <sys:String x:Key="Tb_FontFilter_On">Font Restricted</sys:String>
+    <sys:String x:Key="Tb_FontFilter_Off">All Fonts Allowed</sys:String>
     <sys:String x:Key="Tb_CommitEdit">✓ Done</sys:String>
     <sys:String x:Key="Tb_SlidePanel">  Slides</sys:String>
 
@@ -120,6 +172,8 @@
     <sys:String x:Key="Tt_AlignLeft">Align Left (Ctrl+L)</sys:String>
     <sys:String x:Key="Tt_AlignCenter">Center (Ctrl+E)</sys:String>
     <sys:String x:Key="Tt_AlignRight">Align Right (Ctrl+R)</sys:String>
+    <sys:String x:Key="Tt_AlignJustify">Justify (Ctrl+J)</sys:String>
+    <sys:String x:Key="Tt_ParaProps">Paragraph Properties (Ctrl+Shift+P)</sys:String>
     <sys:String x:Key="Tt_TextColor">Text color</sys:String>
     <sys:String x:Key="Tt_OpenFontsOnly">Show only open-source fonts with clear licenses.</sys:String>
     <sys:String x:Key="Tt_CommitEdit">Finish editing (Esc)</sys:String>
@@ -164,6 +218,11 @@
     <sys:String x:Key="Ctx_SendBackward">Send Backward</sys:String>
     <sys:String x:Key="Ctx_SendToBack">Send to Back</sys:String>
     <sys:String x:Key="Ctx_Delete">Delete</sys:String>
+    <sys:String x:Key="Ctx_RotateCW">Rotate 90° Clockwise</sys:String>
+    <sys:String x:Key="Ctx_RotateCCW">Rotate 90° Counterclockwise</sys:String>
+    <sys:String x:Key="Ctx_RotateCustom">Rotate by Angle...</sys:String>
+    <sys:String x:Key="Dlg_RotateTitle">Rotate by Angle</sys:String>
+    <sys:String x:Key="Dlg_RotateAngle">Rotation angle (°):</sys:String>
     <sys:String x:Key="Dlg_ShapeProps">Object Properties</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_Name">Name:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_X">X Position:</sys:String>
@@ -171,6 +230,7 @@
     <sys:String x:Key="Dlg_ShapeProps_W">Width:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_H">Height:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_InvalidInput">Please enter valid numeric values.</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_LockAspect">Lock aspect ratio</sys:String>
     <sys:String x:Key="Msg_ShapePropsSaved">Object properties updated.</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Pos">Position/Size</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Fill">Fill</sys:String>
@@ -204,6 +264,22 @@
     <sys:String x:Key="Dlg_Emoji_Cat4">Travel</sys:String>
     <sys:String x:Key="Dlg_Emoji_Cat5">Symbols</sys:String>
     <sys:String x:Key="Btn_Close">Close</sys:String>
+    <sys:String x:Key="Btn_Print">Print</sys:String>
+    <sys:String x:Key="Lbl_NotesPanel">Slide Notes</sys:String>
+    <sys:String x:Key="Dlg_Print">Print</sys:String>
+    <sys:String x:Key="Dlg_Print_Layout">Print Layout</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideOnly">Slides only</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideNotes">Slides with notes</sys:String>
+    <sys:String x:Key="Dlg_Print_Handout3">Handout (3 slides per page)</sys:String>
+    <sys:String x:Key="Dlg_Print_Options">Options</sys:String>
+    <sys:String x:Key="Dlg_Print_BlackWhite">Black &amp; white</sys:String>
+    <sys:String x:Key="Err_PrintFailed">Print failed.</sys:String>
+    <sys:String x:Key="Dlg_PresenterView">Presenter View — PPEditer</sys:String>
+    <sys:String x:Key="Lbl_NextSlide">Next Slide</sys:String>
+    <sys:String x:Key="Lbl_LastSlide">End of Presentation</sys:String>
+    <sys:String x:Key="Lbl_PresenterNotes">Speaker Notes</sys:String>
+    <sys:String x:Key="Btn_PresenterPrev">◀ Prev</sys:String>
+    <sys:String x:Key="Btn_PresenterNext">Next ▶</sys:String>
     <sys:String x:Key="Lbl_InsertFailed">Insert Error</sys:String>
     <sys:String x:Key="Err_InsertFailed">Insert failed:</sys:String>
     <sys:String x:Key="Dlg_OpenFilter">Presentation files|*.pptx;*.ppt|All files|*.*</sys:String>
@@ -239,6 +315,15 @@
     <sys:String x:Key="Dlg_DocInfo">Document Info</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabGeneral">General</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabSecurity">Security</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabWatermark">Watermark</sys:String>
+    <sys:String x:Key="Dlg_WM_Kind">Watermark Type</sys:String>
+    <sys:String x:Key="Dlg_WM_None">None</sys:String>
+    <sys:String x:Key="Dlg_WM_Diagonal">Diagonal Text</sys:String>
+    <sys:String x:Key="Dlg_WM_Horizontal">Horizontal Text</sys:String>
+    <sys:String x:Key="Dlg_WM_Text">Watermark Text</sys:String>
+    <sys:String x:Key="Dlg_WM_Preview">Preview</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnPrint">Print with watermark</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnSlide">Show during presentation</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TitleLbl">Title:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_SubjectLbl">Subject:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_AuthorLbl">Author:</sys:String>
@@ -284,5 +369,26 @@
     <sys:String x:Key="Dlg_Char_Sub">Subscript</sys:String>
     <sys:String x:Key="Dlg_Char_OverlineNote">Note: Overline is displayed in WPF only and is not saved to PPTX.</sys:String>
     <sys:String x:Key="Dlg_Char_NoColor">(none)</sys:String>
+
+    <!-- ══ Paragraph Properties dialog ════════════════════════════════════ -->
+    <sys:String x:Key="Ms_ParaProps">Paragraph Properties(_P)...</sys:String>
+    <sys:String x:Key="Ctx_ParaProperties">Paragraph Properties...</sys:String>
+    <sys:String x:Key="Dlg_ParaProps">Paragraph Properties</sys:String>
+    <sys:String x:Key="Dlg_Para_HorzAlign">Horizontal Alignment:</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignLeft">Left</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignCenter">Center</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignRight">Right</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignJustify">Justify</sys:String>
+    <sys:String x:Key="Dlg_Para_VertAnchor">Vertical Anchor:</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorTop">Top</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorMiddle">Middle</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorBottom">Bottom</sys:String>
+    <sys:String x:Key="Dlg_Para_Indent">First-line indent (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_Hanging">Hanging indent (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_LineSpacing">Line spacing (%):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceBefore">Space before (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceAfter">Space after (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_InvalidInput">Please enter valid numeric values.</sys:String>
+    <sys:String x:Key="Msg_ParaPropsSaved">Paragraph properties updated.</sys:String>
 
 </ResourceDictionary>

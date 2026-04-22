@@ -1,10 +1,12 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using DocumentFormat.OpenXml;
 using Microsoft.Win32;
 using PPEditer.Dialogs;
 using PPEditer.Export;
@@ -19,7 +21,11 @@ public partial class MainWindow : Window
     private int  _currentSlide;
     private bool _suppressZoomEvents;
     private bool _suppressFormatEvents;
+    private bool _suppressNotesEvents;
+    private bool _notesDirty;
     private RichTextBox? _activeEditor;
+
+    private readonly DispatcherTimer _autoSaveTimer = new();
 
     private const int RecentMax = 10;
 
@@ -27,7 +33,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        SlidePanel.SlideSelected    += idx => { _currentSlide = idx; ShowCurrentSlide(); UpdateActions(); };
+        SlidePanel.SlideSelected    += idx =>
+        {
+            SaveCurrentNotes();
+            _currentSlide = idx;
+            ShowCurrentSlide();
+            LoadCurrentNotes();
+            UpdateActions();
+        };
         EditorCanvas.EditingStarted += OnEditorEditingStarted;
         EditorCanvas.TextCommitted  += OnEditorTextCommitted;
         EditorCanvas.ShapeMoved     += OnShapeMoved;
@@ -39,9 +52,26 @@ public partial class MainWindow : Window
         EditorCanvas.ShapesGroupRequested     += OnShapesGroupRequested;
         EditorCanvas.ShapeUngroupRequested    += OnShapeUngroupRequested;
         EditorCanvas.CharPropertiesRequested  += (_, _) => OnCharProperties();
+        EditorCanvas.ParaPropertiesRequested  += (_, _) => OnParaProperties();
+        EditorCanvas.TextBoxDrawn             += OnTextBoxDrawn;
+        EditorCanvas.ShapeRotated             += OnShapeRotated;
+        EditorCanvas.SelectionChanged         += UpdateActions;
+        EditorCanvas.ShapesDeleted            += OnShapesDeleted;
+        EditorCanvas.ShapesPasteRequested     += OnShapesPasteRequested;
+
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy,
+            (_, _) => EditorCanvas.CopyShapes(),
+            (_, e2) => e2.CanExecute = EditorCanvas.IsShapeSelected));
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Cut,
+            (_, _) => EditorCanvas.CutShapes(),
+            (_, e2) => e2.CanExecute = EditorCanvas.IsShapeSelected));
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Paste,
+            (_, _) => EditorCanvas.PasteShapes(),
+            (_, e2) => e2.CanExecute = EditorCanvas.HasClipboard));
 
         RegisterKeyBindings();
         InitSettings();
+        InitAutoSave();
         RebuildRecentMenu();
         UpdateActions();
     }
@@ -64,7 +94,7 @@ public partial class MainWindow : Window
         if (FontFamilyCombo is null) return;   // guard: called before InitializeComponent finishes
         _suppressFormatEvents = true;
         FontFamilyCombo.ItemsSource = openOnly
-            ? FontService.GetRecommendedFonts()
+            ? FontService.GetLicenseFilteredFonts()
             : FontService.GetAllFonts();
         _suppressFormatEvents = false;
     }
@@ -99,6 +129,9 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(_ => OnGroup()),   Key.G, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(_ => OnUngroup()), Key.G, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnCharProperties), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnParaProperties), Key.P, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(_ => OnPrint()),    Key.P, ModifierKeys.Control));
+        kb.Add(new KeyBinding(new RelayCommand(_ => OnSlideShow()), Key.F5, ModifierKeys.None));
     }
 
     // ── File commands ─────────────────────────────────────────────────
@@ -146,6 +179,7 @@ public partial class MainWindow : Window
     {
         if (!_model.IsOpen) return;
         if (string.IsNullOrEmpty(_model.FilePath)) { OnSaveAs(); return; }
+        SaveCurrentNotes();
         try
         {
             _model.Save();
@@ -163,6 +197,7 @@ public partial class MainWindow : Window
     private void OnSaveAs(object? _ = null)
     {
         if (!_model.IsOpen) return;
+        SaveCurrentNotes();
         var dlg = new SaveFileDialog
         {
             Filter     = S("Dlg_SaveFilter"),
@@ -255,6 +290,7 @@ public partial class MainWindow : Window
         _model.UpdateDocInfo(dlg.Result, dlg.SetProtect, dlg.WritePassword, dlg.RemoveProtect);
         UpdateTitle();
         UpdateActions();
+        RefreshWatermark();
         SetStatus(S("St_DocInfoSaved"));
     }
 
@@ -333,15 +369,18 @@ public partial class MainWindow : Window
     private void OnInsertTextBox(object? _ = null)
     {
         if (!_model.IsOpen) return;
-        long cx = _model.SlideWidth;
-        long cy = _model.SlideHeight;
-        long w  = 4572000L;            // 5 in
-        long h  = 914400L;             // 1 in
-        long l  = (cx - w) / 2;
-        long t  = (cy - h) / 2;
-        _model.AddTextBox(_currentSlide, l, t, w, h);
+        EditorCanvas.ActiveTool = DrawTool.TextBox;
+        SetStatus(S("St_DrawHint_Drag"));
+    }
+
+    private void OnTextBoxDrawn(int slideIdx, long leftEmu, long topEmu, long widthEmu, long heightEmu)
+    {
+        int treeIdx = _model.AddTextBox(slideIdx, leftEmu, topEmu, widthEmu, heightEmu);
         RefreshAll();
         SetStatus(S("Msg_TextBoxAdded"));
+        if (treeIdx >= 0)
+            EditorCanvas.StartEditByTreeIndex(treeIdx, selectAll: true);
+        UpdateActions();
     }
 
     // ── View commands ─────────────────────────────────────────────────
@@ -361,6 +400,59 @@ public partial class MainWindow : Window
         => AppStatusBar.Visibility = MenuToggleStatus.IsChecked
             ? Visibility.Visible : Visibility.Collapsed;
 
+    private void OnToggleNotes(object sender, RoutedEventArgs e)
+    {
+        bool show = MenuToggleNotes.IsChecked;
+        NotesRow.Height          = show ? new GridLength(150, GridUnitType.Pixel) : new GridLength(0);
+        NotesSplitterRow.Height  = show ? new GridLength(4)                       : new GridLength(0);
+    }
+
+    // ── Notes panel ───────────────────────────────────────────────────
+
+    private void LoadCurrentNotes()
+    {
+        if (!_model.IsOpen) return;
+        _suppressNotesEvents = true;
+        NotesTextBox.Text    = _model.GetSlideNotes(_currentSlide);
+        _suppressNotesEvents = false;
+        _notesDirty          = false;
+    }
+
+    private void SaveCurrentNotes()
+    {
+        if (!_model.IsOpen || !_notesDirty) return;
+        _model.SetSlideNotes(_currentSlide, NotesTextBox.Text);
+        _notesDirty = false;
+    }
+
+    private void OnNotesTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_suppressNotesEvents)
+            _notesDirty = true;
+    }
+
+    // ── Print ─────────────────────────────────────────────────────────
+
+    private void OnPrint(object sender, RoutedEventArgs e) => OnPrint();
+    private void OnPrint()
+    {
+        if (!_model.IsOpen) return;
+        SaveCurrentNotes();
+        var dlg = new PrintLayoutDialog(this);
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            PrintExporter.Print(_model, dlg.SelectedLayout, dlg.BlackWhite);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_PrintFailed")}\n{ex.Message}",
+                            S("Lbl_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnUserManual(object s, RoutedEventArgs e) => new UserManualDialog { Owner = this }.ShowDialog();
+    private void OnLicense   (object s, RoutedEventArgs e) => new LicenseDialog   { Owner = this }.ShowDialog();
     private void OnAbout(object? _ = null) => new AboutDialog { Owner = this }.ShowDialog();
 
     // ── Zoom combo ────────────────────────────────────────────────────
@@ -395,6 +487,7 @@ public partial class MainWindow : Window
         TbInsertTxBox.IsEnabled = false;
         rtb.SelectionChanged += Editor_SelectionChanged;
         SyncFormatToolbar();
+        UpdateActions();   // re-enable Math / CharMap / Emoji items
     }
 
     private void OnShapeMoved(int slideIdx, int treeIdx, long dx, long dy)
@@ -416,11 +509,43 @@ public partial class MainWindow : Window
         SetStatus(S("Msg_ShapeDeleted"));
     }
 
+    private void OnShapesDeleted(int slideIdx, int[] treeIdxs)
+    {
+        _model.DeleteShapes(slideIdx, treeIdxs);
+        EditorCanvas.Invalidate(preserveSelection: false);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_ShapeDeleted"));
+    }
+
+    private void OnShapesPasteRequested(int slideIdx, OpenXmlCompositeElement[] shapes)
+    {
+        var newIdxs = _model.PasteShapes(slideIdx, shapes);
+        int selectIdx = newIdxs.Length > 0 ? newIdxs[^1] : -1;
+        if (selectIdx >= 0)
+            EditorCanvas.Invalidate(selectIdx);
+        else
+            EditorCanvas.Invalidate(preserveSelection: false);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+    }
+
     private void OnShapeResized(int slideIdx, int treeIdx,
         long leftEmu, long topEmu, long widthEmu, long heightEmu)
     {
         _model.ResizeShape(slideIdx, treeIdx, leftEmu, topEmu, widthEmu, heightEmu);
         EditorCanvas.Invalidate();
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+    }
+
+    private void OnShapeRotated(int slideIdx, int treeIdx, double angleDelta)
+    {
+        _model.RotateShape(slideIdx, treeIdx, angleDelta);
+        EditorCanvas.Invalidate(treeIdx);
         SlidePanel.RefreshSingle(slideIdx);
         UpdateTitle();
         UpdateActions();
@@ -479,6 +604,7 @@ public partial class MainWindow : Window
         string hint = tool switch
         {
             DrawTool.ScaleneTriangle                                    => S("St_DrawHint_3Click"),
+            DrawTool.Trapezoid                                          => S("St_DrawHint_4Click"),
             DrawTool.PolyLine or DrawTool.SplineLine or
             DrawTool.Polygon  or DrawTool.SplinePolygon                 => S("St_DrawHint_Click"),
             _                                                           => S("St_DrawHint_Drag"),
@@ -550,6 +676,24 @@ public partial class MainWindow : Window
         try { if (dlg.ShowDialog() != true) return; }
         finally { EditorCanvas.SuppressLostFocusCommit = false; }
         EditorCanvas.ApplyEditorCharStyle(dlg.Result);
+    }
+
+    // ── Paragraph properties ──────────────────────────────────────────
+
+    private void OnParaProperties(object? _ = null)
+    {
+        if (!_model.IsOpen || !EditorCanvas.IsEditing) return;
+        var style = EditorCanvas.GetEditorParaStyle();
+        var dlg   = new PPEditer.Dialogs.ParaPropertiesDialog(style) { Owner = this };
+        EditorCanvas.SuppressLostFocusCommit = true;
+        try { if (dlg.ShowDialog() != true) return; }
+        finally { EditorCanvas.SuppressLostFocusCommit = false; }
+        EditorCanvas.ApplyEditorParaStyle(dlg.Result);
+        // Apply VertAnchor to PPTX model immediately
+        int treeIdx = EditorCanvas.SelectedTreeIndex;
+        if (treeIdx >= 0)
+            _model.UpdateBodyVertAnchor(_currentSlide, treeIdx, dlg.Result.VertAnchor);
+        SetStatus(S("Msg_ParaPropsSaved"));
     }
 
     // ── Insert media ──────────────────────────────────────────────────
@@ -668,7 +812,9 @@ public partial class MainWindow : Window
         IReadOnlyList<PptxConverter.PptxParagraph> paragraphs)
     {
         _model.UpdateShapeContent(slideIdx, treeIdx, paragraphs);
-        SlidePanel.RefreshSingle(treeIdx >= 0 ? slideIdx : _currentSlide);
+        // Rebuild canvas so the updated text is rendered (editor state is already null here).
+        EditorCanvas.Invalidate(treeIdx);
+        SlidePanel.RefreshSingle(slideIdx >= 0 ? slideIdx : _currentSlide);
         UpdateTitle();
         UpdateActions();
         FormatToolBar.IsEnabled = false;
@@ -701,7 +847,7 @@ public partial class MainWindow : Window
 
             var fsize = EditorCanvas.GetSelectionProperty(TextElement.FontSizeProperty);
             if (fsize is double sizePx && sizePx > 0)
-                FontSizeCombo.Text = $"{sizePx * 72.0 / 96.0:0.##}";
+                FontSizeCombo.Text = $"{sizePx / EditorCanvas.EditorScale * 72.0 / 96.0:0.##}";
         }
         finally
         {
@@ -743,7 +889,7 @@ public partial class MainWindow : Window
         if (FontSizeCombo.SelectedItem is ComboBoxItem item &&
             double.TryParse(item.Content?.ToString(), out double pt))
             EditorCanvas.ApplySelectionProperty(TextElement.FontSizeProperty,
-                pt * 96.0 / 72.0);
+                pt * 96.0 / 72.0 * EditorCanvas.EditorScale);
     }
 
     private void FontSizeCombo_LostFocus(object sender, RoutedEventArgs e)
@@ -751,7 +897,7 @@ public partial class MainWindow : Window
         if (_suppressFormatEvents || !EditorCanvas.IsEditing) return;
         if (double.TryParse(FontSizeCombo.Text.TrimEnd("pt ".ToCharArray()), out double pt) && pt > 0)
             EditorCanvas.ApplySelectionProperty(TextElement.FontSizeProperty,
-                pt * 96.0 / 72.0);
+                pt * 96.0 / 72.0 * EditorCanvas.EditorScale);
     }
 
     private void OnBoldClick(object sender, RoutedEventArgs e)
@@ -902,9 +1048,17 @@ public partial class MainWindow : Window
     {
         SlidePanel.Refresh(_model, _currentSlide);
         ShowCurrentSlide();
+        LoadCurrentNotes();
         UpdateTitle();
         UpdateActions();
         UpdateSlideInfo();
+        RefreshWatermark();
+    }
+
+    private void RefreshWatermark()
+    {
+        var props = _model.IsOpen ? _model.GetDocProperties() : null;
+        EditorCanvas.SetWatermark(props?.WatermarkShowOnSlide == true ? props : null);
     }
 
     private void ShowCurrentSlide()
@@ -944,12 +1098,16 @@ public partial class MainWindow : Window
 
         MenuSave.IsEnabled      = has && _model.Modified;
         MenuSaveAs.IsEnabled    = has;
+        MenuPrint.IsEnabled     = has;
         MenuExportPdf.IsEnabled = has;
         MenuAddSlide.IsEnabled  = has;
         MenuDupSlide.IsEnabled  = has;
         MenuDelSlide.IsEnabled  = has && _model.SlideCount > 1;
         MenuSlideUp.IsEnabled   = has && _currentSlide > 0;
         MenuSlideDown.IsEnabled = has && _currentSlide < _model.SlideCount - 1;
+        MenuSlideShow.IsEnabled      = has;
+        MenuSlideTransition.IsEnabled = has;
+        MenuShapeAnimation.IsEnabled  = has && EditorCanvas.SelectedTreeIndex >= 0;
         MenuUndo.IsEnabled      = _model.CanUndo;
         MenuRedo.IsEnabled      = _model.CanRedo;
         MenuInsertTextBox.IsEnabled  = has;
@@ -973,6 +1131,7 @@ public partial class MainWindow : Window
         MenuGroup.IsEnabled     = hasMulti;
         MenuUngroup.IsEnabled   = isGroup;
         MenuCharProps.IsEnabled = has && editing;
+        MenuParaProps.IsEnabled = has && editing;
     }
 
     private void SetStatus(string msg) => StatusMsg.Text = msg;
@@ -1060,6 +1219,179 @@ public partial class MainWindow : Window
     private void OnExit(object s, RoutedEventArgs e)          => OnExit();
     private void OnUndo(object s, RoutedEventArgs e)          => OnUndo();
     private void OnRedo(object s, RoutedEventArgs e)          => OnRedo();
+    // ── Effects ───────────────────────────────────────────────────────
+
+    private void OnSlideTransition(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        var current = _model.GetSlideTransition(_currentSlide);
+        var dlg     = new Dialogs.TransitionDialog(current) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        _model.SetSlideTransition(_currentSlide,
+            new Models.SlideTransition { Kind = dlg.SelectedKind, DurationMs = dlg.DurationSeconds * 1000 },
+            dlg.ApplyToAll);
+        UpdateActions();
+        SetStatus(S("Msg_TransitionSet"));
+    }
+
+    private void OnShapeAnimation(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        int treeIdx = EditorCanvas.SelectedTreeIndex;
+        if (treeIdx < 0) return;
+        var current = _model.GetShapeAnimation(_currentSlide, treeIdx);
+        var dlg     = new Dialogs.AnimationDialog(current) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        _model.SetShapeAnimation(_currentSlide, treeIdx, dlg.SelectedKind,
+            dlg.DurationSeconds * 1000, dlg.AutoPlay, dlg.RepeatCount);
+        UpdateActions();
+        SetStatus(S("Msg_AnimationSet"));
+    }
+
+    // ── Slide show ────────────────────────────────────────────────────
+
+    private void OnSlideShow(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        SaveCurrentNotes();
+        EditorCanvas.CommitEdit(save: true);
+
+        var showWnd = new Dialogs.SlideShowWindow(_model, _currentSlide);
+        var presWnd = new Dialogs.PresenterViewWindow(_model, _currentSlide);
+        presWnd.AttachShowWindow(showWnd);
+
+        // Close both when either is closed
+        showWnd.Closed += (_, _) => { try { presWnd.Close(); } catch { } };
+        presWnd.Closed += (_, _) => { try { if (showWnd.IsLoaded) showWnd.Close(); } catch { } };
+
+        PositionPresenterView(showWnd, presWnd);
+
+        presWnd.Show();
+        showWnd.ShowDialog();
+    }
+
+    private void PositionPresenterView(Dialogs.SlideShowWindow showWnd,
+                                       Dialogs.PresenterViewWindow presWnd)
+    {
+        var monitors = Services.ScreenHelper.GetMonitors();
+        var s        = Services.AppSettings.Current;
+
+        if (monitors.Count >= 2)
+        {
+            // Resolve show monitor: saved preference, or primary (index 0 is primary by EnumDisplayMonitors order).
+            int primaryIdx = monitors.Select((m, i) => (m, i)).FirstOrDefault(x => x.m.IsPrimary).i;
+            int showIdx = (s.ShowMonitorIndex >= 0 && s.ShowMonitorIndex < monitors.Count)
+                          ? s.ShowMonitorIndex : primaryIdx;
+
+            // Resolve presenter monitor: saved preference if different, otherwise the other monitor.
+            int presIdx = (s.PresenterMonitorIndex >= 0 && s.PresenterMonitorIndex < monitors.Count
+                           && s.PresenterMonitorIndex != showIdx)
+                          ? s.PresenterMonitorIndex
+                          : showIdx == 0 ? 1 : 0;
+
+            Services.ScreenHelper.MaximizeOnMonitor(showWnd, monitors, showIdx);
+            Services.ScreenHelper.MaximizeOnMonitor(presWnd, monitors, presIdx);
+            return;
+        }
+
+        // Single monitor — maximize show, presenter as floating window.
+        showWnd.WindowState = WindowState.Maximized;
+        presWnd.WindowStartupLocation = WindowStartupLocation.Manual;
+        presWnd.Width  = 780;
+        presWnd.Height = 540;
+        presWnd.Left   = 30;
+        presWnd.Top    = 30;
+        presWnd.WindowState = WindowState.Normal;
+    }
+
+    private void OnDisplaySettings(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Dialogs.DisplaySettingsDialog { Owner = this };
+        dlg.ShowDialog();
+    }
+
+    // ── Auto-save ─────────────────────────────────────────────────────
+
+    private void InitAutoSave()
+    {
+        var s = AppSettings.Current;
+        MenuAutoSaveOn.IsChecked  = s.AutoSaveEnabled;
+        MenuAutoSaveNag.IsChecked = s.AutoSaveNagEnabled;
+        SyncAutoSaveIntervalMenu(s.AutoSaveIntervalMins);
+        _autoSaveTimer.Tick += OnAutoSaveTick;
+        RestartAutoSaveTimer();
+    }
+
+    private void SyncAutoSaveIntervalMenu(int mins)
+    {
+        foreach (var item in new[] { MenuAS1, MenuAS2, MenuAS5, MenuAS10, MenuAS30 })
+            item.IsChecked = int.Parse((string)item.Tag) == mins;
+    }
+
+    private void RestartAutoSaveTimer()
+    {
+        _autoSaveTimer.Stop();
+        var s = AppSettings.Current;
+        if (!s.AutoSaveEnabled) return;
+        _autoSaveTimer.Interval = TimeSpan.FromMinutes(s.AutoSaveIntervalMins);
+        _autoSaveTimer.Start();
+    }
+
+    private void OnAutoSaveTick(object? sender, EventArgs e)
+    {
+        if (!_model.IsOpen || !_model.Modified) return;
+
+        if (string.IsNullOrEmpty(_model.FilePath))
+        {
+            if (AppSettings.Current.AutoSaveNagEnabled)
+            {
+                var r = MessageBox.Show(this,
+                    S("Msg_AutoSaveNag"), S("Ms_AutoSave"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (r == MessageBoxResult.Yes) OnSaveAs();
+            }
+            return;
+        }
+
+        try
+        {
+            SaveCurrentNotes();
+            _model.Save();
+            UpdateTitle();
+            UpdateActions();
+            SetStatus(S("Msg_AutoSaved"));
+        }
+        catch { }
+    }
+
+    private void OnAutoSaveToggle(object sender, RoutedEventArgs e)
+    {
+        AppSettings.Current.AutoSaveEnabled = MenuAutoSaveOn.IsChecked;
+        AppSettings.Current.Save();
+        RestartAutoSaveTimer();
+    }
+
+    private void OnAutoSaveInterval(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi) return;
+        int mins = int.Parse((string)mi.Tag);
+        AppSettings.Current.AutoSaveIntervalMins = mins;
+        AppSettings.Current.Save();
+        SyncAutoSaveIntervalMenu(mins);
+        RestartAutoSaveTimer();
+    }
+
+    private void OnAutoSaveNagToggle(object sender, RoutedEventArgs e)
+    {
+        AppSettings.Current.AutoSaveNagEnabled = MenuAutoSaveNag.IsChecked;
+        AppSettings.Current.Save();
+    }
+
+    // ── XAML event bridges ────────────────────────────────────────────
+
+    private void OnSlideTransition(object s, RoutedEventArgs e) => OnSlideTransition();
+    private void OnShapeAnimation(object s, RoutedEventArgs e)  => OnShapeAnimation();
+    private void OnSlideShow(object s, RoutedEventArgs e)       => OnSlideShow();
     private void OnAddSlide(object s, RoutedEventArgs e)      => OnAddSlide();
     private void OnDupSlide(object s, RoutedEventArgs e)      => OnDupSlide();
     private void OnDelSlide(object s, RoutedEventArgs e)      => OnDelSlide();
@@ -1080,6 +1412,8 @@ public partial class MainWindow : Window
     private void OnInsertCharMap(object s, RoutedEventArgs e) => OnInsertCharMap();
     private void OnInsertEmoji(object s, RoutedEventArgs e)   => OnInsertEmoji();
     private void OnCharProperties(object s, RoutedEventArgs e) => OnCharProperties();
+    private void OnParaProperties(object s, RoutedEventArgs e) => OnParaProperties();
+    private void OnParaPropsClick(object s, RoutedEventArgs e) => OnParaProperties();
 }
 
 // ── Tiny relay command ─────────────────────────────────────────────────────────

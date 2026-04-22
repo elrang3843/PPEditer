@@ -19,6 +19,7 @@
                 <MenuItem x:Name="MenuSave"   Header="{DynamicResource Ms_Save}"     InputGestureText="Ctrl+S"       Click="OnSave"/>
                 <MenuItem x:Name="MenuSaveAs" Header="{DynamicResource Ms_SaveAs}"   InputGestureText="Ctrl+Shift+S" Click="OnSaveAs"/>
                 <Separator/>
+                <MenuItem x:Name="MenuPrint"     Header="{DynamicResource Ms_Print}"     InputGestureText="Ctrl+P"       Click="OnPrint" IsEnabled="False"/>
                 <MenuItem x:Name="MenuExportPdf" Header="{DynamicResource Ms_ExportPdf}" InputGestureText="Ctrl+Shift+E" Click="OnExportPdf"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource Ms_Exit}" InputGestureText="Alt+F4" Click="OnExit"/>
@@ -44,6 +45,8 @@
                 <Separator/>
                 <MenuItem x:Name="MenuCharProps" Header="{DynamicResource Ms_CharProps}"
                           InputGestureText="Ctrl+Shift+F" Click="OnCharProperties" IsEnabled="False"/>
+                <MenuItem x:Name="MenuParaProps" Header="{DynamicResource Ms_ParaProps}"
+                          InputGestureText="Ctrl+Shift+P" Click="OnParaProperties" IsEnabled="False"/>
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_View}">
@@ -53,6 +56,7 @@
                 <Separator/>
                 <MenuItem x:Name="MenuTogglePanel"  Header="{DynamicResource Ms_SlidePanel}" IsCheckable="True" IsChecked="True" Click="OnTogglePanel"/>
                 <MenuItem x:Name="MenuToggleStatus" Header="{DynamicResource Ms_StatusBar}"  IsCheckable="True" IsChecked="True" Click="OnToggleStatus"/>
+                <MenuItem x:Name="MenuToggleNotes"  Header="{DynamicResource Ms_NotesPanel}" IsCheckable="True" IsChecked="True" Click="OnToggleNotes"/>
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Insert}">
@@ -108,6 +112,18 @@
                 <Separator/>
                 <MenuItem x:Name="MenuSlideUp"   Header="{DynamicResource Ms_SlideUp}"   InputGestureText="Ctrl+Shift+Up"   Click="OnSlideUp"/>
                 <MenuItem x:Name="MenuSlideDown" Header="{DynamicResource Ms_SlideDown}" InputGestureText="Ctrl+Shift+Down" Click="OnSlideDown"/>
+                <Separator/>
+                <MenuItem x:Name="MenuSlideShow" Header="{DynamicResource Ms_SlideShow}" InputGestureText="F5" Click="OnSlideShow"/>
+            </MenuItem>
+
+            <!-- ── 효과 메뉴 ────────────────────────────────────────────── -->
+            <MenuItem Header="{DynamicResource Ms_Effects}">
+                <MenuItem x:Name="MenuSlideTransition"
+                          Header="{DynamicResource Ms_SlideTransition}"
+                          Click="OnSlideTransition"/>
+                <MenuItem x:Name="MenuShapeAnimation"
+                          Header="{DynamicResource Ms_ShapeAnimation}"
+                          Click="OnShapeAnimation"/>
             </MenuItem>
 
             <!-- ── 설정 메뉴 ────────────────────────────────────────────── -->
@@ -145,9 +161,46 @@
                               Click="OnThemeDark"/>
                 </MenuItem>
 
+                <Separator/>
+
+                <!-- 디스플레이 설정 -->
+                <MenuItem Header="{DynamicResource Ms_DisplaySettings}"
+                          Click="OnDisplaySettings"/>
+
+                <Separator/>
+
+                <!-- 자동 저장 -->
+                <MenuItem Header="{DynamicResource Ms_AutoSave}">
+                    <MenuItem x:Name="MenuAutoSaveOn"
+                              Header="{DynamicResource Ms_AutoSaveEnabled}"
+                              IsCheckable="True"
+                              Click="OnAutoSaveToggle"/>
+                    <Separator/>
+                    <MenuItem Header="{DynamicResource Ms_AutoSaveInterval}">
+                        <MenuItem x:Name="MenuAS1"  Tag="1"  IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave1m}"/>
+                        <MenuItem x:Name="MenuAS2"  Tag="2"  IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave2m}"/>
+                        <MenuItem x:Name="MenuAS5"  Tag="5"  IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave5m}"/>
+                        <MenuItem x:Name="MenuAS10" Tag="10" IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave10m}"/>
+                        <MenuItem x:Name="MenuAS30" Tag="30" IsCheckable="True" Click="OnAutoSaveInterval"
+                                  Header="{DynamicResource Ms_AutoSave30m}"/>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem x:Name="MenuAutoSaveNag"
+                              Header="{DynamicResource Ms_AutoSaveNag}"
+                              IsCheckable="True"
+                              Click="OnAutoSaveNagToggle"/>
+                </MenuItem>
+
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Help}">
+                <MenuItem Header="{DynamicResource Ms_UserManual}" Click="OnUserManual"/>
+                <MenuItem Header="{DynamicResource Ms_License}"    Click="OnLicense"/>
+                <Separator/>
                 <MenuItem Header="{DynamicResource Ms_About}" Click="OnAbout"/>
             </MenuItem>
 
@@ -189,14 +242,24 @@
             <ToolBar x:Name="FormatToolBar" Band="2" BandIndex="1"
                      FontFamily="맑은 고딕, Segoe UI" FontSize="12" IsEnabled="False">
 
-                <!-- Open-source fonts only toggle -->
+                <!-- Font license filter toggle -->
                 <CheckBox x:Name="ChkOpenFontsOnly"
-                          Content="{DynamicResource Tb_OpenFontsOnly}"
                           IsChecked="True"
                           VerticalAlignment="Center"
                           Margin="4,0"
                           ToolTip="{DynamicResource Tt_OpenFontsOnly}"
-                          Checked="FontFilterChanged" Unchecked="FontFilterChanged"/>
+                          Checked="FontFilterChanged" Unchecked="FontFilterChanged">
+                    <CheckBox.Style>
+                        <Style TargetType="CheckBox">
+                            <Setter Property="Content" Value="{DynamicResource Tb_FontFilter_Off}"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Content" Value="{DynamicResource Tb_FontFilter_On}"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </CheckBox.Style>
+                </CheckBox>
 
                 <!-- Font family -->
                 <ComboBox x:Name="FontFamilyCombo" Width="180" IsEditable="True"
@@ -266,6 +329,15 @@
                 <Button Width="28" ToolTip="{DynamicResource Tt_AlignRight}"
                         Command="EditingCommands.AlignRight"
                         CommandTarget="{Binding ElementName=EditorCanvas}">≡</Button>
+                <Button Width="28" ToolTip="{DynamicResource Tt_AlignJustify}"
+                        Command="EditingCommands.AlignJustify"
+                        CommandTarget="{Binding ElementName=EditorCanvas}">≡</Button>
+
+                <Separator/>
+
+                <!-- Paragraph Properties -->
+                <Button x:Name="TbParaProps" Width="28" ToolTip="{DynamicResource Tt_ParaProps}"
+                        Click="OnParaPropsClick">¶</Button>
 
                 <Separator/>
 
@@ -317,7 +389,53 @@
                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           Background="#DDDDDD" ShowsPreview="True"/>
 
-            <controls:SlideEditorCanvas x:Name="EditorCanvas" Grid.Column="2"/>
+            <!-- 오른쪽 열: 편집 캔버스 + 노트 패널 -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition x:Name="NotesSplitterRow" Height="4"/>
+                    <RowDefinition x:Name="NotesRow" Height="150" MinHeight="60" MaxHeight="400"/>
+                </Grid.RowDefinitions>
+
+                <controls:SlideEditorCanvas x:Name="EditorCanvas" Grid.Row="0"/>
+
+                <GridSplitter Grid.Row="1" Height="4"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                              Background="#DDDDDD" ShowsPreview="True"/>
+
+                <!-- 노트 패널 -->
+                <Border x:Name="NotesPanel" Grid.Row="2"
+                        BorderBrush="{DynamicResource PanelHeaderBg}"
+                        BorderThickness="0,1,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="28"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 헤더 -->
+                        <Border Grid.Row="0" Background="{DynamicResource PanelHeaderBg}">
+                            <TextBlock x:Name="NotesPanelHeader"
+                                       VerticalAlignment="Center" Margin="8,0"
+                                       Foreground="{DynamicResource PanelHeaderFg}"
+                                       Text="{DynamicResource Lbl_NotesPanel}"/>
+                        </Border>
+
+                        <!-- 노트 입력 TextBox -->
+                        <TextBox x:Name="NotesTextBox" Grid.Row="1"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 BorderThickness="0"
+                                 Padding="8,4"
+                                 FontFamily="맑은 고딕, Segoe UI"
+                                 FontSize="12"
+                                 Background="{DynamicResource CanvasBg}"
+                                 Foreground="{DynamicResource FgColor}"
+                                 TextChanged="OnNotesTextChanged"/>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>

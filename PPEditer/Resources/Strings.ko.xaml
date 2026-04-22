@@ -25,6 +25,8 @@
     <sys:String x:Key="Ms_ZoomFit">창 맞춤(_F)</sys:String>
     <sys:String x:Key="Ms_SlidePanel">슬라이드 패널(_P)</sys:String>
     <sys:String x:Key="Ms_StatusBar">상태 표시줄(_S)</sys:String>
+    <sys:String x:Key="Ms_NotesPanel">노트 패널(_N)</sys:String>
+    <sys:String x:Key="Ms_Print">인쇄(_P)...</sys:String>
     <sys:String x:Key="Ms_Insert">삽입(_I)</sys:String>
     <sys:String x:Key="Ms_InsertTextBox">텍스트 상자(_T)...</sys:String>
     <sys:String x:Key="Ms_InsertImage">그림(_I)...</sys:String>
@@ -56,11 +58,12 @@
     <sys:String x:Key="St_DrawHint_Drag">드래그하여 도형을 그리세요. (Esc = 취소)</sys:String>
     <sys:String x:Key="St_DrawHint_Click">클릭으로 점을 추가하고 더블클릭으로 완료합니다. (Esc = 취소)</sys:String>
     <sys:String x:Key="St_DrawHint_3Click">3점을 클릭하여 삼각형을 그립니다. (Esc = 취소)</sys:String>
+    <sys:String x:Key="St_DrawHint_4Click">4점을 클릭하여 사다리꼴을 그립니다. (Esc = 취소)</sys:String>
     <sys:String x:Key="Msg_ShapeDrawn">도형이 추가되었습니다.</sys:String>
     <sys:String x:Key="Ms_Group">그룹으로 묶기(_G)</sys:String>
     <sys:String x:Key="Ms_Ungroup">그룹 해제(_U)</sys:String>
-    <sys:String x:Key="Ms_CharProps">문자 속성(_F)...</sys:String>
-    <sys:String x:Key="Ctx_CharProperties">문자 속성...</sys:String>
+    <sys:String x:Key="Ms_CharProps">글자 속성(_F)...</sys:String>
+    <sys:String x:Key="Ctx_CharProperties">글자 속성...</sys:String>
     <sys:String x:Key="Ctx_Group">그룹으로 묶기</sys:String>
     <sys:String x:Key="Ctx_Ungroup">그룹 해제</sys:String>
     <sys:String x:Key="Msg_Grouped">개체를 그룹으로 묶었습니다.</sys:String>
@@ -74,6 +77,33 @@
     <sys:String x:Key="Ms_DelSlide">슬라이드 삭제(_X)</sys:String>
     <sys:String x:Key="Ms_SlideUp">위로 이동(_U)</sys:String>
     <sys:String x:Key="Ms_SlideDown">아래로 이동(_W)</sys:String>
+    <sys:String x:Key="Ms_SlideShow">슬라이드 쇼(_S)</sys:String>
+    <sys:String x:Key="Ms_Effects">효과 넣기(_X)</sys:String>
+    <sys:String x:Key="Ms_SlideTransition">슬라이드 전환 효과(_T)...</sys:String>
+    <sys:String x:Key="Ms_ShapeAnimation">개체 애니메이션 효과(_A)...</sys:String>
+    <sys:String x:Key="Dlg_Transition">슬라이드 전환 효과</sys:String>
+    <sys:String x:Key="Dlg_Transition_Select">전환 효과 선택:</sys:String>
+    <sys:String x:Key="Dlg_Transition_AllSlides">모든 슬라이드에 적용</sys:String>
+    <sys:String x:Key="Tr_None">없음 (즉시 전환)</sys:String>
+    <sys:String x:Key="Tr_Fade">밝기 변화 (Fade) — 부드럽게 사라지고 나타남</sys:String>
+    <sys:String x:Key="Tr_Push">밀어내기 (Push) — 내용이 자연스럽게 이어짐</sys:String>
+    <sys:String x:Key="Tr_Wipe">나타나기 (Wipe) — 왼쪽에서 닦아내며 전환</sys:String>
+    <sys:String x:Key="Tr_Flip">집어내기 (Flip) — 위로 종이를 집어내는 효과</sys:String>
+    <sys:String x:Key="Tr_Crumple">구겨 던지기 (Crumple) — 종이를 구겨 던지는 효과</sys:String>
+    <sys:String x:Key="Tr_Morph">모핑 (Morph) — 개체를 자연스럽게 변형하며 이동</sys:String>
+    <sys:String x:Key="Dlg_Animation">애니메이션 효과</sys:String>
+    <sys:String x:Key="Dlg_Animation_Select">애니메이션 효과 선택:</sys:String>
+    <sys:String x:Key="An_None">없음 (즉시 표시)</sys:String>
+    <sys:String x:Key="An_FadeIn">밝기 변화/나타나기 — 순차적으로 나타남</sys:String>
+    <sys:String x:Key="An_FlyIn">날아오기 — 아래에서 위로 날아오며 등장</sys:String>
+    <sys:String x:Key="An_Pulse">펄스/강조 — 커졌다가 원래 크기로 복귀</sys:String>
+    <sys:String x:Key="An_Bounce">팝콘/튕김 — 텍스트가 튀어 오르는 효과</sys:String>
+    <sys:String x:Key="An_WipeIn">닦아내기 — 왼쪽에서 오른쪽으로 나타남</sys:String>
+    <sys:String x:Key="Dlg_Duration">시간 (초):</sys:String>
+    <sys:String x:Key="Dlg_RepeatCount">반복 횟수 (0=무한):</sys:String>
+    <sys:String x:Key="Dlg_AutoPlay">슬라이드 표시 시 자동 실행</sys:String>
+    <sys:String x:Key="Msg_TransitionSet">슬라이드 전환 효과가 설정되었습니다.</sys:String>
+    <sys:String x:Key="Msg_AnimationSet">애니메이션 효과가 설정되었습니다.</sys:String>
     <sys:String x:Key="Ms_Settings">설정(_G)</sys:String>
     <sys:String x:Key="Ms_FontFilter">라이선스 글꼴 필터(_F)</sys:String>
     <sys:String x:Key="Ms_Language">언어(_L)</sys:String>
@@ -82,8 +112,28 @@
     <sys:String x:Key="Ms_Theme">테마(_T)</sys:String>
     <sys:String x:Key="Ms_ThemeLight">밝은 테마</sys:String>
     <sys:String x:Key="Ms_ThemeDark">어두운 테마</sys:String>
+    <sys:String x:Key="Ms_DisplaySettings">디스플레이 설정(_D)...</sys:String>
+    <sys:String x:Key="Ms_AutoSave">자동 저장</sys:String>
+    <sys:String x:Key="Ms_AutoSaveEnabled">자동 저장 사용</sys:String>
+    <sys:String x:Key="Ms_AutoSaveInterval">저장 주기</sys:String>
+    <sys:String x:Key="Ms_AutoSave1m">1분</sys:String>
+    <sys:String x:Key="Ms_AutoSave2m">2분</sys:String>
+    <sys:String x:Key="Ms_AutoSave5m">5분 (기본)</sys:String>
+    <sys:String x:Key="Ms_AutoSave10m">10분</sys:String>
+    <sys:String x:Key="Ms_AutoSave30m">30분</sys:String>
+    <sys:String x:Key="Ms_AutoSaveNag">미저장 시 안내 메시지</sys:String>
+    <sys:String x:Key="Msg_AutoSaved">자동 저장됨</sys:String>
+    <sys:String x:Key="Msg_AutoSaveNag">파일이 아직 저장된 적이 없습니다. 지금 저장하시겠습니까?</sys:String>
+    <sys:String x:Key="Dlg_DisplaySettings">디스플레이 설정</sys:String>
+    <sys:String x:Key="Lbl_ShowMonitor">발표 화면 모니터</sys:String>
+    <sys:String x:Key="Lbl_PresenterMonitor">발표자 도구 모니터</sys:String>
+    <sys:String x:Key="Opt_AutoDetect">자동 감지</sys:String>
     <sys:String x:Key="Ms_Help">도움말(_H)</sys:String>
+    <sys:String x:Key="Ms_UserManual">사용방법(_U)...</sys:String>
+    <sys:String x:Key="Ms_License">라이선스 정보(_L)...</sys:String>
     <sys:String x:Key="Ms_About">PPEditer 정보(_A)...</sys:String>
+    <sys:String x:Key="Dlg_UserManual">PPEditer 사용 설명서</sys:String>
+    <sys:String x:Key="Dlg_License">라이선스 정보</sys:String>
 
     <!-- ══ 툴바 ══════════════════════════════════════════════════════════ -->
     <sys:String x:Key="Tb_New">새로 만들기</sys:String>
@@ -98,6 +148,8 @@
     <sys:String x:Key="Tb_ZoomLabel">확대/축소:</sys:String>
     <sys:String x:Key="Tb_ZoomFit">창 맞춤</sys:String>
     <sys:String x:Key="Tb_OpenFontsOnly">오픈소스 글꼴만</sys:String>
+    <sys:String x:Key="Tb_FontFilter_On">글꼴 제한</sys:String>
+    <sys:String x:Key="Tb_FontFilter_Off">모든 글꼴 허용</sys:String>
     <sys:String x:Key="Tb_CommitEdit">✓ 완료</sys:String>
     <sys:String x:Key="Tb_SlidePanel">  슬라이드</sys:String>
 
@@ -120,6 +172,8 @@
     <sys:String x:Key="Tt_AlignLeft">왼쪽 맞춤 (Ctrl+L)</sys:String>
     <sys:String x:Key="Tt_AlignCenter">가운데 맞춤 (Ctrl+E)</sys:String>
     <sys:String x:Key="Tt_AlignRight">오른쪽 맞춤 (Ctrl+R)</sys:String>
+    <sys:String x:Key="Tt_AlignJustify">균형 맞춤 (Ctrl+J)</sys:String>
+    <sys:String x:Key="Tt_ParaProps">문단 속성 (Ctrl+Shift+P)</sys:String>
     <sys:String x:Key="Tt_TextColor">글자 색</sys:String>
     <sys:String x:Key="Tt_OpenFontsOnly">체크 시 라이선스가 명확한 오픈소스 글꼴만 표시합니다.</sys:String>
     <sys:String x:Key="Tt_CommitEdit">편집 완료 (Esc)</sys:String>
@@ -164,6 +218,11 @@
     <sys:String x:Key="Ctx_SendBackward">뒤로 보내기</sys:String>
     <sys:String x:Key="Ctx_SendToBack">맨 뒤로 보내기</sys:String>
     <sys:String x:Key="Ctx_Delete">삭제</sys:String>
+    <sys:String x:Key="Ctx_RotateCW">시계 방향으로 90° 회전</sys:String>
+    <sys:String x:Key="Ctx_RotateCCW">반시계 방향으로 90° 회전</sys:String>
+    <sys:String x:Key="Ctx_RotateCustom">각도 지정 회전...</sys:String>
+    <sys:String x:Key="Dlg_RotateTitle">각도 지정 회전</sys:String>
+    <sys:String x:Key="Dlg_RotateAngle">회전 각도 (°):</sys:String>
     <sys:String x:Key="Dlg_ShapeProps">개체 속성</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_Name">이름:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_X">X 위치:</sys:String>
@@ -171,6 +230,7 @@
     <sys:String x:Key="Dlg_ShapeProps_W">너비:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_H">높이:</sys:String>
     <sys:String x:Key="Dlg_ShapeProps_InvalidInput">올바른 숫자 값을 입력하세요.</sys:String>
+    <sys:String x:Key="Dlg_ShapeProps_LockAspect">비율 고정</sys:String>
     <sys:String x:Key="Msg_ShapePropsSaved">개체 속성이 변경되었습니다.</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Pos">위치/크기</sys:String>
     <sys:String x:Key="Dlg_ShapeTab_Fill">채우기</sys:String>
@@ -204,6 +264,22 @@
     <sys:String x:Key="Dlg_Emoji_Cat4">여행</sys:String>
     <sys:String x:Key="Dlg_Emoji_Cat5">기호</sys:String>
     <sys:String x:Key="Btn_Close">닫기</sys:String>
+    <sys:String x:Key="Btn_Print">인쇄</sys:String>
+    <sys:String x:Key="Lbl_NotesPanel">슬라이드 노트</sys:String>
+    <sys:String x:Key="Dlg_Print">인쇄</sys:String>
+    <sys:String x:Key="Dlg_Print_Layout">인쇄 레이아웃</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideOnly">슬라이드만</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideNotes">슬라이드 + 노트</sys:String>
+    <sys:String x:Key="Dlg_Print_Handout3">유인물 (한 쪽에 3장)</sys:String>
+    <sys:String x:Key="Dlg_Print_Options">옵션</sys:String>
+    <sys:String x:Key="Dlg_Print_BlackWhite">흑백 인쇄</sys:String>
+    <sys:String x:Key="Err_PrintFailed">인쇄 중 오류가 발생했습니다.</sys:String>
+    <sys:String x:Key="Dlg_PresenterView">발표자 도구 — PPEditer</sys:String>
+    <sys:String x:Key="Lbl_NextSlide">다음 슬라이드</sys:String>
+    <sys:String x:Key="Lbl_LastSlide">발표 종료</sys:String>
+    <sys:String x:Key="Lbl_PresenterNotes">발표자 노트</sys:String>
+    <sys:String x:Key="Btn_PresenterPrev">◀ 이전</sys:String>
+    <sys:String x:Key="Btn_PresenterNext">다음 ▶</sys:String>
     <sys:String x:Key="Lbl_InsertFailed">삽입 오류</sys:String>
     <sys:String x:Key="Err_InsertFailed">삽입 실패:</sys:String>
     <sys:String x:Key="Dlg_OpenFilter">프레젠테이션 파일|*.pptx;*.ppt|모든 파일|*.*</sys:String>
@@ -239,6 +315,15 @@
     <sys:String x:Key="Dlg_DocInfo">문서 정보</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabGeneral">일반</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabSecurity">보안</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabWatermark">워터마크</sys:String>
+    <sys:String x:Key="Dlg_WM_Kind">워터마크 종류</sys:String>
+    <sys:String x:Key="Dlg_WM_None">없음</sys:String>
+    <sys:String x:Key="Dlg_WM_Diagonal">대각선 텍스트</sys:String>
+    <sys:String x:Key="Dlg_WM_Horizontal">수평 텍스트</sys:String>
+    <sys:String x:Key="Dlg_WM_Text">워터마크 텍스트</sys:String>
+    <sys:String x:Key="Dlg_WM_Preview">미리보기</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnPrint">인쇄시 출력</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnSlide">프리젠테이션시 표시</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TitleLbl">제목:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_SubjectLbl">주제:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_AuthorLbl">작성자:</sys:String>
@@ -262,8 +347,8 @@
     <sys:String x:Key="Dlg_DocInfo_PwdEmpty">암호를 입력하세요.</sys:String>
     <sys:String x:Key="St_DocInfoSaved">문서 정보가 저장되었습니다.</sys:String>
 
-    <!-- ══ 문자 속성 대화상자 ════════════════════════════════════════════════ -->
-    <sys:String x:Key="Dlg_CharProps">문자 속성</sys:String>
+    <!-- ══ 글자 속성 대화상자 ════════════════════════════════════════════════ -->
+    <sys:String x:Key="Dlg_CharProps">글자 속성</sys:String>
     <sys:String x:Key="Dlg_Char_Tab_Font">글꼴</sys:String>
     <sys:String x:Key="Dlg_Char_Tab_Style">스타일</sys:String>
     <sys:String x:Key="Dlg_Char_Font">글꼴:</sys:String>
@@ -284,5 +369,26 @@
     <sys:String x:Key="Dlg_Char_Sub">아래첨자</sys:String>
     <sys:String x:Key="Dlg_Char_OverlineNote">※ 윗줄은 WPF 화면에서만 표시되며 PPTX 파일에 저장되지 않습니다.</sys:String>
     <sys:String x:Key="Dlg_Char_NoColor">(없음)</sys:String>
+
+    <!-- ══ 문단 속성 대화상자 ════════════════════════════════════════════════ -->
+    <sys:String x:Key="Ms_ParaProps">문단 속성(_P)...</sys:String>
+    <sys:String x:Key="Ctx_ParaProperties">문단 속성...</sys:String>
+    <sys:String x:Key="Dlg_ParaProps">문단 속성</sys:String>
+    <sys:String x:Key="Dlg_Para_HorzAlign">가로 정렬:</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignLeft">왼쪽</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignCenter">가운데</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignRight">오른쪽</sys:String>
+    <sys:String x:Key="Dlg_Para_AlignJustify">균형</sys:String>
+    <sys:String x:Key="Dlg_Para_VertAnchor">세로 정렬:</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorTop">위</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorMiddle">가운데</sys:String>
+    <sys:String x:Key="Dlg_Para_AnchorBottom">아래</sys:String>
+    <sys:String x:Key="Dlg_Para_Indent">들여쓰기 (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_Hanging">내어쓰기 (cm):</sys:String>
+    <sys:String x:Key="Dlg_Para_LineSpacing">줄 간격 (%):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceBefore">문단 앞 간격 (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_SpaceAfter">문단 뒤 간격 (pt):</sys:String>
+    <sys:String x:Key="Dlg_Para_InvalidInput">올바른 숫자 값을 입력하세요.</sys:String>
+    <sys:String x:Key="Msg_ParaPropsSaved">문단 속성이 변경되었습니다.</sys:String>
 
 </ResourceDictionary>

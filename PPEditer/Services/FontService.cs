@@ -1,203 +1,232 @@
+using System.IO;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace PPEditer.Services;
 
 public enum FontLicense
 {
-    SilOfl,         // SIL Open Font License
-    Apache2,        // Apache 2.0
-    UbuntuFont,     // Ubuntu Font Licence
-    BitstreamVera,  // Bitstream Vera License (DejaVu 기반)
-    MIT,
-    Free,           // 무료 사용 허용 (상업용 포함)
-    System,         // Windows/OS 내장 — 문서 작성 사용 가능, 재배포 불가
+    Embeddable,  // fsType 0(무제한) 또는 8(편집 가능)  — 필터 통과
+    System,      // C:\Windows\Fonts 기본 제공 글꼴     — 항상 통과
+    Restricted,  // fsType 2/4 등 임베딩 제한           — 필터 차단
+    Unknown,     // 파일 못 찾거나 읽기 실패             — 필터 차단
 }
 
 public sealed record FontInfo(string Name, FontLicense License)
 {
-    public bool IsOpenSource => License is not FontLicense.System;
-
     public string LicenseLabel => License switch
     {
-        FontLicense.SilOfl        => "OFL",
-        FontLicense.Apache2       => "Apache 2.0",
-        FontLicense.UbuntuFont    => "Ubuntu",
-        FontLicense.BitstreamVera => "Bitstream Vera",
-        FontLicense.MIT           => "MIT",
-        FontLicense.Free          => "무료",
-        FontLicense.System        => "시스템",
-        _                         => "?",
+        FontLicense.Embeddable => "허용",
+        FontLicense.System     => "Windows",
+        FontLicense.Restricted => "제한",
+        _                      => "?",
     };
 }
 
 /// <summary>
-/// Provides a font list filtered to license-compatible (open-source / free) fonts,
-/// cross-referenced against the fonts actually installed on the system.
+/// Resolves installed font families to FontInfo by reading the OS/2 fsType
+/// embedding flag directly from the font binary (TTF/OTF/TTC).
 /// </summary>
 public static class FontService
 {
-    // ── Known open-source / free fonts ────────────────────────────────
-    // Key = font family name as reported by WPF (case-insensitive).
-    // The list intentionally covers both Latin and Korean open-source families.
-    private static readonly Dictionary<string, FontLicense> KnownOpenFonts =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            // ── Korean ────────────────────────────────────────────────
-            { "나눔고딕",              FontLicense.SilOfl },
-            { "NanumGothic",          FontLicense.SilOfl },
-            { "나눔명조",              FontLicense.SilOfl },
-            { "NanumMyeongjo",        FontLicense.SilOfl },
-            { "나눔바른고딕",          FontLicense.SilOfl },
-            { "NanumBarunGothic",     FontLicense.SilOfl },
-            { "나눔고딕코딩",          FontLicense.SilOfl },
-            { "NanumGothicCoding",    FontLicense.SilOfl },
-            { "나눔바른펜",            FontLicense.SilOfl },
-            { "나눔손글씨 붓",         FontLicense.SilOfl },
-            { "나눔스퀘어",            FontLicense.SilOfl },
-            { "나눔스퀘어라운드",       FontLicense.SilOfl },
+    private static readonly string WinFontsDir =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts");
 
-            { "Noto Sans KR",         FontLicense.SilOfl },
-            { "Noto Serif KR",        FontLicense.SilOfl },
-            { "Noto Sans CJK KR",     FontLicense.SilOfl },
-            { "Noto Serif CJK KR",    FontLicense.SilOfl },
+    private static readonly string UserFontsDir =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                     @"Microsoft\Windows\Fonts");
 
-            { "본고딕",                FontLicense.SilOfl },
-            { "본명조",                FontLicense.SilOfl },
-            { "Source Han Sans K",    FontLicense.SilOfl },
-            { "Source Han Serif K",   FontLicense.SilOfl },
-            { "Source Han Sans",      FontLicense.SilOfl },
-            { "Source Han Serif",     FontLicense.SilOfl },
-
-            { "KoPub돋움체",           FontLicense.Free },
-            { "KoPub바탕체",           FontLicense.Free },
-            { "KoPubWorld돋움체",      FontLicense.Free },
-            { "KoPubWorld바탕체",      FontLicense.Free },
-
-            { "Spoqa Han Sans",       FontLicense.SilOfl },
-            { "Spoqa Han Sans Neo",   FontLicense.SilOfl },
-            { "Pretendard",           FontLicense.SilOfl },
-            { "Pretendard Variable",  FontLicense.SilOfl },
-            { "IBM Plex Sans KR",     FontLicense.SilOfl },
-            { "Gmarket Sans",         FontLicense.Free },
-            { "고도체",                FontLicense.Free },
-            { "고도 마음체",            FontLicense.Free },
-            { "S-Core Dream",         FontLicense.Free },
-            { "에스코어 드림",          FontLicense.Free },
-            { "부산체",                FontLicense.Free },
-            { "여기어때 잘난체",        FontLicense.Free },
-            { "Sandoll 삼립호빵체",    FontLicense.Free },
-            { "BMDOHYEON",            FontLicense.Free },
-            { "BMJUA",                FontLicense.Free },
-            { "BMKIRANGHAERANG",      FontLicense.Free },
-            { "BMEULJIROTTF",         FontLicense.Free },
-            { "경기천년제목V",          FontLicense.Free },
-            { "경기천년제목M",          FontLicense.Free },
-            { "경기천년바탕V",          FontLicense.Free },
-
-            // ── Latin open-source ─────────────────────────────────────
-            { "Liberation Sans",      FontLicense.SilOfl },
-            { "Liberation Serif",     FontLicense.SilOfl },
-            { "Liberation Mono",      FontLicense.SilOfl },
-
-            { "DejaVu Sans",          FontLicense.BitstreamVera },
-            { "DejaVu Serif",         FontLicense.BitstreamVera },
-            { "DejaVu Sans Mono",     FontLicense.BitstreamVera },
-            { "DejaVu Sans Condensed",FontLicense.BitstreamVera },
-
-            { "Open Sans",            FontLicense.Apache2 },
-            { "Roboto",               FontLicense.Apache2 },
-            { "Roboto Condensed",     FontLicense.Apache2 },
-            { "Roboto Mono",          FontLicense.Apache2 },
-            { "Roboto Slab",          FontLicense.Apache2 },
-
-            { "Lato",                 FontLicense.SilOfl },
-            { "Montserrat",           FontLicense.SilOfl },
-            { "Raleway",              FontLicense.SilOfl },
-            { "Oswald",               FontLicense.SilOfl },
-            { "Nunito",               FontLicense.SilOfl },
-            { "Nunito Sans",          FontLicense.SilOfl },
-            { "Poppins",              FontLicense.SilOfl },
-            { "Inter",                FontLicense.SilOfl },
-            { "Merriweather",         FontLicense.SilOfl },
-            { "Playfair Display",     FontLicense.SilOfl },
-            { "Crimson Text",         FontLicense.SilOfl },
-            { "Inconsolata",          FontLicense.SilOfl },
-            { "Fira Sans",            FontLicense.SilOfl },
-            { "Fira Code",            FontLicense.SilOfl },
-            { "Fira Mono",            FontLicense.SilOfl },
-            { "PT Sans",              FontLicense.SilOfl },
-            { "PT Serif",             FontLicense.SilOfl },
-            { "PT Mono",              FontLicense.SilOfl },
-
-            { "Source Sans Pro",      FontLicense.SilOfl },
-            { "Source Serif Pro",     FontLicense.SilOfl },
-            { "Source Code Pro",      FontLicense.SilOfl },
-            { "Source Sans 3",        FontLicense.SilOfl },
-            { "Source Serif 4",       FontLicense.SilOfl },
-
-            { "IBM Plex Sans",        FontLicense.SilOfl },
-            { "IBM Plex Serif",       FontLicense.SilOfl },
-            { "IBM Plex Mono",        FontLicense.SilOfl },
-
-            { "Noto Sans",            FontLicense.SilOfl },
-            { "Noto Serif",           FontLicense.SilOfl },
-            { "Noto Mono",            FontLicense.SilOfl },
-
-            { "Ubuntu",               FontLicense.UbuntuFont },
-            { "Ubuntu Mono",          FontLicense.UbuntuFont },
-            { "Ubuntu Condensed",     FontLicense.UbuntuFont },
-
-            { "Anonymous Pro",        FontLicense.SilOfl },
-            { "Overpass",             FontLicense.SilOfl },
-            { "Barlow",               FontLicense.SilOfl },
-            { "Cabin",                FontLicense.SilOfl },
-            { "Josefin Sans",         FontLicense.SilOfl },
-            { "Exo 2",                FontLicense.SilOfl },
-            { "Work Sans",            FontLicense.SilOfl },
-            { "DM Sans",              FontLicense.SilOfl },
-            { "Space Grotesk",        FontLicense.SilOfl },
-            { "Plus Jakarta Sans",    FontLicense.SilOfl },
-            { "Readex Pro",           FontLicense.SilOfl },
-
-            // Monospace / code
-            { "Hack",                 FontLicense.MIT },
-            { "JetBrains Mono",       FontLicense.SilOfl },
-            { "Cascadia Code",        FontLicense.SilOfl },
-            { "Cascadia Mono",        FontLicense.SilOfl },
-        };
+    private static List<FontInfo>? _allCache;
+    private static List<FontInfo>? _filteredCache;
 
     // ── Public API ─────────────────────────────────────────────────────
 
-    private static List<FontInfo>? _allCache;
-
-    /// <summary>Returns all system fonts, tagged as open-source or System.</summary>
+    /// <summary>All installed font families with license classification.</summary>
     public static IReadOnlyList<FontInfo> GetAllFonts()
     {
         if (_allCache is not null) return _allCache;
 
+        var pathMap = BuildFontPathMap();
         _allCache = Fonts.SystemFontFamilies
             .Select(f => f.Source)
-            .Where(n => !string.IsNullOrEmpty(n))    // anonymous composite fonts may have null Source
+            .Where(n => !string.IsNullOrEmpty(n))
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-            .Select(name => KnownOpenFonts.TryGetValue(name, out var lic)
-                ? new FontInfo(name, lic)
-                : new FontInfo(name, FontLicense.System))
+            .Select(name => new FontInfo(name, ClassifyFont(name, pathMap)))
             .ToList();
 
         return _allCache;
     }
 
-    /// <summary>Returns only open-source / free fonts installed on the system.</summary>
-    public static IReadOnlyList<FontInfo> GetOpenSourceFonts()
-        => GetAllFonts().Where(f => f.IsOpenSource).ToList();
-
     /// <summary>
-    /// Returns open-source fonts if any are installed, otherwise falls back to all fonts.
-    /// This prevents showing an empty list on systems with no open-source fonts.
+    /// Fonts allowed by the license filter:
+    /// Windows built-in fonts + fonts with fsType == 0 or 8.
     /// </summary>
-    public static IReadOnlyList<FontInfo> GetRecommendedFonts()
+    public static IReadOnlyList<FontInfo> GetLicenseFilteredFonts()
     {
-        var open = GetOpenSourceFonts();
-        return open.Count > 0 ? open : GetAllFonts();
+        if (_filteredCache is not null) return _filteredCache;
+
+        _filteredCache = GetAllFonts()
+            .Where(f => f.License is FontLicense.Embeddable or FontLicense.System)
+            .ToList();
+
+        return _filteredCache;
+    }
+
+    // ── Classification ─────────────────────────────────────────────────
+
+    private static FontLicense ClassifyFont(string familyName,
+                                             Dictionary<string, string> pathMap)
+    {
+        var path = ResolveFontPath(familyName, pathMap);
+        if (path is null) return FontLicense.Unknown;
+
+        // Windows 기본 글꼴 폴더에 있으면 무조건 허용
+        if (path.StartsWith(WinFontsDir, StringComparison.OrdinalIgnoreCase))
+            return FontLicense.System;
+
+        // 그 외: fsType 플래그 확인
+        ushort fsType = ReadFsType(path);
+        // 하위 4비트가 0(무제한) 또는 8(편집 허용)이면 통과
+        return (fsType & 0x000F) is 0 or 8
+            ? FontLicense.Embeddable
+            : FontLicense.Restricted;
+    }
+
+    // ── Font path resolution (registry) ───────────────────────────────
+
+    private static Dictionary<string, string>? _pathMapCache;
+
+    private static Dictionary<string, string> BuildFontPathMap()
+    {
+        if (_pathMapCache is not null) return _pathMapCache;
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // 시스템 글꼴 레지스트리
+        const string regPath = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts";
+        AddRegistryFonts(map, Registry.LocalMachine, regPath, WinFontsDir);
+
+        // 사용자 설치 글꼴 레지스트리
+        AddRegistryFonts(map, Registry.CurrentUser, regPath, UserFontsDir);
+
+        _pathMapCache = map;
+        return map;
+    }
+
+    private static void AddRegistryFonts(Dictionary<string, string> map,
+                                          RegistryKey root, string subKey,
+                                          string defaultDir)
+    {
+        try
+        {
+            using var key = root.OpenSubKey(subKey);
+            if (key is null) return;
+            foreach (var valueName in key.GetValueNames())
+            {
+                if (key.GetValue(valueName) is not string fileName) continue;
+
+                var fullPath = Path.IsPathRooted(fileName)
+                    ? fileName
+                    : Path.Combine(defaultDir, fileName);
+
+                // 레지스트리 값 이름에서 "(TrueType)", "(OpenType)" 등 제거
+                var baseName = StripParenthetical(valueName);
+                map.TryAdd(baseName, fullPath);
+                map.TryAdd(valueName, fullPath);
+            }
+        }
+        catch { }
+    }
+
+    private static string? ResolveFontPath(string familyName,
+                                            Dictionary<string, string> map)
+    {
+        // 1. 정확히 일치
+        if (map.TryGetValue(familyName, out var p)) return p;
+
+        // 2. 패밀리명으로 시작하는 항목 (예: "Arial Bold (TrueType)" → "Arial")
+        foreach (var (key, val) in map)
+        {
+            if (key.StartsWith(familyName, StringComparison.OrdinalIgnoreCase))
+                return val;
+        }
+
+        // 3. 직접 파일 탐색 (Windows Fonts 폴더)
+        foreach (var ext in new[] { ".ttf", ".otf", ".ttc", ".otc" })
+        {
+            var candidate = Path.Combine(WinFontsDir,
+                familyName.Replace(" ", "") + ext);
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        return null;
+    }
+
+    private static string StripParenthetical(string name)
+    {
+        var idx = name.LastIndexOf('(');
+        return idx > 0 ? name[..idx].Trim() : name.Trim();
+    }
+
+    // ── fsType binary reader (OS/2 table) ─────────────────────────────
+
+    private static ushort ReadFsType(string path)
+    {
+        try
+        {
+            using var fs = new FileStream(path, FileMode.Open,
+                                          FileAccess.Read, FileShare.ReadWrite);
+            if (fs.Length < 12) return 0;
+            using var br = new BinaryReader(fs);
+
+            uint sig = ReadU32(br);
+
+            if (sig == 0x74746366) // 'ttcf' — TrueType Collection
+            {
+                ReadU32(br);                    // version
+                uint nFonts = ReadU32(br);
+                if (nFonts == 0) return 0;
+                uint offset = ReadU32(br);      // offset of first font
+                fs.Seek(offset, SeekOrigin.Begin);
+                ReadU32(br);                    // sfVersion of first font
+            }
+            // 여기서부터 numTables 위치
+
+            ushort numTables = ReadU16(br);
+            br.ReadBytes(6);                    // searchRange + entrySelector + rangeShift
+
+            for (int i = 0; i < numTables; i++)
+            {
+                byte[] tTag  = br.ReadBytes(4);
+                br.ReadBytes(4);                // checkSum
+                uint tOffset = ReadU32(br);
+                br.ReadBytes(4);                // length
+
+                // OS/2 테이블 찾기
+                if (tTag[0] == 'O' && tTag[1] == 'S' &&
+                    tTag[2] == '/' && tTag[3] == '2')
+                {
+                    // OS/2: version(2) xAvgCharWidth(2) usWeightClass(2)
+                    //        usWidthClass(2) fsType(2)  → offset + 8
+                    fs.Seek(tOffset + 8, SeekOrigin.Begin);
+                    return ReadU16(br);
+                }
+            }
+        }
+        catch { }
+
+        return 0; // 읽기 실패 → 무제한으로 처리
+    }
+
+    private static ushort ReadU16(BinaryReader r)
+    {
+        var b = r.ReadBytes(2);
+        return (ushort)((b[0] << 8) | b[1]);
+    }
+
+    private static uint ReadU32(BinaryReader r)
+    {
+        var b = r.ReadBytes(4);
+        return (uint)((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]);
     }
 }

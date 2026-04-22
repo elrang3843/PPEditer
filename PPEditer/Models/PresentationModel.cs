@@ -24,6 +24,14 @@ public sealed class PresentationModel : IDisposable
     private readonly Stack<byte[]> _undoStack = new();
     private readonly Stack<byte[]> _redoStack = new();
 
+    // ── Watermark in-memory cache ────────────────────────────────────────
+    // Keeps the current session's watermark available even if custom-property
+    // persistence fails on some PPTX files.
+    private WatermarkKind _wmKind;
+    private string        _wmText        = string.Empty;
+    private bool          _wmShowOnPrint = true;
+    private bool          _wmShowOnSlide = true;
+
     // ── Properties ──────────────────────────────────────────────────────
 
     public bool   IsOpen    => _doc != null;
@@ -66,6 +74,7 @@ public sealed class PresentationModel : IDisposable
         _modified = false;
         _undoStack.Clear();
         _redoStack.Clear();
+        ResetWatermarkCache();
     }
 
     public void Open(string filePath)
@@ -79,6 +88,7 @@ public sealed class PresentationModel : IDisposable
         _filePath = filePath;
         _modified = false;
         _undoStack.Clear();
+        ResetWatermarkCache();
         _redoStack.Clear();
     }
 
@@ -256,14 +266,24 @@ public sealed class PresentationModel : IDisposable
         {
             var aPara = new A.Paragraph();
 
-            // Paragraph alignment
+            // Paragraph-level properties
             var alignVal = para.Alignment switch
             {
-                System.Windows.TextAlignment.Center => A.TextAlignmentTypeValues.Center,
-                System.Windows.TextAlignment.Right  => A.TextAlignmentTypeValues.Right,
-                _                                   => A.TextAlignmentTypeValues.Left,
+                System.Windows.TextAlignment.Center  => A.TextAlignmentTypeValues.Center,
+                System.Windows.TextAlignment.Right   => A.TextAlignmentTypeValues.Right,
+                System.Windows.TextAlignment.Justify => new A.TextAlignmentTypeValues("just"),
+                _                                    => A.TextAlignmentTypeValues.Left,
             };
-            aPara.ParagraphProperties = new A.ParagraphProperties { Alignment = alignVal };
+            var pPr = new A.ParagraphProperties { Alignment = alignVal };
+            if (para.MarginLeftEmu  != 0) pPr.LeftMargin = para.MarginLeftEmu;
+            if (para.TextIndentEmu  != 0) pPr.Indent     = para.TextIndentEmu;
+            if (para.LineSpacePct1000 > 0)
+                pPr.Append(new A.LineSpacing(new A.SpacingPercent { Val = para.LineSpacePct1000 }));
+            if (para.SpaceBeforePt100 > 0)
+                pPr.Append(new A.SpaceBefore(new A.SpacingPoints { Val = para.SpaceBeforePt100 }));
+            if (para.SpaceAfterPt100 > 0)
+                pPr.Append(new A.SpaceAfter(new A.SpacingPoints { Val = para.SpaceAfterPt100 }));
+            aPara.ParagraphProperties = pPr;
 
             foreach (var run in para.Runs)
             {
@@ -366,6 +386,33 @@ public sealed class PresentationModel : IDisposable
         return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(newShape);
     }
 
+    /// <summary>Update the vertical anchor of a text body shape.</summary>
+    public void UpdateBodyVertAnchor(int slideIndex, int shapeTreeIndex, VertAnchor anchor)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex >= elements.Count) return;
+        if (elements[shapeTreeIndex] is not Shape shape) return;
+        if (shape.TextBody is null) return;
+
+        PushUndo();
+
+        var bodyPr = shape.TextBody.GetFirstChild<A.BodyProperties>();
+        if (bodyPr is null) { bodyPr = new A.BodyProperties(); shape.TextBody.InsertAt(bodyPr, 0); }
+
+        bodyPr.Anchor = anchor switch
+        {
+            VertAnchor.Middle => A.TextAnchoringTypeValues.Center,
+            VertAnchor.Bottom => A.TextAnchoringTypeValues.Bottom,
+            _                 => A.TextAnchoringTypeValues.Top,
+        };
+
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
     /// <summary>Move a shape by <paramref name="deltaXEmu"/> / <paramref name="deltaYEmu"/> EMU.</summary>
     public void MoveShape(int slideIndex, int shapeTreeIndex, long deltaXEmu, long deltaYEmu)
     {
@@ -387,6 +434,34 @@ public sealed class PresentationModel : IDisposable
         PushUndo();
         xfrm.Offset.X = (xfrm.Offset.X?.Value ?? 0L) + deltaXEmu;
         xfrm.Offset.Y = (xfrm.Offset.Y?.Value ?? 0L) + deltaYEmu;
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
+    /// <summary>Rotate a shape by <paramref name="angleDeltaDeg"/> degrees (positive = CW).</summary>
+    public void RotateShape(int slideIndex, int shapeTreeIndex, double angleDeltaDeg)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var elements = slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null || shapeTreeIndex < 0 || shapeTreeIndex >= elements.Count) return;
+
+        A.Transform2D? xfrm = elements[shapeTreeIndex] switch
+        {
+            Shape s   => s.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+            Picture p => p.ShapeProperties?.GetFirstChild<A.Transform2D>(),
+            _         => null,
+        };
+        if (xfrm is null) return;
+
+        long current = xfrm.Rotation?.Value ?? 0L;
+        long delta   = (long)Math.Round(angleDeltaDeg * 60000.0);
+        long newRot  = ((current + delta) % 21600000L + 21600000L) % 21600000L;
+
+        PushUndo();
+        xfrm.Rotation = (int)newRot;
         slidePart.Slide.Save();
         _modified = true;
     }
@@ -556,8 +631,9 @@ public sealed class PresentationModel : IDisposable
             xfrm = MakeXfrm(left, top, w, h);
             geom = BuildSplinePath(lx, ly, w, h, closed: false);
         }
-        else if (tool is DrawTool.ScaleneTriangle or DrawTool.Polygon)
+        else if (tool is DrawTool.ScaleneTriangle or DrawTool.Polygon or DrawTool.Trapezoid)
         {
+            // Trapezoid: user clicked 4 points; stored as a closed custom polygon
             xfrm = MakeXfrm(left, top, w, h);
             geom = BuildPolyPath(lx, ly, w, h, closed: true);
         }
@@ -566,24 +642,72 @@ public sealed class PresentationModel : IDisposable
             xfrm = MakeXfrm(left, top, w, h);
             geom = BuildSplinePath(lx, ly, w, h, closed: true);
         }
-        else
+        else if (tool is DrawTool.RightTriangle)
         {
-            // Preset geometry
-            A.ShapeTypeValues preset = tool switch
+            // Right angle is placed at the drag-start corner
+            bool fH = xs[0] > xs[1]; // started from right side
+            bool fV = ys[0] > ys[1]; // started from bottom
+            long rax = fH ? w : 0L,  ray = fV ? h : 0L;  // right-angle vertex
+            long p1x = fH ? w : 0L,  p1y = fV ? 0L : h;  // along the vertical leg
+            long p2x = fH ? 0L : w,  p2y = fV ? h : 0L;  // along the horizontal leg
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildPolyPath([rax, p1x, p2x], [ray, p1y, p2y], w, h, closed: true);
+        }
+        else if (tool is DrawTool.Parallelogram)
+        {
+            // Lean direction follows horizontal drag direction
+            bool fH = xs[0] > xs[1]; // started from right → lean left
+            long off = w / 4;
+            long[] px = fH ? [0L, w - off, w,   off]
+                           : [off, w,      w - off, 0L];
+            long[] py = [0L, 0L, h, h];
+            xfrm = MakeXfrm(left, top, w, h);
+            geom = BuildPolyPath(px, py, w, h, closed: true);
+        }
+        else if (tool is DrawTool.Arc)
+        {
+            bool fH = xs[0] > xs[1];
+            bool fV = ys[0] > ys[1];
+            // The arc ellipse is centered at the OPPOSITE corner from the drag-start,
+            // so its quarter-arc spans the two corners adjacent to the drag-start corner.
+            //   TL start → center BR, arc BL→TR  (upper-left region)
+            //   TR start → center BL, arc BR→TL  (upper-right region)
+            //   BL start → center TR, arc TL→BR  (lower-left region)
+            //   BR start → center TL, arc TR→BL  (lower-right region)
+            var (moveX, moveY, stAng, swAng) = (fH, fV) switch
             {
-                DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
-                DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
-                DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
-                DrawTool.IsoTriangle                => new A.ShapeTypeValues("isoTri"),
-                DrawTool.RightTriangle              => A.ShapeTypeValues.RightTriangle,
-                DrawTool.Trapezoid                  => A.ShapeTypeValues.Trapezoid,
-                DrawTool.Parallelogram              => A.ShapeTypeValues.Parallelogram,
-                DrawTool.Arc                        => A.ShapeTypeValues.Arc,
-                DrawTool.Arrow                      => A.ShapeTypeValues.RightArrow,
-                _                                   => A.ShapeTypeValues.Rectangle,
+                (false, false) => (0L,  h, 10800000L,  5400000L),
+                (true,  false) => (w,   h,        0L, -5400000L),
+                (false, true)  => (0L, 0L, 10800000L, -5400000L),
+                (true,  true)  => (w,  0L,        0L,  5400000L),
             };
             xfrm = MakeXfrm(left, top, w, h);
-            geom = new A.PresetGeometry(new A.AdjustValueList()) { Preset = preset };
+            geom = BuildArcPath(moveX, moveY, w, h, stAng, swAng);
+        }
+        else
+        {
+            xfrm = MakeXfrm(left, top, w, h);
+
+            if (tool == DrawTool.IsoTriangle)
+            {
+                // "isoTri" is not a member of ShapeTypeValues in SDK v3 (struct validates known values);
+                // set the prst attribute directly on the element to avoid ArgumentOutOfRangeException.
+                var pg = new A.PresetGeometry(new A.AdjustValueList());
+                pg.SetAttribute(new OpenXmlAttribute("prst", string.Empty, "isoTri"));
+                geom = pg;
+            }
+            else
+            {
+                A.ShapeTypeValues preset = tool switch
+                {
+                    DrawTool.Rect or DrawTool.Square    => A.ShapeTypeValues.Rectangle,
+                    DrawTool.Ellipse or DrawTool.Circle => A.ShapeTypeValues.Ellipse,
+                    DrawTool.EqTriangle                 => A.ShapeTypeValues.Triangle,
+                    DrawTool.Arrow                      => ArrowPreset(xs, ys),
+                    _                                   => A.ShapeTypeValues.Rectangle,
+                };
+                geom = new A.PresetGeometry(new A.AdjustValueList()) { Preset = preset };
+            }
         }
 
         var spPr = new ShapeProperties();
@@ -611,6 +735,16 @@ public sealed class PresentationModel : IDisposable
         slidePart.Slide.Save();
         _modified = true;
         return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(shape);
+    }
+
+    private static A.ShapeTypeValues ArrowPreset(long[] xs, long[] ys)
+    {
+        long dx = xs[1] - xs[0];
+        long dy = ys[1] - ys[0];
+        if (Math.Abs(dx) >= Math.Abs(dy))
+            return dx >= 0 ? A.ShapeTypeValues.RightArrow : A.ShapeTypeValues.LeftArrow;
+        else
+            return dy >= 0 ? A.ShapeTypeValues.DownArrow : A.ShapeTypeValues.UpArrow;
     }
 
     private static A.Transform2D MakeXfrm(long l, long t, long w, long h)
@@ -657,6 +791,20 @@ public sealed class PresentationModel : IDisposable
 
     private static A.Point APt(long x, long y) => new A.Point { X = x.ToString(), Y = y.ToString() };
 
+    private static A.CustomGeometry BuildArcPath(long mx, long my, long w, long h, long stAng, long swAng)
+    {
+        var path = new A.Path { Width = w, Height = h, Fill = A.PathFillModeValues.None };
+        path.Append(new A.MoveTo(APt(mx, my)));
+        path.Append(new A.ArcTo
+        {
+            WidthRadius  = w.ToString(),
+            HeightRadius = h.ToString(),
+            StartAngle   = stAng.ToString(),
+            SwingAngle   = swAng.ToString(),
+        });
+        return WrapInCustGeom(path);
+    }
+
     private static A.CustomGeometry WrapInCustGeom(A.Path path)
     {
         var g = new A.CustomGeometry();
@@ -679,6 +827,74 @@ public sealed class PresentationModel : IDisposable
         elements[shapeTreeIndex].Remove();
         slidePart.Slide.Save();
         _modified = true;
+    }
+
+    public void DeleteShapes(int slideIndex, int[] treeIdxs)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return;
+
+        PushUndo();
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        // Remove in descending order to keep indices stable
+        foreach (int ti in treeIdxs.Distinct().OrderByDescending(x => x))
+            if (ti >= 0 && ti < elements.Count)
+                elements[ti].Remove();
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
+    public int[] PasteShapes(int slideIndex, IReadOnlyList<OpenXmlCompositeElement> shapes)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return [];
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return [];
+
+        PushUndo();
+        const long OffsetEmu = 360_000L; // ~1 cm
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        int startIdx = elements.Count;
+        int nextId   = GetMaxNvId(tree) + 1;
+        var newIdxs  = new List<int>();
+
+        foreach (var shape in shapes)
+        {
+            var clone = (OpenXmlCompositeElement)shape.CloneNode(true);
+            SetNvId(clone, nextId++);
+            ShiftOffset(clone, OffsetEmu, OffsetEmu);
+            tree.AppendChild(clone);
+            newIdxs.Add(startIdx++);
+        }
+        slidePart.Slide.Save();
+        _modified = true;
+        return [.. newIdxs];
+    }
+
+    private static int GetMaxNvId(OpenXmlElement tree)
+    {
+        int max = 0;
+        foreach (var nvPr in tree.Descendants<NonVisualDrawingProperties>())
+            if (nvPr.Id?.HasValue == true) max = Math.Max(max, (int)nvPr.Id.Value);
+        return max;
+    }
+
+    private static void SetNvId(OpenXmlElement shape, int newId)
+    {
+        var nvPr = shape.Descendants<NonVisualDrawingProperties>().FirstOrDefault();
+        if (nvPr is null) return;
+        nvPr.Id   = (uint)newId;
+        nvPr.Name = $"Shape {newId}";
+    }
+
+    private static void ShiftOffset(OpenXmlElement shape, long dx, long dy)
+    {
+        var off = shape.Descendants<A.Offset>().FirstOrDefault();
+        if (off is null) return;
+        if (off.X?.HasValue == true) off.X = off.X.Value + dx;
+        if (off.Y?.HasValue == true) off.Y = off.Y.Value + dy;
     }
 
     /// <summary>Resize / reposition a shape to the given EMU coordinates.</summary>
@@ -760,6 +976,11 @@ public sealed class PresentationModel : IDisposable
                 style.FillKind = FillKind.Solid;
                 var hex = sf.GetFirstChild<A.RgbColorModelHex>()?.Val?.Value;
                 if (hex is not null) style.FillColor = RgbColor.FromHex(hex);
+            }
+            else
+            {
+                // No explicit fill element — inherited from layout/master; treat as None
+                style.FillKind = FillKind.None;
             }
 
             // Outline
@@ -1118,6 +1339,95 @@ public sealed class PresentationModel : IDisposable
         return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(shape);
     }
 
+    // ── Slide Notes ──────────────────────────────────────────────────────
+
+    /// <summary>Returns the plain-text notes for the given slide (empty string if none).</summary>
+    public string GetSlideNotes(int slideIndex)
+    {
+        var notesPart = GetSlidePart(slideIndex)?.NotesSlidePart;
+        if (notesPart?.NotesSlide is null) return string.Empty;
+        var bodyShape = FindNotesBodyShape(notesPart);
+        if (bodyShape?.TextBody is null) return string.Empty;
+        return string.Join(Environment.NewLine,
+            bodyShape.TextBody.Elements<A.Paragraph>()
+                .Select(p => string.Concat(
+                    p.Elements<A.Run>().Select(r => r.Text?.Text ?? string.Empty))));
+    }
+
+    /// <summary>Writes plain-text notes for the given slide, creating NotesSlidePart if absent.</summary>
+    public void SetSlideNotes(int slideIndex, string text)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var notesPart = slidePart.NotesSlidePart;
+        if (notesPart is null)
+        {
+            notesPart = slidePart.AddNewPart<NotesSlidePart>();
+            CreateBlankNotesSlide(notesPart);
+        }
+
+        var bodyShape = FindNotesBodyShape(notesPart);
+        if (bodyShape is null) return;
+
+        if (bodyShape.TextBody is null)
+            bodyShape.Append(new TextBody(new A.BodyProperties(), new A.ListStyle()));
+
+        var txBody = bodyShape.TextBody!;
+        foreach (var p in txBody.Elements<A.Paragraph>().ToList())
+            p.Remove();
+
+        foreach (var line in text.Split('\n'))
+        {
+            var para = new A.Paragraph();
+            if (!string.IsNullOrEmpty(line))
+                para.Append(new A.Run(new A.Text(line)));
+            txBody.Append(para);
+        }
+
+        notesPart.NotesSlide!.Save();
+        _modified = true;
+    }
+
+    private static Shape? FindNotesBodyShape(NotesSlidePart notesPart) =>
+        notesPart.NotesSlide?.CommonSlideData?.ShapeTree?
+            .Elements<Shape>()
+            .FirstOrDefault(s =>
+            {
+                var ph = s.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?
+                          .GetFirstChild<PlaceholderShape>();
+                return ph?.Index?.Value == 1u || ph?.Type?.Value == PlaceholderValues.Body;
+            });
+
+    private static void CreateBlankNotesSlide(NotesSlidePart notesPart)
+    {
+        new NotesSlide(
+            new CommonSlideData(
+                new ShapeTree(
+                    new NonVisualGroupShapeProperties(
+                        new NonVisualDrawingProperties { Id = 1u, Name = "" },
+                        new NonVisualGroupShapeDrawingProperties(),
+                        new ApplicationNonVisualDrawingProperties()),
+                    new GroupShapeProperties(new A.TransformGroup()),
+                    new Shape(
+                        new NonVisualShapeProperties(
+                            new NonVisualDrawingProperties { Id = 2u, Name = "Slide Image 1" },
+                            new NonVisualShapeDrawingProperties(),
+                            new ApplicationNonVisualDrawingProperties(
+                                new PlaceholderShape { Type = PlaceholderValues.SlideImage })),
+                        new ShapeProperties()),
+                    new Shape(
+                        new NonVisualShapeProperties(
+                            new NonVisualDrawingProperties { Id = 3u, Name = "Notes Placeholder 2" },
+                            new NonVisualShapeDrawingProperties(),
+                            new ApplicationNonVisualDrawingProperties(
+                                new PlaceholderShape { Type = PlaceholderValues.Body, Index = 1u })),
+                        new ShapeProperties(),
+                        new TextBody(new A.BodyProperties(), new A.ListStyle())))),
+            new ColorMapOverride(new A.MasterColorMapping()))
+            .Save(notesPart);
+    }
+
     private static uint GetMaxShapeId(ShapeTree tree)
     {
         uint max = 1u;
@@ -1278,38 +1588,19 @@ public sealed class PresentationModel : IDisposable
         var p = new DocProperties();
         if (_doc is null) return p;
 
-        // Core properties
-        var corePart = _doc.CoreFilePropertiesPart;
-        if (corePart is not null)
+        // Core properties via SDK typed API (reliable across SDK versions)
+        try
         {
-            try
-            {
-                XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
-                XNamespace dc      = "http://purl.org/dc/elements/1.1/";
-                XNamespace dcterms = "http://purl.org/dc/terms/";
-
-                var xdoc = XDocument.Load(corePart.GetStream());
-                var root = xdoc.Root!;
-
-                p.Title          = root.Element(dc      + "title")?.Value          ?? string.Empty;
-                p.Subject        = root.Element(dc      + "subject")?.Value        ?? string.Empty;
-                p.Author         = root.Element(dc      + "creator")?.Value        ?? string.Empty;
-                p.LastModifiedBy = root.Element(cp      + "lastModifiedBy")?.Value ?? string.Empty;
-
-                if (int.TryParse(root.Element(cp + "revision")?.Value, out int rev))
-                    p.Revision = rev;
-
-                if (DateTime.TryParse(root.Element(dcterms + "created")?.Value,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.RoundtripKind, out var created))
-                    p.Created = created;
-                if (DateTime.TryParse(root.Element(dcterms + "modified")?.Value,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.RoundtripKind, out var modified))
-                    p.Modified = modified;
-            }
-            catch { }
+            var pp           = _doc.PackageProperties;
+            p.Title          = pp.Title          ?? string.Empty;
+            p.Subject        = pp.Subject        ?? string.Empty;
+            p.Author         = pp.Creator        ?? string.Empty;
+            p.LastModifiedBy = pp.LastModifiedBy ?? string.Empty;
+            if (int.TryParse(pp.Revision, out int rev)) p.Revision = rev;
+            p.Created  = pp.Created;
+            p.Modified = pp.Modified;
         }
+        catch { }
 
         // Extended properties (Manager, Company)
         var extPart = _doc.ExtendedFilePropertiesPart;
@@ -1326,6 +1617,36 @@ public sealed class PresentationModel : IDisposable
             catch { }
         }
 
+        // Watermark — prefer the in-memory cache (always current), fall back to file.
+        if (_wmKind != WatermarkKind.None || !string.IsNullOrEmpty(_wmText))
+        {
+            p.WatermarkKind        = _wmKind;
+            p.WatermarkText        = _wmText;
+            p.WatermarkShowOnPrint = _wmShowOnPrint;
+            p.WatermarkShowOnSlide = _wmShowOnSlide;
+        }
+        else
+        {
+            try
+            {
+                var root  = GetCustomPropsRoot();
+                var kind  = ReadCustomProp(root, "PPEditer.WatermarkKind")  ?? "None";
+                var text  = ReadCustomProp(root, "PPEditer.WatermarkText")  ?? string.Empty;
+                var print = ReadCustomProp(root, "PPEditer.WatermarkPrint") ?? "true";
+                var slide = ReadCustomProp(root, "PPEditer.WatermarkSlide") ?? "true";
+                p.WatermarkKind        = Enum.TryParse<WatermarkKind>(kind, out var k) ? k : WatermarkKind.None;
+                p.WatermarkText        = text;
+                p.WatermarkShowOnPrint = print != "false";
+                p.WatermarkShowOnSlide = slide != "false";
+                // Populate cache for future calls.
+                _wmKind        = p.WatermarkKind;
+                _wmText        = p.WatermarkText;
+                _wmShowOnPrint = p.WatermarkShowOnPrint;
+                _wmShowOnSlide = p.WatermarkShowOnSlide;
+            }
+            catch { }
+        }
+
         return p;
     }
 
@@ -1337,6 +1658,14 @@ public sealed class PresentationModel : IDisposable
 
         SaveCorePropertiesFull(props);
         SaveExtendedProperties(props);
+        SaveWatermarkProps(props);
+
+        // Update in-memory cache immediately so GetDocProperties() returns
+        // current values without needing to round-trip through the file.
+        _wmKind        = props.WatermarkKind;
+        _wmText        = props.WatermarkText;
+        _wmShowOnPrint = props.WatermarkShowOnPrint;
+        _wmShowOnSlide = props.WatermarkShowOnSlide;
 
         var presentation = _doc.PresentationPart?.Presentation;
         if (presentation is not null)
@@ -1364,60 +1693,36 @@ public sealed class PresentationModel : IDisposable
 
     private void SaveCorePropertiesFull(DocProperties props)
     {
-        XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
-        XNamespace dc      = "http://purl.org/dc/elements/1.1/";
-        XNamespace dcterms = "http://purl.org/dc/terms/";
-        XNamespace xsi     = "http://www.w3.org/2001/XMLSchema-instance";
-
-        var corePart = _doc!.CoreFilePropertiesPart;
-        XDocument xdoc;
-
-        if (corePart is null)
-        {
-            corePart = _doc.AddCoreFilePropertiesPart();
-            xdoc = new XDocument(
-                new XElement(cp + "coreProperties",
-                    new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
-        }
-        else
-        {
-            try   { xdoc = XDocument.Load(corePart.GetStream()); }
-            catch
-            {
-                xdoc = new XDocument(
-                    new XElement(cp + "coreProperties",
-                        new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
-            }
-        }
-
-        var root = xdoc.Root!;
-        var now  = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-        XmlSetOrCreate(root, dc      + "title",          props.Title);
-        XmlSetOrCreate(root, dc      + "subject",        props.Subject);
-        XmlSetOrCreate(root, dc      + "creator",        props.Author);
-        XmlSetOrCreate(root, cp      + "lastModifiedBy", Environment.UserName);
-        XmlSetOrCreate(root, dcterms + "modified",       now, xsi + "type", "dcterms:W3CDTF");
-
-        if (root.Element(dcterms + "created") is null)
-            XmlSetOrCreate(root, dcterms + "created", now, xsi + "type", "dcterms:W3CDTF");
-
-        var revEl = root.Element(cp + "revision");
-        int rev   = revEl is not null && int.TryParse(revEl.Value, out int r) ? r + 1 : 1;
-        XmlSetOrCreate(root, cp + "revision", rev.ToString());
-
         try
         {
-            using var ws = corePart.GetStream(FileMode.Create, FileAccess.Write);
-            xdoc.Save(ws);
+            var pp = _doc!.PackageProperties;
+            pp.Title          = string.IsNullOrEmpty(props.Title)          ? null : props.Title;
+            pp.Subject        = string.IsNullOrEmpty(props.Subject)        ? null : props.Subject;
+            pp.Creator        = string.IsNullOrEmpty(props.Author)         ? null : props.Author;
+            pp.LastModifiedBy = string.IsNullOrEmpty(props.LastModifiedBy) ? null : props.LastModifiedBy;
+            pp.Modified       = DateTime.UtcNow;
+            if (pp.Created is null) pp.Created = DateTime.UtcNow;
+            pp.Revision = ((int.TryParse(pp.Revision, out int rev) ? rev : 0) + 1).ToString();
         }
         catch { }
+    }
+
+    private void ResetWatermarkCache()
+    {
+        _wmKind = WatermarkKind.None;
+        _wmText = string.Empty;
+        _wmShowOnPrint = true;
+        _wmShowOnSlide = true;
+    }
+
+    private void SaveWatermarkProps(DocProperties props)
+    {
+        var root = GetCustomPropsRoot();
+        SetCustomProp(root, "PPEditer.WatermarkKind",  props.WatermarkKind.ToString());
+        SetCustomProp(root, "PPEditer.WatermarkText",  props.WatermarkText);
+        SetCustomProp(root, "PPEditer.WatermarkPrint", props.WatermarkShowOnPrint ? "true" : "false");
+        SetCustomProp(root, "PPEditer.WatermarkSlide", props.WatermarkShowOnSlide ? "true" : "false");
+        SaveCustomProps(root);
     }
 
     private void SaveExtendedProperties(DocProperties props)
@@ -1457,49 +1762,14 @@ public sealed class PresentationModel : IDisposable
     private void UpdateSaveMetadata()
     {
         if (_doc is null) return;
-
-        XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
-        XNamespace dc      = "http://purl.org/dc/elements/1.1/";
-        XNamespace dcterms = "http://purl.org/dc/terms/";
-        XNamespace xsi     = "http://www.w3.org/2001/XMLSchema-instance";
-
-        var corePart = _doc.CoreFilePropertiesPart;
-        XDocument xdoc;
-
-        if (corePart is null)
-        {
-            try { corePart = _doc.AddCoreFilePropertiesPart(); }
-            catch { return; }
-            xdoc = new XDocument(
-                new XElement(cp + "coreProperties",
-                    new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
-        }
-        else
-        {
-            try   { xdoc = XDocument.Load(corePart.GetStream()); }
-            catch { return; }
-        }
-
-        var root = xdoc.Root!;
-        var now  = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-        XmlSetOrCreate(root, cp      + "lastModifiedBy", Environment.UserName);
-        XmlSetOrCreate(root, dcterms + "modified",       now, xsi + "type", "dcterms:W3CDTF");
-
-        if (root.Element(dcterms + "created") is null)
-            XmlSetOrCreate(root, dcterms + "created", now, xsi + "type", "dcterms:W3CDTF");
-
-        var revEl = root.Element(cp + "revision");
-        int rev   = revEl is not null && int.TryParse(revEl.Value, out int r) ? r + 1 : 1;
-        XmlSetOrCreate(root, cp + "revision", rev.ToString());
-
         try
         {
-            using var ws = corePart.GetStream(FileMode.Create, FileAccess.Write);
-            xdoc.Save(ws);
+            var pp = _doc.PackageProperties;
+            if (string.IsNullOrEmpty(pp.Creator))        pp.Creator        = Environment.UserName;
+            if (string.IsNullOrEmpty(pp.LastModifiedBy)) pp.LastModifiedBy = Environment.UserName;
+            pp.Modified = DateTime.UtcNow;
+            if (pp.Created is null) pp.Created = DateTime.UtcNow;
+            pp.Revision = ((int.TryParse(pp.Revision, out int rev) ? rev : 0) + 1).ToString();
         }
         catch { }
     }
@@ -1535,6 +1805,58 @@ public sealed class PresentationModel : IDisposable
         {
             el?.Remove();
         }
+    }
+
+    // ── Custom file properties (PPEditer watermark storage) ─────────────
+
+    private static readonly XNamespace OpNs =
+        "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties";
+    private static readonly XNamespace VtNs =
+        "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes";
+
+    private XElement GetCustomPropsRoot()
+    {
+        var part = _doc!.CustomFilePropertiesPart;
+        if (part is not null)
+        {
+            try { return XDocument.Load(part.GetStream()).Root!; }
+            catch { }
+        }
+        return new XElement(OpNs + "Properties",
+            new XAttribute(XNamespace.Xmlns + "vt", VtNs.NamespaceName));
+    }
+
+    private string? ReadCustomProp(XElement root, string name) =>
+        root.Elements(OpNs + "property")
+            .FirstOrDefault(e => (string?)e.Attribute("name") == name)
+            ?.Element(VtNs + "lpwstr")?.Value;
+
+    private void SetCustomProp(XElement root, string name, string value)
+    {
+        root.Elements(OpNs + "property")
+            .FirstOrDefault(e => (string?)e.Attribute("name") == name)
+            ?.Remove();
+
+        root.Add(new XElement(OpNs + "property",
+            new XAttribute("fmtid", "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"),
+            new XAttribute("pid",   "2"),
+            new XAttribute("name",  name),
+            new XElement(VtNs + "lpwstr", value)));
+    }
+
+    private void SaveCustomProps(XElement root)
+    {
+        var part = _doc!.CustomFilePropertiesPart ?? _doc.AddCustomFilePropertiesPart();
+        // pids must be sequential starting at 2
+        int pid = 2;
+        foreach (var prop in root.Elements(OpNs + "property"))
+            prop.SetAttributeValue("pid", pid++);
+        try
+        {
+            using var ws = part.GetStream(FileMode.Create, FileAccess.Write);
+            new XDocument(new XDeclaration("1.0", "UTF-8", "yes"), root).Save(ws);
+        }
+        catch { }
     }
 
     // ── Write protection ─────────────────────────────────────────────────
@@ -1577,6 +1899,164 @@ public sealed class PresentationModel : IDisposable
         }
 
         return (Convert.ToBase64String(saltBytes), Convert.ToBase64String(h));
+    }
+
+    // ── Slide transitions (stored in p:transition) ──────────────────────
+
+    public SlideTransition GetSlideTransition(int slideIndex)
+    {
+        var part = GetSlidePart(slideIndex);
+        if (part is null) return new SlideTransition();
+
+        var tr = part.Slide.GetFirstChild<Transition>();
+        if (tr is null) return new SlideTransition { Kind = TransitionKind.None };
+
+        TransitionKind kind;
+        if      (tr.GetFirstChild<PushTransition>()     is not null) kind = TransitionKind.Push;
+        else if (tr.GetFirstChild<WipeTransition>()     is not null) kind = TransitionKind.Wipe;
+        else if (tr.GetFirstChild<CoverTransition>()    is not null) kind = TransitionKind.Flip;
+        else if (tr.GetFirstChild<NewsflashTransition>() is not null) kind = TransitionKind.Crumple;
+        else if (tr.GetFirstChild<FadeTransition>()     is not null) kind = TransitionKind.Fade;
+        else                                                          kind = TransitionKind.None;
+
+        // Recover in-memory Morph override if set
+        if (_morphSlides.Contains(slideIndex)) kind = TransitionKind.Morph;
+
+        var durAttr = tr.GetAttribute("dur", "");
+        double durationMs = 700;
+        if (durAttr.Value is string dv && dv != "auto" && uint.TryParse(dv, out var d))
+            durationMs = d;
+
+        return new SlideTransition { Kind = kind, DurationMs = durationMs };
+    }
+
+    public void SetSlideTransition(int slideIndex, SlideTransition tr, bool allSlides = false)
+    {
+        int count = allSlides ? SlideCount : 1;
+        int start = allSlides ? 0 : slideIndex;
+
+        PushUndo();
+        for (int i = start; i < start + count; i++)
+            ApplyTransitionToSlide(i, tr);
+        _modified = true;
+    }
+
+    private void ApplyTransitionToSlide(int slideIndex, SlideTransition tr)
+    {
+        var part = GetSlidePart(slideIndex);
+        if (part is null) return;
+
+        // Remove existing
+        var existing = part.Slide.GetFirstChild<Transition>();
+        if (existing is not null) part.Slide.RemoveChild(existing);
+
+        if (tr.Kind == TransitionKind.Morph)
+        {
+            // Morph: store Fade in PPTX, remember in-memory
+            _morphSlides.Add(slideIndex);
+            var fade = new Transition();
+            fade.SetAttribute(new OpenXmlAttribute("spd", "", "med"));
+            fade.Append(new FadeTransition());
+            InsertTransition(part.Slide, fade);
+        }
+        else
+        {
+            _morphSlides.Remove(slideIndex);
+        }
+
+        if (tr.Kind is TransitionKind.None or TransitionKind.Morph)
+        {
+            part.Slide.Save();
+            return;
+        }
+
+        var pTr = new Transition();
+        pTr.SetAttribute(new OpenXmlAttribute("spd", "", "med"));
+        pTr.SetAttribute(new OpenXmlAttribute("dur", "", ((int)tr.DurationMs).ToString()));
+
+        OpenXmlElement child = tr.Kind switch
+        {
+            TransitionKind.Fade    => new FadeTransition(),
+            TransitionKind.Push    => MakePushTr(),
+            TransitionKind.Wipe    => MakeWipeTr(),
+            TransitionKind.Flip    => MakeCoverTr(),
+            TransitionKind.Crumple => new NewsflashTransition(),
+            _                      => new FadeTransition(),
+        };
+        pTr.Append(child);
+        InsertTransition(part.Slide, pTr);
+        part.Slide.Save();
+    }
+
+    private static void InsertTransition(Slide slide, Transition tr)
+    {
+        var timing = slide.GetFirstChild<Timing>();
+        if (timing is not null) slide.InsertBefore(tr, timing);
+        else                    slide.Append(tr);
+    }
+
+    private static PushTransition MakePushTr()
+    {
+        var p = new PushTransition();
+        p.SetAttribute(new OpenXmlAttribute("dir", "", "l"));
+        return p;
+    }
+
+    private static WipeTransition MakeWipeTr()
+    {
+        var w = new WipeTransition();
+        w.SetAttribute(new OpenXmlAttribute("dir", "", "l"));
+        return w;
+    }
+
+    private static CoverTransition MakeCoverTr()
+    {
+        var c = new CoverTransition();
+        c.SetAttribute(new OpenXmlAttribute("dir", "", "u"));
+        return c;
+    }
+
+    private readonly HashSet<int> _morphSlides = new();
+
+    // ── Object animations (in-memory only) ──────────────────────────────
+
+    private readonly Dictionary<int, List<ShapeAnimation>> _slideAnimations = new();
+
+    public List<ShapeAnimation> GetSlideAnimations(int slideIndex) =>
+        _slideAnimations.TryGetValue(slideIndex, out var list)
+            ? new List<ShapeAnimation>(list)
+            : new List<ShapeAnimation>();
+
+    public AnimationKind GetShapeAnimationKind(int slideIndex, int treeIndex)
+    {
+        if (!_slideAnimations.TryGetValue(slideIndex, out var list)) return AnimationKind.None;
+        return list.FirstOrDefault(a => a.TreeIndex == treeIndex)?.Kind ?? AnimationKind.None;
+    }
+
+    public ShapeAnimation GetShapeAnimation(int slideIndex, int treeIndex)
+    {
+        if (_slideAnimations.TryGetValue(slideIndex, out var list))
+        {
+            var existing = list.FirstOrDefault(a => a.TreeIndex == treeIndex);
+            if (existing is not null) return existing;
+        }
+        return new ShapeAnimation { TreeIndex = treeIndex };
+    }
+
+    public void SetShapeAnimation(int slideIndex, int treeIndex, AnimationKind kind,
+                                   double durationMs = 500, bool autoPlay = false, int repeatCount = 1)
+    {
+        if (!_slideAnimations.TryGetValue(slideIndex, out var list))
+            _slideAnimations[slideIndex] = list = new List<ShapeAnimation>();
+
+        list.RemoveAll(a => a.TreeIndex == treeIndex);
+        if (kind != AnimationKind.None)
+            list.Add(new ShapeAnimation
+            {
+                TreeIndex = treeIndex, Kind = kind, DurationMs = durationMs,
+                AutoPlay = autoPlay, RepeatCount = repeatCount
+            });
+        _modified = true;
     }
 
     // ── IDisposable ─────────────────────────────────────────────────────

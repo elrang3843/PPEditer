@@ -18,13 +18,19 @@
                 <Border x:Name="SlideBorder"
                         BorderBrush="#AAAAAA" BorderThickness="1"
                         Background="White">
-                    <!--
-                        The Viewbox scales the native canvas to fit.
-                        The native canvas is set as Viewbox.Child in code-behind.
-                    -->
-                    <Viewbox x:Name="SlideViewbox" Stretch="Uniform">
-                        <Canvas x:Name="SlideCanvas" Width="960" Height="540"/>
-                    </Viewbox>
+                    <Grid>
+                        <Viewbox x:Name="SlideViewbox" Stretch="Uniform">
+                            <Canvas x:Name="SlideCanvas" Width="960" Height="540"/>
+                        </Viewbox>
+                        <!-- Watermark overlay — same Stretch=Uniform so it scales with the slide -->
+                        <ContentControl x:Name="WatermarkHost"
+                                        IsHitTestVisible="False" Focusable="False"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"/>
+                        <!-- Editor overlay — outside Viewbox so the RichTextBox renders at
+                             physical screen pixels and the caret is never sub-pixel. -->
+                        <Canvas x:Name="EditorOverlay"/>
+                    </Grid>
                 </Border>
             </Grid>
         </ScrollViewer>

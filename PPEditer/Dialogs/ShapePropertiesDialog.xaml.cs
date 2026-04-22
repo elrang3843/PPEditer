@@ -13,6 +13,8 @@ public partial class ShapePropertiesDialog : Window
     private RgbColor _fillColor;
     private RgbColor _outlineColor;
     private bool     _isPicture;
+    private bool     _suppressAspectEvents;
+    private double   _aspectRatio = 1.0;  // cx/cy at dialog open
 
     public ShapeStyle Result { get; private set; } = new();
 
@@ -22,6 +24,8 @@ public partial class ShapePropertiesDialog : Window
         _isPicture    = initial.IsPicture;
         _fillColor    = initial.FillColor;
         _outlineColor = initial.OutlineColor;
+
+        if (initial.Cy > 0) _aspectRatio = (double)initial.Cx / initial.Cy;
 
         TbName.Text = initial.Name;
         TbX.Text    = (initial.X  / EmuPerCm).ToString("F2", CultureInfo.InvariantCulture);
@@ -43,6 +47,28 @@ public partial class ShapePropertiesDialog : Window
         TbLineWidth.Text = initial.OutlineWidthPt.ToString("F1", CultureInfo.InvariantCulture);
         UpdateOutlineColorButton();
         SyncOutlineEnabled();
+    }
+
+    // ── Aspect ratio ─────────────────────────────────────────────────
+
+    private void TbCx_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_suppressAspectEvents || ChkLockAspect?.IsChecked != true) return;
+        if (!double.TryParse(TbCx.Text, System.Globalization.NumberStyles.Any,
+                             CultureInfo.InvariantCulture, out double cx) || cx <= 0) return;
+        _suppressAspectEvents = true;
+        TbCy.Text = (cx / _aspectRatio).ToString("F2", CultureInfo.InvariantCulture);
+        _suppressAspectEvents = false;
+    }
+
+    private void TbCy_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (_suppressAspectEvents || ChkLockAspect?.IsChecked != true) return;
+        if (!double.TryParse(TbCy.Text, System.Globalization.NumberStyles.Any,
+                             CultureInfo.InvariantCulture, out double cy) || cy <= 0) return;
+        _suppressAspectEvents = true;
+        TbCx.Text = (cy * _aspectRatio).ToString("F2", CultureInfo.InvariantCulture);
+        _suppressAspectEvents = false;
     }
 
     // ── Combo population ──────────────────────────────────────────────

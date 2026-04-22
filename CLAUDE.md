@@ -2,150 +2,103 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
+## Build & Run
 
-## 빌드 및 실행
+Requires .NET 8 SDK and Windows (WPF is Windows-only).
 
 ```bash
-dotnet build PPEditer.sln                        # 디버그 빌드
-dotnet build -c Release PPEditer.sln             # 릴리스 빌드
-dotnet run --project PPEditer/PPEditer.csproj    # 실행
+cd PPEditer
+dotnet build
+dotnet run                   # blank window
+dotnet run -- file.pptx      # open a file on startup
+dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 ```
 
-테스트 및 린트 설정 없음.
+There are no automated tests.
 
----
+## Architecture
 
-## 기술 스택
+The app is a WPF PPTX editor with a clean layered architecture:
 
-- **.NET 8.0 / WPF** (`net8.0-windows`, `UseWPF=true`)
-- **DocumentFormat.OpenXml v3.2.0** — PPTX 읽기/쓰기
-- **PDFsharp v6.1.1** — PDF 내보내기
-- Nullable enabled, ImplicitUsings enabled
-
----
-
-## 아키텍처 개요
-
-### 폴더 역할
-
-| 폴더 | 역할 |
-|------|------|
-| `Models/` | 문서 상태 (`PresentationModel`), 데이터 타입 (`CharStyle`, `ShapeStyle`, `DrawTool`, `RgbColor`) |
-| `Services/` | PPTX↔WPF 변환 (`PptxConverter`), 폰트 목록 (`FontService`), 설정 (`AppSettings`) |
-| `Rendering/` | PPTX SlidePart → WPF Canvas 렌더링 (`SlideRenderer`) |
-| `Controls/` | 슬라이드 편집 캔버스 (`SlideEditorCanvas`), 썸네일 패널 (`SlideThumbnailPanel`) |
-| `Dialogs/` | 모달 대화상자 — 개체 속성, 문자 속성, 색상 선택, 문서 정보 등 |
-| `Export/` | PDF 내보내기 (`PdfExporter`) |
-| `Resources/` | 아이콘, 다국어 문자열 (`Strings.ko.xaml` / `Strings.en.xaml`), 테마 |
-
----
-
-## 핵심 데이터 흐름
-
-### 파일 열기 → 렌더링
 ```
-PresentationModel.Open(filePath)
-  → 파일을 MemoryStream으로 로드 → PresentationDocument.Open(stream, editable)
-
-MainWindow → EditorCanvas.ShowSlide(model, slideIndex)
-  → SlideRenderer.BuildCanvas(slidePart, slideW, slideH)
-  → ShapeTree 순회 → BuildShape / BuildPicture / BuildGroupShape
-  → WPF Canvas (EMU 좌표 기준) → Viewbox로 감싸 UI 크기에 맞춤
+MainWindow (XAML/code-behind)
+  ├── SlideEditorCanvas   ← interactive editor, fires events upward
+  ├── SlideThumbnailPanel ← slide list sidebar
+  └── Dialogs/            ← char/para/shape/doc properties, color picker, charmap
+        ↓ (events)
+PresentationModel         ← in-memory PPTX wrapper, owns OpenXml document
+        ↕
+PptxConverter             ← FlowDocument ↔ OpenXml TextBody (bidirectional)
+SlideRenderer             ← SlidePart → WPF Canvas (read-only render)
+PdfExporter               ← renders slides to bitmap, writes PDF
 ```
 
-### 텍스트 편집 → 커밋
+### Data flow for a text edit
+
+1. Double-click on slide → `SlideEditorCanvas.StartEdit()` calls `PptxConverter.ToFlowDocument()`, places a `RichTextBox` over the shape.
+2. User edits; Escape/blur fires `CommitEdit(save:true)`.
+3. `CommitEdit` calls `PptxConverter.FromFlowDocument()` and fires `TextCommitted` event.
+4. `MainWindow.OnEditorTextCommitted` calls `PresentationModel.UpdateShapeContent()` → mutates OpenXml tree, calls `slidePart.Slide.Save()`.
+5. `EditorCanvas.Invalidate(treeIdx)` rebuilds the canvas child for that shape.
+
+### Undo/redo
+
+`PresentationModel` keeps two `Stack<byte[]>` (max 50 entries). Every mutating call starts with `PushUndo()`, which serializes the entire MemoryStream to a byte array. `Undo()` / `Redo()` swap stacks and call `PresentationDocument.Open(memoryStream)` to restore state.
+
+### Unit system
+
+All PPTX coordinates and sizes are in EMU (English Metric Units).
+
 ```
-사용자 텍스트 도형 클릭
-  → SlideEditorCanvas가 RichTextBox 편집기 오버레이
-  → PptxConverter.ToFlowDocument(TextBody) → WPF FlowDocument 변환
-  → (편집)
-  → LostFocus 시 SlideEditorCanvas.CommitEdit()
-  → PptxConverter.FromFlowDocument(doc) → PptxParagraph 목록
-  → PresentationModel.UpdateShapeContent(slideIdx, treeIdx, paragraphs)
-```
+1 inch    = 914 400 EMU
+1 cm      = 360 000 EMU
+1 pt      = 12 700 EMU
+Font size = hundredths of a point (e.g., 1800 = 18 pt)
+Line spc  = thousandths of a percent (e.g., 100 000 = 100%)
+Space bef/aft = hundredths of a point
 
-### Undo/Redo
-- 매 변경 전 `PushUndo()` → 전체 MemoryStream을 `byte[]` 스냅샷 (최대 50단계)
-- `Undo()` / `Redo()` → 스냅샷 복원 후 UI 재구성
-
----
-
-## 주요 클래스 역할
-
-### `PresentationModel`
-문서 상태 전담. 슬라이드 추가/삭제/이동, 도형 이동/크기조정/삭제/그룹화, Z-순서, GetSlidePart 등 모든 PPTX 변경 연산을 제공. 직접 PPTX XML을 조작.
-
-### `PptxConverter`
-PPTX TextBody ↔ WPF FlowDocument 양방향 변환. 변환 시 WPF `Run`이 직접 담지 못하는 속성(문자 간격·줄 색·외곽선·윗줄)은 `Run.Tag`에 `CharExtraProps` 인스턴스로 저장.
-
-```csharp
-public sealed class CharExtraProps
-{
-    public int       SpacingPt100   { get; set; }  // PPTX spc (1/100pt)
-    public RgbColor? UnderlineColor { get; set; }
-    public bool      HasOutline     { get; set; }
-    public bool      HasOverline    { get; set; }  // WPF 전용, PPTX 저장 안 됨
-}
+WPF pixel = EMU / 914400 * 96
 ```
 
-### `SlideRenderer`
-읽기 전용 렌더링. 좌표계는 EMU 기준 WPF 픽셀 (EmuToPx = value / 914400 * 96). GroupShape 자식은 슬라이드 절대좌표 → 컨테이너 Canvas에서 그룹 오프셋 차감.
+`PptxConverter` and `SlideRenderer` both define `EmuPerInch = 914400`, `WpfDpi = 96`, `PointPerInch = 72` as local constants.
 
-### `SlideEditorCanvas`
-편집 상호작용 전담. 마우스·키보드 이벤트를 처리하고 아래 이벤트로 MainWindow에 위임:
+### Paragraph/run property inheritance in FlowDocument
 
-| 이벤트 | 의미 |
-|--------|------|
-| `TextCommitted` | 텍스트 편집 완료 |
-| `ShapeMoved / ShapeResized / ShapeDeleted` | 도형 변형 |
-| `ShapePropertiesRequested` | 개체 속성 대화상자 요청 |
-| `ShapeDrawn` | 도형 그리기 완료 |
-| `ShapesGroupRequested / ShapeUngroupRequested` | 그룹화 요청 |
-| `CharPropertiesRequested` | 문자 속성 대화상자 요청 |
+- `ToFlowDocument` reads `a:pPr/a:defRPr` (paragraph default run props) and sets them on the `Paragraph` element so new `Run`s inherit them without explicit `a:rPr`.
+- `FromFlowDocument` uses `ReadLocalValue(DependencyProperty)` to distinguish locally-set values from inherited ones. Only locally-set font family, size, weight, style, and foreground are written as explicit `a:rPr` attributes. This prevents polluting the PPTX with spurious defaults.
 
----
+### `SlideEditorCanvas` key details
 
-## 중요 제약사항
+- Shapes rendered by `SlideRenderer` are tagged with their `ShapeTree` index (`fe.Tag = treeIndex`). This index is stable across canvas rebuilds and is the key used in all event payloads.
+- During edit mode the original rendered shape is hidden (`Visibility.Hidden`), a `RichTextBox` is layered on top at `ZIndex=10000`, then restored on commit.
+- `CommitEdit` nulls `_editor` **before** firing `TextCommitted` to prevent re-entrancy (the event handler calls `Invalidate` which would otherwise recurse into `CommitEdit`).
 
-### OpenXml SDK v3 구조체 열거형
-SDK v3에서 `ShapeTypeValues`, `PresetLineDashValues`, `TextAlignmentTypeValues` 등은 **struct 타입**. `switch` 패턴 매칭 불가, `==` 비교 또는 `.InnerText` 문자열 비교 사용.
+## OpenXML SDK v3 Constraints
 
-```csharp
-// 오류: switch case 불가
-// switch (val) { case A.PresetLineDashValues.Dash: ... }
+SDK v3.2.0 changed several types from enums to structs. These patterns appear throughout the codebase:
 
-// 정상:
-if (val == A.PresetLineDashValues.Dash) { ... }
-// 또는 string 비교:
-if (val?.InnerText == "dash") { ... }
-```
+| Type | Issue | Workaround |
+|------|-------|-----------|
+| `TextAlignmentTypeValues` | Struct — no `InnerText`, can't use `switch` | Keep both `avEnum = pPr?.Alignment` (for `.InnerText`) and `av = avEnum?.Value` (for `==` comparisons) |
+| `TextAnchoringTypeValues` | Struct | Use `==` not `switch` |
+| `SchemeColorValues` | Struct | Use `==` not `switch` |
+| `TextUnderlineValues` | `EnumValue<T>`, not bool | Compare via `.InnerText` (`"none"` = no underline) |
+| `ModifyVerifier` | Not typed in SDK v3 | Use `OpenXmlUnknownElement` with manual `SetAttribute` |
+| Color scheme index attrs | Inaccessible typed | Set as raw `OpenXmlAttribute` |
 
-존재하지 않는 정적 속성은 직접 생성:
-```csharp
-new A.ShapeTypeValues("isoTri")   // IsoscelesTriangle
-```
+When adding new OpenXml property reads, check whether the type is a struct before writing a `switch` expression.
 
-### 네임스페이스 충돌 주의
-`using DocumentFormat.OpenXml.Presentation;`을 추가할 경우 `TextElement`, `RgbColor` 등이 WPF/Models 타입과 충돌함. 별칭 사용:
-```csharp
-using WpfTE    = System.Windows.Documents.TextElement;
-using RgbColor = PPEditer.Models.RgbColor;
-```
+## Localization & Theming
 
-### 좌표 단위
-- **EMU** (English Metric Units): PPTX 내부 단위. 1인치 = 914400 EMU
-- **WPF 픽셀**: `EmuToPx(emu) = emu / 914400.0 * 96.0`
-- 슬라이드 기본 크기: 9144000 × 5143500 EMU (가로 10인치 × 세로 7.5인치 미만)
+String resources live in `Resources/Strings.ko.xaml` and `Strings.en.xaml`. Add both when introducing user-visible strings. Access via `Application.Current.TryFindResource("Key") as string`.
 
-### XAML DynamicResource
-툴바·버튼 텍스트는 반드시 `Content="{DynamicResource Tb_*}"` 속성 형식 사용.  
-태그 사이 `{DynamicResource ...}` 텍스트는 리터럴로 출력됨.
+Themes are in `Theme.Light.xaml` / `Theme.Dark.xaml` and are switched at runtime by `AppSettings.ApplyTheme()` which replaces the merged dictionary entry.
 
----
+## EMU Range Validation
 
-## 다국어 문자열
+Certain PPTX files contain out-of-range EMU values (e.g., `marL = Int32.MinValue`). Before converting EMU paragraph margins to WPF `Thickness`, validate:
+- `marL`: clamp to `0..51 206 400`
+- `indent`: clamp to `±51 206 400`
+- `spcBef` / `spcAft` pixels: only apply if `>= 0`
 
-`Resources/Strings.ko.xaml` / `Strings.en.xaml` 두 파일에 동일 Key로 등록.  
-코드에서 접근: `Application.Current.TryFindResource(key) is string s ? s : fallback`  
-MainWindow에서는 `private string S(string key, string fallback = "")` 헬퍼 사용.
+This prevents `ArgumentException: "X,0,0,0" is not a valid Margin value`.

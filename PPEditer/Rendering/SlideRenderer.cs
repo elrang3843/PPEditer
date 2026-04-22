@@ -134,28 +134,310 @@ public static class SlideRenderer
         var (left, top, width, height) = GetTransform(shape.ShapeProperties);
         if (width <= 0 || height <= 0) return null;
 
-        var container = new Grid { Width = width, Height = height, ClipToBounds = true };
-
+        var spPr      = shape.ShapeProperties;
         var fillBrush = GetShapeFill(shape, slidePart);
-        if (fillBrush is not null)
+
+        System.Windows.Shapes.Shape geomShape;
+
+        var custGeom = spPr?.GetFirstChild<A.CustomGeometry>();
+        if (custGeom is not null)
         {
-            var rect = new System.Windows.Shapes.Rectangle
+            // No Width/Height on Path — Canvas container never clips children. Explicit
+            // dimensions would constrain the Path's render bounds, clipping bezier curves
+            // that extend outside the bounding box. Stretch=None renders at raw coords.
+            geomShape = new System.Windows.Shapes.Path
+            {
+                Data    = BuildPathGeometry(custGeom, width, height),
+                Stretch = Stretch.None,
+                Fill    = fillBrush ?? Brushes.Transparent,
+            };
+        }
+        else if (spPr?.GetFirstChild<A.PresetGeometry>()?.Preset?.InnerText == "ellipse")
+        {
+            geomShape = new System.Windows.Shapes.Ellipse
             {
                 Width  = width,
                 Height = height,
-                Fill   = fillBrush,
+                Fill   = fillBrush ?? Brushes.Transparent,
             };
-            ApplyBorder(rect, shape, slidePart);
-            container.Children.Add(rect);
+        }
+        else
+        {
+            var pg         = spPr?.GetFirstChild<A.PresetGeometry>();
+            var presetGeom = BuildPresetGeometry(pg, width, height);
+            if (presetGeom is not null)
+            {
+                // No Width/Height — same reasoning as custom geometry above.
+                geomShape = new System.Windows.Shapes.Path
+                {
+                    Data    = presetGeom,
+                    Stretch = Stretch.None,
+                    Fill    = fillBrush ?? Brushes.Transparent,
+                };
+            }
+            else
+            {
+                geomShape = new System.Windows.Shapes.Rectangle
+                {
+                    Width  = width,
+                    Height = height,
+                    Fill   = fillBrush ?? Brushes.Transparent,
+                };
+            }
         }
 
+        ApplyStroke(geomShape, shape, slidePart);
+
+        // Use Canvas (not Grid) so children that render outside the arranged bounds
+        // (bezier splines, arcs) are never clipped by internal layout logic.
+        // Canvas.ClipToBounds defaults to false; the outer slide Canvas clips at the
+        // slide boundary only.
+        var container = new Canvas { Width = width, Height = height };
+        Canvas.SetLeft(geomShape, 0);
+        Canvas.SetTop(geomShape, 0);
+        container.Children.Add(geomShape);
+
         if (shape.TextBody is not null)
-            container.Children.Add(BuildTextBlock(shape.TextBody, width, height));
+        {
+            var tb = BuildTextBlock(shape.TextBody, width, height);
+            Canvas.SetLeft(tb, 0);
+            Canvas.SetTop(tb, 0);
+            container.Children.Add(tb);
+        }
+
+        double rotDeg = GetRotationDeg(spPr);
+        if (rotDeg != 0.0)
+        {
+            container.RenderTransformOrigin = new Point(0.5, 0.5);
+            container.RenderTransform       = new RotateTransform(rotDeg);
+        }
 
         Canvas.SetLeft(container, left);
         Canvas.SetTop(container, top);
         return container;
     }
+
+    // ── Preset geometry ───────────────────────────────────────────────
+
+    private static Geometry? BuildPresetGeometry(A.PresetGeometry? pg, double w, double h)
+    {
+        var name = pg?.Preset?.InnerText ?? "";
+        double a1 = ReadAdj(pg, 0, 25000) / 100000.0;
+        double a2 = ReadAdj(pg, 1, 50000) / 100000.0;
+
+        return name switch
+        {
+            "trap"          => Polygon((a1 * w, 0), (w - a1 * w, 0), (w, h), (0, h)),
+            "parallelogram" => Polygon((a1 * w, 0), (w, 0), (w - a1 * w, h), (0, h)),
+            "triangle"      => Polygon((w / 2, 0), (w, h), (0, h)),
+            "isoTri"        => Polygon((w / 2, 0), (w, h), (0, h)),
+            "rtTriangle"    => Polygon((0, 0), (w, h), (0, h)),
+            "rightArrow"    => BuildArrow(w, h, a1, a2),
+            "leftArrow"     => BuildArrowLeft(w, h, a1, a2),
+            "upArrow"       => BuildArrowUp(w, h, a1, a2),
+            "downArrow"     => BuildArrowDown(w, h, a1, a2),
+            "arc"           => BuildArc(w, h, pg),
+            _               => null,
+        };
+    }
+
+    private static double ReadAdj(A.PresetGeometry? pg, int index, double defaultVal)
+    {
+        var guides = pg?.GetFirstChild<A.AdjustValueList>()
+                       ?.Elements<A.ShapeGuide>().ToList();
+        if (guides is null || index >= guides.Count) return defaultVal;
+        var fmla = guides[index].Formula?.Value ?? "";
+        if (fmla.StartsWith("val ") && long.TryParse(fmla[4..], out long v))
+            return v;
+        return defaultVal;
+    }
+
+    private static PathGeometry Polygon(params (double x, double y)[] pts)
+    {
+        var fig = new PathFigure
+        {
+            IsClosed = true, IsFilled = true,
+            StartPoint = new System.Windows.Point(pts[0].x, pts[0].y),
+        };
+        foreach (var (x, y) in pts.Skip(1))
+            fig.Segments.Add(new LineSegment(new System.Windows.Point(x, y), isStroked: true));
+        return new PathGeometry([fig]);
+    }
+
+    private static PathGeometry BuildArrow(double w, double h, double adj1, double adj2)
+    {
+        double dy1 = h * adj1 / 2.0;
+        double dx1 = w * adj2;
+        double y1 = dy1, y2 = h - dy1;
+        return Polygon(
+            (0,   y1), (dx1, y1), (dx1, 0),
+            (w,   h / 2),
+            (dx1, h),  (dx1, y2), (0, y2));
+    }
+
+    private static PathGeometry BuildArrowLeft(double w, double h, double adj1, double adj2)
+    {
+        double dy1 = h * adj1 / 2.0;
+        double dx1 = w * adj2;          // head ends at dx1 from left
+        double y1 = dy1, y2 = h - dy1;
+        return Polygon(
+            (w,   y1), (w - dx1, y1), (w - dx1, 0),
+            (0,   h / 2),
+            (w - dx1, h), (w - dx1, y2), (w, y2));
+    }
+
+    private static PathGeometry BuildArrowUp(double w, double h, double adj1, double adj2)
+    {
+        double dx1 = w * adj1 / 2.0;   // shaft half-width
+        double dy1 = h * adj2;          // head ends at dy1 from top
+        double x1 = w / 2 - dx1, x2 = w / 2 + dx1;
+        return Polygon(
+            (x1, h), (x2, h), (x2, dy1), (w, dy1),
+            (w / 2, 0),
+            (0, dy1), (x1, dy1));
+    }
+
+    private static PathGeometry BuildArrowDown(double w, double h, double adj1, double adj2)
+    {
+        double dx1 = w * adj1 / 2.0;
+        double dy1 = h * adj2;          // head starts at h-dy1 from top
+        double x1 = w / 2 - dx1, x2 = w / 2 + dx1;
+        return Polygon(
+            (x1, 0), (x2, 0), (x2, h - dy1), (w, h - dy1),
+            (w / 2, h),
+            (0, h - dy1), (x1, h - dy1));
+    }
+
+    private static PathGeometry BuildArc(double w, double h, A.PresetGeometry? pg)
+    {
+        // Default PPTX arc: start 270° (top), swing 90° (clockwise to right)
+        long raw1 = (long)ReadAdj(pg, 0, 16200000);
+        long raw2 = (long)ReadAdj(pg, 1, 5400000);
+        double startDeg = raw1 / 60000.0;
+        double swingDeg = raw2 / 60000.0;
+
+        double cx = w / 2, cy = h / 2, rx = w / 2, ry = h / 2;
+        double startRad = startDeg * Math.PI / 180.0;
+        double endRad   = (startDeg + swingDeg) * Math.PI / 180.0;
+
+        double sx = cx + rx * Math.Cos(startRad);
+        double sy = cy + ry * Math.Sin(startRad);
+        double ex = cx + rx * Math.Cos(endRad);
+        double ey = cy + ry * Math.Sin(endRad);
+        bool largeArc = swingDeg > 180.0;
+
+        var fig = new PathFigure
+        {
+            StartPoint = new System.Windows.Point(sx, sy),
+            IsClosed   = false, IsFilled = false,
+        };
+        fig.Segments.Add(new ArcSegment(
+            new System.Windows.Point(ex, ey),
+            new System.Windows.Size(rx, ry),
+            0, largeArc,
+            SweepDirection.Clockwise,
+            isStroked: true));
+        return new PathGeometry([fig]);
+    }
+
+    private static PathGeometry BuildPathGeometry(A.CustomGeometry custGeom, double wpfW, double wpfH)
+    {
+        var pathList = custGeom.GetFirstChild<A.PathList>();
+        if (pathList is null) return new PathGeometry();
+
+        var geometry = new PathGeometry();
+        foreach (var aPath in pathList.Elements<A.Path>())
+        {
+            long rawW  = aPath.Width?.Value  ?? 0L;
+            long rawH  = aPath.Height?.Value ?? 0L;
+            double pW  = rawW > 0 ? EmuToPx(rawW) : wpfW;
+            double pH  = rawH > 0 ? EmuToPx(rawH) : wpfH;
+            double sx  = pW > 0 ? wpfW / pW : 1;
+            double sy  = pH > 0 ? wpfH / pH : 1;
+
+            var figure  = new PathFigure { IsClosed = false, IsFilled = true };
+            bool started = false;
+            double curX = 0, curY = 0;  // current path position; needed for ArcTo center calc
+
+            foreach (var el in aPath.ChildElements)
+            {
+                if (el is A.MoveTo moveTo)
+                {
+                    var pt = moveTo.Point;
+                    if (pt is null) continue;
+                    double px = EmuToPx(ParsePtVal(pt.X)) * sx;
+                    double py = EmuToPx(ParsePtVal(pt.Y)) * sy;
+                    if (started)
+                    {
+                        geometry.Figures.Add(figure);
+                        figure = new PathFigure { IsClosed = false, IsFilled = true };
+                    }
+                    figure.StartPoint = new System.Windows.Point(px, py);
+                    curX = px; curY = py;
+                    started = true;
+                }
+                else if (el is A.LineTo lineTo)
+                {
+                    var pt = lineTo.Point;
+                    if (pt is null) continue;
+                    double ex = EmuToPx(ParsePtVal(pt.X)) * sx;
+                    double ey = EmuToPx(ParsePtVal(pt.Y)) * sy;
+                    figure.Segments.Add(new LineSegment(
+                        new System.Windows.Point(ex, ey), isStroked: true));
+                    curX = ex; curY = ey;
+                }
+                else if (el is A.CubicBezierCurveTo cubicBez)
+                {
+                    var pts = cubicBez.Elements<A.Point>().ToList();
+                    if (pts.Count < 3) continue;
+                    double ex = EmuToPx(ParsePtVal(pts[2].X)) * sx;
+                    double ey = EmuToPx(ParsePtVal(pts[2].Y)) * sy;
+                    figure.Segments.Add(new BezierSegment(
+                        new System.Windows.Point(EmuToPx(ParsePtVal(pts[0].X)) * sx, EmuToPx(ParsePtVal(pts[0].Y)) * sy),
+                        new System.Windows.Point(EmuToPx(ParsePtVal(pts[1].X)) * sx, EmuToPx(ParsePtVal(pts[1].Y)) * sy),
+                        new System.Windows.Point(ex, ey),
+                        isStroked: true));
+                    curX = ex; curY = ey;
+                }
+                else if (el is A.ArcTo arcTo && started)
+                {
+                    // Radii are in path coordinate units; convert same as x/y coords
+                    double wR     = EmuToPx(ParsePtVal(arcTo.WidthRadius))  * sx;
+                    double hR     = EmuToPx(ParsePtVal(arcTo.HeightRadius)) * sy;
+                    long   stAng  = ParsePtVal(arcTo.StartAngle);
+                    long   swAng  = ParsePtVal(arcTo.SwingAngle);
+                    double stRad  = stAng * Math.PI / (60000.0 * 180.0);
+                    double endRad = stRad + swAng * Math.PI / (60000.0 * 180.0);
+                    // Derive ellipse center from current point and start angle
+                    double cx = curX - wR * Math.Cos(stRad);
+                    double cy = curY - hR * Math.Sin(stRad);
+                    double ex = cx   + wR * Math.Cos(endRad);
+                    double ey = cy   + hR * Math.Sin(endRad);
+                    figure.Segments.Add(new System.Windows.Media.ArcSegment(
+                        new System.Windows.Point(ex, ey),
+                        new System.Windows.Size(wR, hR),
+                        rotationAngle:  0,
+                        isLargeArc:     Math.Abs(swAng) > 10800000L,
+                        sweepDirection: swAng >= 0
+                            ? System.Windows.Media.SweepDirection.Clockwise
+                            : System.Windows.Media.SweepDirection.Counterclockwise,
+                        isStroked: true));
+                    curX = ex; curY = ey;
+                }
+                else if (el is A.CloseShapePath)
+                {
+                    figure.IsClosed = true;
+                }
+            }
+
+            if (started) geometry.Figures.Add(figure);
+        }
+
+        return geometry;
+    }
+
+    private static long ParsePtVal(StringValue? val) =>
+        val?.HasValue == true && long.TryParse(val.Value, out var n) ? n : 0L;
 
     private static Brush? GetShapeFill(Shape shape, SlidePart slidePart)
     {
@@ -173,16 +455,16 @@ public static class SlideRenderer
         return null;
     }
 
-    private static void ApplyBorder(System.Windows.Shapes.Rectangle rect,
-                                    Shape shape, SlidePart slidePart)
+    private static void ApplyStroke(System.Windows.Shapes.Shape shape,
+                                    Shape xmlShape, SlidePart slidePart)
     {
-        var ln    = shape.ShapeProperties?.GetFirstChild<A.Outline>();
+        var ln    = xmlShape.ShapeProperties?.GetFirstChild<A.Outline>();
         var solid = ln?.GetFirstChild<A.SolidFill>();
         if (solid is null) return;
         var c = ResolveColor(solid, slidePart);
         if (!c.HasValue) return;
-        rect.Stroke          = new SolidColorBrush(c.Value);
-        rect.StrokeThickness = ln?.Width?.Value is int thick ? EmuToPx((long)thick) : 1;
+        shape.Stroke          = new SolidColorBrush(c.Value);
+        shape.StrokeThickness = ln?.Width?.Value is int thick ? EmuToPx((long)thick) : 1;
     }
 
     // ── Text body ─────────────────────────────────────────────────────
@@ -306,12 +588,26 @@ public static class SlideRenderer
             Stretch = Stretch.Fill,
             Source  = bmp,
         };
+        double rotDeg = GetRotationDeg(picture.ShapeProperties);
+        if (rotDeg != 0.0)
+        {
+            img.RenderTransformOrigin = new Point(0.5, 0.5);
+            img.RenderTransform       = new RotateTransform(rotDeg);
+        }
+
         Canvas.SetLeft(img, left);
         Canvas.SetTop(img, top);
         return img;
     }
 
     // ── Transform helpers ─────────────────────────────────────────────
+
+    private static double GetRotationDeg(OpenXmlCompositeElement? spPr)
+    {
+        var xfrm = spPr?.GetFirstChild<A.Transform2D>();
+        int rot  = xfrm?.Rotation?.Value ?? 0;
+        return rot / 60000.0;
+    }
 
     // Accepts Presentation.ShapeProperties or Drawing.ShapeProperties (both OpenXmlCompositeElement)
     private static (double left, double top, double width, double height)

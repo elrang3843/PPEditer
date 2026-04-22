@@ -1,6 +1,8 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using PPEditer.Models;
+using PPEditer.Rendering;
 
 namespace PPEditer.Dialogs;
 
@@ -35,13 +37,25 @@ public partial class DocInfoDialog : Window
         TxManager.Text = props.Manager;
         TxCompany.Text = props.Company;
 
-        LblLastModifiedBy.Text = string.IsNullOrEmpty(props.LastModifiedBy) ? "-" : props.LastModifiedBy;
+        TxLastModifiedBy.Text  = props.LastModifiedBy;
         LblCreated.Text        = props.Created?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
         LblModified.Text       = props.Modified?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-";
         LblRevision.Text       = props.Revision > 0 ? props.Revision.ToString() : "-";
 
         // Security tab
         SyncProtectionUI();
+
+        // Watermark tab
+        CboWmKind.SelectedIndex = props.WatermarkKind switch
+        {
+            WatermarkKind.Diagonal   => 1,
+            WatermarkKind.Horizontal => 2,
+            _                        => 0,
+        };
+        TxWmText.Text       = props.WatermarkText;
+        ChkWmPrint.IsChecked = props.WatermarkShowOnPrint;
+        ChkWmSlide.IsChecked = props.WatermarkShowOnSlide;
+        UpdateWmPreview();
     }
 
     // ── Security tab helpers ──────────────────────────────────────────────
@@ -126,15 +140,44 @@ public partial class DocInfoDialog : Window
 
     // ── Dialog result handlers ────────────────────────────────────────────
 
+    // ── Watermark tab helpers ─────────────────────────────────────────────
+
+    private WatermarkKind SelectedWmKind() => CboWmKind.SelectedIndex switch
+    {
+        1 => WatermarkKind.Diagonal,
+        2 => WatermarkKind.Horizontal,
+        _ => WatermarkKind.None,
+    };
+
+    private void UpdateWmPreview()
+    {
+        var kind = SelectedWmKind();
+        var text = TxWmText.Text.Trim();
+        WmPreviewHost.Content = kind != WatermarkKind.None && !string.IsNullOrWhiteSpace(text)
+            ? WatermarkRenderer.BuildOverlay(text, kind, 320, 180)
+            : null;
+    }
+
+    private void OnWmKindChanged(object sender, SelectionChangedEventArgs e) => UpdateWmPreview();
+    private void OnWmTextChanged(object sender, TextChangedEventArgs e)      => UpdateWmPreview();
+
+    // ── Dialog result handlers ────────────────────────────────────────────
+
     private void OnOk(object sender, RoutedEventArgs e)
     {
         Result = new DocProperties
         {
-            Title   = TxTitle.Text.Trim(),
-            Subject = TxSubject.Text.Trim(),
-            Author  = TxAuthor.Text.Trim(),
-            Manager = TxManager.Text.Trim(),
-            Company = TxCompany.Text.Trim(),
+            Title          = TxTitle.Text.Trim(),
+            Subject        = TxSubject.Text.Trim(),
+            Author         = TxAuthor.Text.Trim(),
+            LastModifiedBy = TxLastModifiedBy.Text.Trim(),
+            Manager        = TxManager.Text.Trim(),
+            Company        = TxCompany.Text.Trim(),
+
+            WatermarkKind        = SelectedWmKind(),
+            WatermarkText        = TxWmText.Text.Trim(),
+            WatermarkShowOnPrint = ChkWmPrint.IsChecked == true,
+            WatermarkShowOnSlide = ChkWmSlide.IsChecked == true,
         };
 
         SetProtect    = _pending == PendingAction.Set;

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -39,8 +40,20 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int[]>? ShapesGroupRequested;
     /// <summary>User requested ungrouping of a GroupShape. (slideIdx, treeIdx)</summary>
     public event Action<int, int>? ShapeUngroupRequested;
+    /// <summary>User deleted multiple shapes. (slideIdx, treeIdxs sorted ascending)</summary>
+    public event Action<int, int[]>? ShapesDeleted;
+    /// <summary>User requested paste of clipboard shapes. (slideIdx, cloned elements to insert)</summary>
+    public event Action<int, OpenXmlCompositeElement[]>? ShapesPasteRequested;
     /// <summary>User requested character properties while editing. (slideIdx, treeIdx)</summary>
     public event Action<int, int>? CharPropertiesRequested;
+    /// <summary>User requested paragraph properties while editing. (slideIdx, treeIdx)</summary>
+    public event Action<int, int>? ParaPropertiesRequested;
+    /// <summary>User finished drawing a text box. (slideIdx, leftEmu, topEmu, widthEmu, heightEmu)</summary>
+    public event Action<int, long, long, long, long>? TextBoxDrawn;
+    /// <summary>User rotated a shape. (slideIdx, treeIdx, angleDeltaDeg)</summary>
+    public event Action<int, int, double>? ShapeRotated;
+
+    public event Action? SelectionChanged;
 
     // ── Public properties ──────────────────────────────────────────────
 
@@ -87,6 +100,11 @@ public partial class SlideEditorCanvas : UserControl
     private int                _slideIndex;
     private Canvas?            _nativeCanvas;
     private double             _zoom = 1.0;
+    private double             _editorScale = 1.0;
+    /// <summary>Scale applied to FlowDocument font/layout sizes in the active editor
+    /// (= Viewbox pixel size / native canvas size). Used by the format toolbar to
+    /// convert between displayed pt and stored WPF DIPs.</summary>
+    public double EditorScale => _editorScale;
 
     // ── Drawing state ──────────────────────────────────────────────────
     private DrawTool    _activeTool     = DrawTool.Select;
@@ -100,10 +118,14 @@ public partial class SlideEditorCanvas : UserControl
     private Canvas?  _selOverlay;             // selection overlay (border + 8 handles)
     private RichTextBox? _editor;
     private int      _editingTreeIdx  = -1;
+    private FrameworkElement? _hiddenShape;   // original shape hidden while editing
 
     // ── Multi-select state ─────────────────────────────────────────────
     private readonly HashSet<int>            _multiTreeIdxs  = [];
     private readonly Dictionary<int, Canvas> _multiOverlays  = [];
+
+    // ── Shape clipboard ────────────────────────────────────────────────
+    private static readonly List<OpenXmlCompositeElement> _shapeClipboard = [];
 
     // ── Drag state ─────────────────────────────────────────────────────
 
@@ -151,6 +173,23 @@ public partial class SlideEditorCanvas : UserControl
             SelectShapeByTreeIndex(savedTreeIdx);
     }
 
+    /// <summary>Overlays a watermark on the slide view. Pass null props or Kind=None to clear.</summary>
+    public void SetWatermark(DocProperties? props)
+    {
+        if (props is null || props.WatermarkKind == WatermarkKind.None
+            || string.IsNullOrWhiteSpace(props.WatermarkText))
+        {
+            WatermarkHost.Content = null;
+            return;
+        }
+        // NativeW/NativeH are already in WPF pixels (EMU ÷ 914400 × 96).
+        // SlideCanvas.Width is the XAML-default 960 only before Rebuild(); after Rebuild()
+        // the detached canvas may return stale or unexpected values.
+        WatermarkHost.Content = WatermarkRenderer.BuildOverlay(
+            props.WatermarkText, props.WatermarkKind,
+            NativeW, NativeH);
+    }
+
     public void Invalidate(int treeIdxToSelect)
     {
         CommitEdit(save: false);
@@ -165,6 +204,20 @@ public partial class SlideEditorCanvas : UserControl
     public void SetZoom(double z) { _zoom = Math.Clamp(z, 0.25, 3.0); ApplyZoom(); }
     public double ZoomFactor  => _zoom;
     public bool   IsEditing   => _editor is not null;
+
+    /// <summary>Start editing the shape with the specified tree index (if it has a TextBody).</summary>
+    public void StartEditByTreeIndex(int treeIdx, bool selectAll = false)
+    {
+        if (_nativeCanvas is null) return;
+        for (int i = 0; i < _nativeCanvas.Children.Count; i++)
+        {
+            if (_nativeCanvas.Children[i] is FrameworkElement fe && fe.Tag is int t && t == treeIdx)
+            {
+                StartEdit(_nativeCanvas, i, selectAll);
+                return;
+            }
+        }
+    }
 
     /// <summary>Insert text at the active editor's caret (used by CharMap / Emoji dialogs).</summary>
     public void InsertText(string text)
@@ -193,6 +246,7 @@ public partial class SlideEditorCanvas : UserControl
         _selectedTreeIdx = -1;
         _selOverlay      = null;
         _editingTreeIdx  = -1;
+        _hiddenShape     = null;
         _dragMode        = DragMode.None;
         _resizeHandle    = -1;
         _multiTreeIdxs.Clear();
@@ -263,7 +317,11 @@ public partial class SlideEditorCanvas : UserControl
 
         if (e.ClickCount == 1)
         {
+            var prevNative = _nativeCanvas;
             CommitEdit(save: true);
+            // If CommitEdit triggered a rebuild, switch to the new canvas.
+            if (_nativeCanvas != prevNative && _nativeCanvas is not null)
+                canvas = _nativeCanvas;
             int idx = HitTest(canvas, clickPos);
             if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && idx >= 0 && _selectedIdx >= 0)
             {
@@ -378,9 +436,36 @@ public partial class SlideEditorCanvas : UserControl
         }
         else if (e.Key == Key.Delete && _selectedIdx >= 0 && _editor is null)
         {
-            if (_selectedTreeIdx >= 0)
-                ShapeDeleted?.Invoke(_slideIndex, _selectedTreeIdx);
+            var toDelete = SelectedTreeIndices;
+            if (toDelete.Length == 1)
+                ShapeDeleted?.Invoke(_slideIndex, toDelete[0]);
+            else if (toDelete.Length > 1)
+                ShapesDeleted?.Invoke(_slideIndex, toDelete);
             e.Handled = true;
+        }
+        else if (_editor is null && _selectedIdx >= 0 &&
+                 (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            if (e.Key == Key.C)
+            {
+                CopySelectedShapes();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.X)
+            {
+                CopySelectedShapes();
+                var toDelete = SelectedTreeIndices;
+                if (toDelete.Length == 1)
+                    ShapeDeleted?.Invoke(_slideIndex, toDelete[0]);
+                else if (toDelete.Length > 1)
+                    ShapesDeleted?.Invoke(_slideIndex, toDelete);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.V && _shapeClipboard.Count > 0)
+            {
+                ShapesPasteRequested?.Invoke(_slideIndex, [.. _shapeClipboard]);
+                e.Handled = true;
+            }
         }
         else if (_selectedIdx >= 0 && _editor is null &&
                  (e.Key == Key.Left || e.Key == Key.Right ||
@@ -483,8 +568,69 @@ public partial class SlideEditorCanvas : UserControl
         };
         menu.Items.Add(delItem);
 
+        menu.Items.Add(new Separator());
+
+        var cwItem = new MenuItem { Header = Res("Ctx_RotateCW", "시계 방향으로 90° 회전") };
+        cwItem.Click += (_, _) => ShapeRotated?.Invoke(_slideIndex, _selectedTreeIdx, 90.0);
+        menu.Items.Add(cwItem);
+
+        var ccwItem = new MenuItem { Header = Res("Ctx_RotateCCW", "반시계 방향으로 90° 회전") };
+        ccwItem.Click += (_, _) => ShapeRotated?.Invoke(_slideIndex, _selectedTreeIdx, -90.0);
+        menu.Items.Add(ccwItem);
+
+        var customRotItem = new MenuItem { Header = Res("Ctx_RotateCustom", "각도 지정 회전...") };
+        customRotItem.Click += (_, _) => ShowRotateDialog(_slideIndex, _selectedTreeIdx);
+        menu.Items.Add(customRotItem);
+
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Mouse;
         menu.IsOpen    = true;
+    }
+
+    private void ShowRotateDialog(int slideIdx, int treeIdx)
+    {
+        string Res(string key, string fb) =>
+            Application.Current.TryFindResource(key) is string s ? s : fb;
+
+        var sp  = new StackPanel { Margin = new Thickness(12) };
+        var lbl = new TextBlock
+        {
+            Text         = Res("Dlg_RotateAngle", "회전 각도 (°):"),
+            Margin       = new Thickness(0, 0, 0, 4),
+        };
+        var tb  = new TextBox { Text = "0" };
+        var btn = new Button
+        {
+            Content             = "확인",
+            IsDefault           = true,
+            Margin              = new Thickness(0, 8, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+        sp.Children.Add(lbl);
+        sp.Children.Add(tb);
+        sp.Children.Add(btn);
+
+        var dlg = new Window
+        {
+            Title                 = Res("Dlg_RotateTitle", "각도 지정 회전"),
+            Width                 = 280,
+            SizeToContent         = System.Windows.SizeToContent.Height,
+            WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner,
+            Owner                 = Window.GetWindow(this),
+            ResizeMode            = ResizeMode.NoResize,
+            ShowInTaskbar         = false,
+            Content               = sp,
+        };
+        btn.Click += (_, _) => { dlg.DialogResult = true; dlg.Close(); };
+        tb.Loaded += (_, _) => { tb.SelectAll(); tb.Focus(); };
+
+        if (dlg.ShowDialog() == true &&
+            double.TryParse(tb.Text,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.CurrentCulture,
+                out double angle))
+        {
+            ShapeRotated?.Invoke(slideIdx, treeIdx, angle);
+        }
     }
 
     // ── Drawing mode ────────────────────────────────────────────────────
@@ -493,13 +639,12 @@ public partial class SlideEditorCanvas : UserControl
         DrawTool.Line or DrawTool.Square or DrawTool.Rect or
         DrawTool.Ellipse or DrawTool.Circle or DrawTool.EqTriangle or
         DrawTool.IsoTriangle or DrawTool.RightTriangle or
-        DrawTool.Trapezoid or DrawTool.Parallelogram or
-        DrawTool.Arc or DrawTool.Arrow;
+        DrawTool.Parallelogram or DrawTool.Arc or DrawTool.Arrow or DrawTool.TextBox;
 
     private static bool IsClickTool(DrawTool t) => t is
         DrawTool.PolyLine or DrawTool.SplineLine or
         DrawTool.Polygon or DrawTool.SplinePolygon or
-        DrawTool.ScaleneTriangle;
+        DrawTool.ScaleneTriangle or DrawTool.Trapezoid;
 
     private void HandleDrawMouseDown(Canvas canvas, Point pos, int clickCount)
     {
@@ -544,7 +689,8 @@ public partial class SlideEditorCanvas : UserControl
         {
             _drawPoints.Add(pos);
             UpdateClickPreview(canvas);
-            if (_activeTool == DrawTool.ScaleneTriangle && _drawPoints.Count == 3)
+            if ((_activeTool == DrawTool.ScaleneTriangle && _drawPoints.Count == 3) ||
+                (_activeTool == DrawTool.Trapezoid        && _drawPoints.Count == 4))
                 FinalizeDrawing(canvas);
         }
     }
@@ -560,8 +706,24 @@ public partial class SlideEditorCanvas : UserControl
         _activeTool = DrawTool.Select;
         if (_nativeCanvas is not null)
             _nativeCanvas.Cursor = Cursors.Arrow;
-        if (pts.Length >= 2)
+        if (pts.Length < 2) return;
+
+        if (tool == DrawTool.TextBox)
+        {
+            // Fire TextBoxDrawn with EMU bounds
+            double l = Math.Min(pts[0].X, pts[1].X);
+            double t = Math.Min(pts[0].Y, pts[1].Y);
+            double w = Math.Abs(pts[1].X - pts[0].X);
+            double h = Math.Abs(pts[1].Y - pts[0].Y);
+            if (w < 10) w = 200;
+            if (h < 10) h = 40;
+            TextBoxDrawn?.Invoke(_slideIndex,
+                PxToEmu(l), PxToEmu(t), PxToEmu(w), PxToEmu(h));
+        }
+        else
+        {
             ShapeDrawn?.Invoke(_slideIndex, tool, pts);
+        }
     }
 
     private void CancelDrawing()
@@ -644,7 +806,7 @@ public partial class SlideEditorCanvas : UserControl
 
     private void CreateClickPreview(Canvas canvas)
     {
-        bool closed = _activeTool is DrawTool.Polygon or DrawTool.SplinePolygon or DrawTool.ScaleneTriangle;
+        bool closed = _activeTool is DrawTool.Polygon or DrawTool.SplinePolygon or DrawTool.ScaleneTriangle or DrawTool.Trapezoid;
         UIElement preview;
         if (closed)
         {
@@ -707,14 +869,22 @@ public partial class SlideEditorCanvas : UserControl
 
         _selectedIdx     = idx;
         _selectedTreeIdx = -1;
-        if (idx < 0 || canvas.Children[idx] is not FrameworkElement target) return;
-        if (target.Tag is int ti) _selectedTreeIdx = ti;
+        if (idx >= 0 && canvas.Children[idx] is FrameworkElement target)
+        {
+            if (target.Tag is int ti) _selectedTreeIdx = ti;
+            double l = Canvas.GetLeft(target);
+            double t = Canvas.GetTop(target);
+            _selOverlay = BuildOverlay(l, t, target.Width, target.Height);
+            Panel.SetZIndex(_selOverlay, 9999);
+            if (target.RenderTransform is RotateTransform rt && rt.Angle != 0)
+            {
+                _selOverlay.RenderTransformOrigin = new Point(0.5, 0.5);
+                _selOverlay.RenderTransform       = new RotateTransform(rt.Angle);
+            }
+            canvas.Children.Add(_selOverlay);
+        }
 
-        double l = Canvas.GetLeft(target);
-        double t = Canvas.GetTop(target);
-        _selOverlay = BuildOverlay(l, t, target.Width, target.Height);
-        Panel.SetZIndex(_selOverlay, 9999);
-        canvas.Children.Add(_selOverlay);
+        SelectionChanged?.Invoke();
     }
 
     private void RemoveOverlay(Canvas canvas)
@@ -778,6 +948,14 @@ public partial class SlideEditorCanvas : UserControl
         var target = _nativeCanvas.Children[_selectedIdx] as FrameworkElement;
         if (target is null) return;
 
+        if (e.ClickCount == 2)
+        {
+            // Double-click on selected shape → enter edit mode
+            StartEdit(_nativeCanvas, _selectedIdx);
+            e.Handled = true;
+            return;
+        }
+
         _dragMode  = DragMode.Move;
         _dragStart = e.GetPosition(_nativeCanvas);
         _dOrigL    = Canvas.GetLeft(target);
@@ -833,6 +1011,11 @@ public partial class SlideEditorCanvas : UserControl
         double t = Canvas.GetTop(fe);
         var overlay = BuildSimpleOverlay(l, t, fe.Width, fe.Height);
         Panel.SetZIndex(overlay, 9999);
+        if (fe.RenderTransform is RotateTransform rt && rt.Angle != 0)
+        {
+            overlay.RenderTransformOrigin = new Point(0.5, 0.5);
+            overlay.RenderTransform       = new RotateTransform(rt.Angle);
+        }
         canvas.Children.Add(overlay);
         _multiOverlays[treeIdx] = overlay;
     }
@@ -957,7 +1140,7 @@ public partial class SlideEditorCanvas : UserControl
 
     // ── Inline text editing ────────────────────────────────────────────
 
-    private void StartEdit(Canvas canvas, int canvasIdx)
+    private void StartEdit(Canvas canvas, int canvasIdx, bool selectAll = false)
     {
         if (canvas.Children[canvasIdx] is not FrameworkElement target) return;
         if (target.Tag is not int treeIdx) return;
@@ -970,44 +1153,75 @@ public partial class SlideEditorCanvas : UserControl
         CommitEdit(save: false);
         SelectShape(canvas, canvasIdx);
 
+        // Hide the rendered shape so the editor appears clean (no double rendering)
+        target.Visibility = Visibility.Hidden;
+        _hiddenShape = target;
+
+        // Map the target shape's bounds into EditorOverlay coordinates (outside the
+        // Viewbox) so the RichTextBox renders at physical screen pixels.
+        var tl = target.TranslatePoint(new Point(0, 0), EditorOverlay);
+        var br = target.TranslatePoint(new Point(target.ActualWidth, target.ActualHeight), EditorOverlay);
+
+        // Scale = Viewbox pixel size / native canvas size. Font sizes and layout
+        // metrics in the FlowDocument are in native DIPs; applying this scale makes
+        // the edit-mode text appear the same visual size as the rendered slide.
+        _editorScale = target.ActualWidth > 0 ? (br.X - tl.X) / target.ActualWidth : 1.0;
+
         var doc = PptxConverter.ToFlowDocument(shape.TextBody);
+        ScaleFlowDoc(doc, _editorScale);
 
         _editor = new RichTextBox(doc)
         {
-            Width            = target.Width,
-            Height           = target.Height,
-            Background       = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255)),
+            Width            = br.X - tl.X,
+            Height           = br.Y - tl.Y,
+            Background       = Brushes.White,
             BorderBrush      = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
             BorderThickness  = new Thickness(2),
+            Padding          = new Thickness(4, 2, 4, 2),
             AcceptsReturn    = true,
             VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             FontFamily       = new FontFamily("맑은 고딕"),
         };
-        Panel.SetZIndex(_editor, 10000);
-        Canvas.SetLeft(_editor, Canvas.GetLeft(target));
-        Canvas.SetTop(_editor,  Canvas.GetTop(target));
+        _editor.Document.PagePadding = new Thickness(0);
+        Canvas.SetLeft(_editor, tl.X);
+        Canvas.SetTop(_editor,  tl.Y);
 
         _editingTreeIdx = treeIdx;
-        canvas.Children.Add(_editor);
+        EditorOverlay.Children.Add(_editor);
         _editor.Focus();
-        _editor.SelectAll();
+        if (selectAll)
+            _editor.SelectAll();
+        else
+            _editor.CaretPosition = _editor.Document.ContentEnd;
 
-        // Add context menu for character properties
+        // Add context menu for character/paragraph properties
         var charCtx  = new ContextMenu();
-        var cpItem   = new MenuItem
-        {
-            Header = Application.Current.TryFindResource("Ctx_CharProperties") as string ?? "문자 속성...",
-        };
         int capturedSlideIdx = _slideIndex;
         int capturedTreeIdx  = treeIdx;
+        var cpItem = new MenuItem
+        {
+            Header = Application.Current.TryFindResource("Ctx_CharProperties") as string ?? "글자 속성...",
+        };
         cpItem.Click += (_, _) => CharPropertiesRequested?.Invoke(capturedSlideIdx, capturedTreeIdx);
         charCtx.Items.Add(cpItem);
+        var ppItem = new MenuItem
+        {
+            Header = Application.Current.TryFindResource("Ctx_ParaProperties") as string ?? "문단 속성...",
+        };
+        ppItem.Click += (_, _) => ParaPropertiesRequested?.Invoke(capturedSlideIdx, capturedTreeIdx);
+        charCtx.Items.Add(ppItem);
         _editor.ContextMenu = charCtx;
 
         EditingStarted?.Invoke(_editor);
 
-        _editor.LostFocus += (_, _) => { if (!SuppressLostFocusCommit) CommitEdit(save: true); };
+        _editor.LostFocus += (_, _) =>
+        {
+            if (SuppressLostFocusCommit) return;
+            var focused = Keyboard.FocusedElement as DependencyObject;
+            if (focused is MenuItem || focused is MenuBase) return;
+            CommitEdit(save: true);
+        };
         _editor.KeyDown   += Editor_KeyDown;
     }
 
@@ -1024,15 +1238,52 @@ public partial class SlideEditorCanvas : UserControl
     {
         if (_editor is null || _nativeCanvas is null) return;
 
-        if (save && _editingTreeIdx >= 0)
-        {
-            var paragraphs = PptxConverter.FromFlowDocument(_editor.Document);
-            TextCommitted?.Invoke(_slideIndex, _editingTreeIdx, paragraphs);
-        }
+        // Capture content and refs before nulling state, so the event handler
+        // (which may call Invalidate → CommitEdit again) finds _editor already null.
+        var editorDoc   = _editor.Document;
+        var editorRef   = _editor;
+        var treeIdx     = _editingTreeIdx;
+        var hiddenRef   = _hiddenShape;
 
-        _nativeCanvas.Children.Remove(_editor);
         _editor         = null;
         _editingTreeIdx = -1;
+        _hiddenShape    = null;
+
+        EditorOverlay.Children.Remove(editorRef);
+
+        if (hiddenRef is not null)
+            hiddenRef.Visibility = Visibility.Visible;
+
+        // Fire AFTER canvas is clean so handlers can safely rebuild the canvas.
+        if (save && treeIdx >= 0)
+        {
+            // Reverse the display scale before reading back so FromFlowDocument
+            // sees native DIP values and writes correct pt sizes to the PPTX.
+            ScaleFlowDoc(editorDoc, 1.0 / _editorScale);
+            var paragraphs = PptxConverter.FromFlowDocument(editorDoc);
+            TextCommitted?.Invoke(_slideIndex, treeIdx, paragraphs);
+        }
+    }
+
+    // Scales all size-related FlowDocument properties by the given factor.
+    // Call with the Viewbox scale before display, with 1/scale before commit.
+    private static void ScaleFlowDoc(FlowDocument doc, double scale)
+    {
+        if (Math.Abs(scale - 1.0) < 0.001) return;
+        var fontSizeProp = System.Windows.Documents.TextElement.FontSizeProperty;
+        foreach (var para in doc.Blocks.OfType<Paragraph>())
+        {
+            if (para.ReadLocalValue(fontSizeProp) != DependencyProperty.UnsetValue)
+                para.FontSize *= scale;
+            if (para.LineHeight > 0 && !double.IsNaN(para.LineHeight))
+                para.LineHeight *= scale;
+            var m = para.Margin;
+            para.Margin     = new Thickness(m.Left * scale, m.Top * scale, m.Right * scale, m.Bottom * scale);
+            para.TextIndent *= scale;
+            foreach (var run in para.Inlines.OfType<Run>())
+                if (run.ReadLocalValue(fontSizeProp) != DependencyProperty.UnsetValue)
+                    run.FontSize *= scale;
+        }
     }
 
     // ── Public helpers for formatting toolbar ──────────────────────────
@@ -1042,6 +1293,40 @@ public partial class SlideEditorCanvas : UserControl
 
     public object? GetSelectionProperty(DependencyProperty prop)
         => _editor?.Selection.GetPropertyValue(prop);
+
+    // ── Clipboard helpers ──────────────────────────────────────────────
+
+    public bool IsShapeSelected => _selectedIdx >= 0 && _editor is null;
+    public bool HasClipboard => _shapeClipboard.Count > 0;
+
+    public void CopyShapes() { CopySelectedShapes(); }
+    public void CutShapes()
+    {
+        CopySelectedShapes();
+        var toDelete = SelectedTreeIndices;
+        if (toDelete.Length == 1)
+            ShapeDeleted?.Invoke(_slideIndex, toDelete[0]);
+        else if (toDelete.Length > 1)
+            ShapesDeleted?.Invoke(_slideIndex, toDelete);
+    }
+    public void PasteShapes()
+    {
+        if (_shapeClipboard.Count > 0)
+            ShapesPasteRequested?.Invoke(_slideIndex, [.. _shapeClipboard]);
+    }
+
+    private void CopySelectedShapes()
+    {
+        if (_slidePart is null || _selectedTreeIdx < 0) return;
+        var elements = _slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null) return;
+        _shapeClipboard.Clear();
+        foreach (int ti in SelectedTreeIndices)
+            if (ti >= 0 && ti < elements.Count)
+                if (elements[ti].CloneNode(true) is OpenXmlCompositeElement clone)
+                    _shapeClipboard.Add(clone);
+    }
 
     // ── Character style (GetEditorCharStyle / ApplyEditorCharStyle) ────
 
@@ -1103,6 +1388,99 @@ public partial class SlideEditorCanvas : UserControl
             HighlightColor = back,
             UnderlineColor = ulColor,
         };
+    }
+
+    // ── Paragraph style (GetEditorParaStyle / ApplyEditorParaStyle) ────
+
+    public ParagraphStyle GetEditorParaStyle()
+    {
+        if (_editor is null) return new ParagraphStyle();
+
+        // Read VertAnchor from FlowDocument.Tag (set during ToFlowDocument)
+        var vertAnchor = _editor.Document.Tag is VertAnchor va ? va : VertAnchor.Top;
+
+        // Find the paragraph at the caret
+        var caretPara = _editor.CaretPosition.Paragraph
+                        ?? _editor.Document.Blocks.OfType<Paragraph>().FirstOrDefault();
+        if (caretPara is null) return new ParagraphStyle { VertAnchor = vertAnchor };
+
+        var horzAlign = caretPara.TextAlignment switch
+        {
+            TextAlignment.Center  => HorzAlign.Center,
+            TextAlignment.Right   => HorzAlign.Right,
+            TextAlignment.Justify => HorzAlign.Justify,
+            _                     => HorzAlign.Left,
+        };
+
+        double marginLeftCm  = caretPara.Margin.Left  / 96.0 * 2.54;
+        double textIndentCm  = caretPara.TextIndent    / 96.0 * 2.54;
+        double spaceBeforePt = caretPara.Margin.Top    * 72.0 / 96.0;
+        double spaceAfterPt  = caretPara.Margin.Bottom * 72.0 / 96.0;
+
+        double lineSpacePct = 100.0;
+        if (caretPara.Tag is double pct && pct > 0)
+            lineSpacePct = pct;
+
+        return new ParagraphStyle
+        {
+            HorzAlign     = horzAlign,
+            VertAnchor    = vertAnchor,
+            MarginLeftCm  = Math.Max(0, marginLeftCm),
+            TextIndentCm  = textIndentCm,  // negative = hanging
+            LineSpacePct  = lineSpacePct,
+            SpaceBeforePt = Math.Max(0, spaceBeforePt),
+            SpaceAfterPt  = Math.Max(0, spaceAfterPt),
+        };
+    }
+
+    public void ApplyEditorParaStyle(ParagraphStyle style)
+    {
+        if (_editor is null) return;
+
+        // Update VertAnchor on document tag (written to PPTX on commit via UpdateBodyVertAnchor)
+        _editor.Document.Tag = style.VertAnchor;
+
+        // Apply to selected paragraphs (or all if no selection spans paragraphs)
+        var sel = _editor.Selection;
+        var startPara = sel.Start.Paragraph ?? _editor.Document.Blocks.OfType<Paragraph>().FirstOrDefault();
+        var endPara   = sel.End.Paragraph   ?? startPara;
+
+        foreach (var block in _editor.Document.Blocks.OfType<Paragraph>())
+        {
+            if (block.ContentEnd.CompareTo(sel.Start) < 0) continue;
+            if (block.ContentStart.CompareTo(sel.End) > 0) break;
+
+            block.TextAlignment = style.HorzAlign switch
+            {
+                HorzAlign.Center  => TextAlignment.Center,
+                HorzAlign.Right   => TextAlignment.Right,
+                HorzAlign.Justify => TextAlignment.Justify,
+                _                 => TextAlignment.Left,
+            };
+
+            double leftPx  = style.MarginLeftCm  * 96.0 / 2.54;
+            double indentPx = style.TextIndentCm  * 96.0 / 2.54;  // negative = hanging
+            double topPx   = style.SpaceBeforePt * 96.0 / 72.0;
+            double botPx   = style.SpaceAfterPt  * 96.0 / 72.0;
+
+            block.Margin      = new Thickness(leftPx, topPx, 0, botPx);
+            block.TextIndent  = indentPx;
+            block.Tag         = style.LineSpacePct;
+
+            if (style.LineSpacePct > 0 && !double.IsNaN(style.LineSpacePct))
+            {
+                double fontPx = block.Inlines.OfType<Run>()
+                    .Select(r => r.FontSize)
+                    .Where(s => s > 0)
+                    .DefaultIfEmpty(14.0 * 96.0 / 72.0)
+                    .Max();
+                block.LineHeight = fontPx * style.LineSpacePct / 100.0;
+            }
+            else
+                block.LineHeight = double.NaN;
+        }
+
+        _editor.Focus();
     }
 
     public void ApplyEditorCharStyle(CharStyle style)
