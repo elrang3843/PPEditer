@@ -142,9 +142,9 @@ public static class SlideRenderer
         var custGeom = spPr?.GetFirstChild<A.CustomGeometry>();
         if (custGeom is not null)
         {
-            // No Width/Height on Path — let the Grid control bounds. Explicit dimensions
-            // cause WPF to constrain the Path's render bounds, clipping bezier curves that
-            // extend beyond the bounding box. Stretch=None renders geometry at raw coords.
+            // No Width/Height on Path — Canvas container never clips children. Explicit
+            // dimensions would constrain the Path's render bounds, clipping bezier curves
+            // that extend outside the bounding box. Stretch=None renders at raw coords.
             geomShape = new System.Windows.Shapes.Path
             {
                 Data    = BuildPathGeometry(custGeom, width, height),
@@ -188,14 +188,22 @@ public static class SlideRenderer
 
         ApplyStroke(geomShape, shape, slidePart);
 
-        // ClipToBounds=false so stroke at boundary edges and bezier curves outside the
-        // bounding box render fully. The outer slide Canvas (ClipToBounds=true) clips
-        // at the slide boundary only.
-        var container = new Grid { Width = width, Height = height, ClipToBounds = false };
+        // Use Canvas (not Grid) so children that render outside the arranged bounds
+        // (bezier splines, arcs) are never clipped by internal layout logic.
+        // Canvas.ClipToBounds defaults to false; the outer slide Canvas clips at the
+        // slide boundary only.
+        var container = new Canvas { Width = width, Height = height };
+        Canvas.SetLeft(geomShape, 0);
+        Canvas.SetTop(geomShape, 0);
         container.Children.Add(geomShape);
 
         if (shape.TextBody is not null)
-            container.Children.Add(BuildTextBlock(shape.TextBody, width, height));
+        {
+            var tb = BuildTextBlock(shape.TextBody, width, height);
+            Canvas.SetLeft(tb, 0);
+            Canvas.SetTop(tb, 0);
+            container.Children.Add(tb);
+        }
 
         double rotDeg = GetRotationDeg(spPr);
         if (rotDeg != 0.0)
