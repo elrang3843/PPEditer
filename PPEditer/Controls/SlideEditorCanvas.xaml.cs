@@ -1116,10 +1116,16 @@ public partial class SlideEditorCanvas : UserControl
 
         var doc = PptxConverter.ToFlowDocument(shape.TextBody);
 
+        // Map the target shape's bounds into EditorOverlay coordinates (which is
+        // outside the Viewbox), so the RichTextBox renders at physical screen pixels
+        // and the 1px caret is never placed at a sub-pixel position.
+        var tl = target.TranslatePoint(new Point(0, 0), EditorOverlay);
+        var br = target.TranslatePoint(new Point(target.ActualWidth, target.ActualHeight), EditorOverlay);
+
         _editor = new RichTextBox(doc)
         {
-            Width            = target.Width,
-            Height           = target.Height,
+            Width            = br.X - tl.X,
+            Height           = br.Y - tl.Y,
             Background       = Brushes.White,
             BorderBrush      = new SolidColorBrush(Color.FromRgb(0, 0x78, 0xD4)),
             BorderThickness  = new Thickness(2),
@@ -1128,18 +1134,13 @@ public partial class SlideEditorCanvas : UserControl
             VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             FontFamily       = new FontFamily("맑은 고딕"),
-            // Display mode snaps text metrics to pixel boundaries so the 1px
-            // caret is never rendered at a sub-pixel position and made invisible.
-            UseLayoutRounding = true,
         };
-        TextOptions.SetTextFormattingMode(_editor, TextFormattingMode.Display);
         _editor.Document.PagePadding = new Thickness(0);
-        Panel.SetZIndex(_editor, 10000);
-        Canvas.SetLeft(_editor, Canvas.GetLeft(target));
-        Canvas.SetTop(_editor,  Canvas.GetTop(target));
+        Canvas.SetLeft(_editor, tl.X);
+        Canvas.SetTop(_editor,  tl.Y);
 
         _editingTreeIdx = treeIdx;
-        canvas.Children.Add(_editor);
+        EditorOverlay.Children.Add(_editor);
         _editor.Focus();
         if (selectAll)
             _editor.SelectAll();
@@ -1200,7 +1201,7 @@ public partial class SlideEditorCanvas : UserControl
         _editingTreeIdx = -1;
         _hiddenShape    = null;
 
-        _nativeCanvas.Children.Remove(editorRef);
+        EditorOverlay.Children.Remove(editorRef);
 
         if (hiddenRef is not null)
             hiddenRef.Visibility = Visibility.Visible;

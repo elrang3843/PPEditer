@@ -27,6 +27,9 @@
                                         IsHitTestVisible="False" Focusable="False"
                                         HorizontalContentAlignment="Stretch"
                                         VerticalContentAlignment="Stretch"/>
+                        <!-- Editor overlay — outside Viewbox so the RichTextBox renders at
+                             physical screen pixels and the caret is never sub-pixel. -->
+                        <Canvas x:Name="EditorOverlay"/>
                     </Grid>
                 </Border>
             </Grid>
