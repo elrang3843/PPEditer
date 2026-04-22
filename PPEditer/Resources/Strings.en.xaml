@@ -304,6 +304,15 @@
     <sys:String x:Key="Dlg_DocInfo">Document Info</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabGeneral">General</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabSecurity">Security</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabWatermark">Watermark</sys:String>
+    <sys:String x:Key="Dlg_WM_Kind">Watermark Type</sys:String>
+    <sys:String x:Key="Dlg_WM_None">None</sys:String>
+    <sys:String x:Key="Dlg_WM_Diagonal">Diagonal Text</sys:String>
+    <sys:String x:Key="Dlg_WM_Horizontal">Horizontal Text</sys:String>
+    <sys:String x:Key="Dlg_WM_Text">Watermark Text</sys:String>
+    <sys:String x:Key="Dlg_WM_Preview">Preview</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnPrint">Print with watermark</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnSlide">Show during presentation</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TitleLbl">Title:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_SubjectLbl">Subject:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_AuthorLbl">Author:</sys:String>

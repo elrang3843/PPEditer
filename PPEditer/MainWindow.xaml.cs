@@ -273,6 +273,7 @@ public partial class MainWindow : Window
         _model.UpdateDocInfo(dlg.Result, dlg.SetProtect, dlg.WritePassword, dlg.RemoveProtect);
         UpdateTitle();
         UpdateActions();
+        RefreshWatermark();
         SetStatus(S("St_DocInfoSaved"));
     }
 
@@ -1010,6 +1011,13 @@ public partial class MainWindow : Window
         UpdateTitle();
         UpdateActions();
         UpdateSlideInfo();
+        RefreshWatermark();
+    }
+
+    private void RefreshWatermark()
+    {
+        var props = _model.IsOpen ? _model.GetDocProperties() : null;
+        EditorCanvas.SetWatermark(props?.WatermarkShowOnSlide == true ? props : null);
     }
 
     private void ShowCurrentSlide()

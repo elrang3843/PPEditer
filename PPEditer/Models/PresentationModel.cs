@@ -1558,6 +1558,21 @@ public sealed class PresentationModel : IDisposable
             catch { }
         }
 
+        // Watermark (custom file properties)
+        try
+        {
+            var root   = GetCustomPropsRoot();
+            var kind   = ReadCustomProp(root, "PPEditer.WatermarkKind")  ?? "None";
+            var text   = ReadCustomProp(root, "PPEditer.WatermarkText")  ?? string.Empty;
+            var print  = ReadCustomProp(root, "PPEditer.WatermarkPrint") ?? "true";
+            var slide  = ReadCustomProp(root, "PPEditer.WatermarkSlide") ?? "true";
+            p.WatermarkKind        = Enum.TryParse<WatermarkKind>(kind, out var k) ? k : WatermarkKind.None;
+            p.WatermarkText        = text;
+            p.WatermarkShowOnPrint = print != "false";
+            p.WatermarkShowOnSlide = slide != "false";
+        }
+        catch { }
+
         return p;
     }
 
@@ -1569,6 +1584,7 @@ public sealed class PresentationModel : IDisposable
 
         SaveCorePropertiesFull(props);
         SaveExtendedProperties(props);
+        SaveWatermarkProps(props);
 
         var presentation = _doc.PresentationPart?.Presentation;
         if (presentation is not null)
@@ -1650,6 +1666,16 @@ public sealed class PresentationModel : IDisposable
             xdoc.Save(ws);
         }
         catch { }
+    }
+
+    private void SaveWatermarkProps(DocProperties props)
+    {
+        var root = GetCustomPropsRoot();
+        SetCustomProp(root, "PPEditer.WatermarkKind",  props.WatermarkKind.ToString());
+        SetCustomProp(root, "PPEditer.WatermarkText",  props.WatermarkText);
+        SetCustomProp(root, "PPEditer.WatermarkPrint", props.WatermarkShowOnPrint ? "true" : "false");
+        SetCustomProp(root, "PPEditer.WatermarkSlide", props.WatermarkShowOnSlide ? "true" : "false");
+        SaveCustomProps(root);
     }
 
     private void SaveExtendedProperties(DocProperties props)
@@ -1767,6 +1793,58 @@ public sealed class PresentationModel : IDisposable
         {
             el?.Remove();
         }
+    }
+
+    // ── Custom file properties (PPEditer watermark storage) ─────────────
+
+    private static readonly XNamespace OpNs =
+        "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties";
+    private static readonly XNamespace VtNs =
+        "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes";
+
+    private XElement GetCustomPropsRoot()
+    {
+        var part = _doc!.CustomFilePropertiesPart;
+        if (part is not null)
+        {
+            try { return XDocument.Load(part.GetStream()).Root!; }
+            catch { }
+        }
+        return new XElement(OpNs + "Properties",
+            new XAttribute(XNamespace.Xmlns + "vt", VtNs.NamespaceName));
+    }
+
+    private string? ReadCustomProp(XElement root, string name) =>
+        root.Elements(OpNs + "property")
+            .FirstOrDefault(e => (string?)e.Attribute("name") == name)
+            ?.Element(VtNs + "lpwstr")?.Value;
+
+    private void SetCustomProp(XElement root, string name, string value)
+    {
+        root.Elements(OpNs + "property")
+            .FirstOrDefault(e => (string?)e.Attribute("name") == name)
+            ?.Remove();
+
+        root.Add(new XElement(OpNs + "property",
+            new XAttribute("fmtid", "{D5CDD505-2E9C-101B-9397-08002B2CF9AE}"),
+            new XAttribute("pid",   "2"),
+            new XAttribute("name",  name),
+            new XElement(VtNs + "lpwstr", value)));
+    }
+
+    private void SaveCustomProps(XElement root)
+    {
+        var part = _doc!.CustomFilePropertiesPart ?? _doc.AddCustomFilePropertiesPart();
+        // pids must be sequential starting at 2
+        int pid = 2;
+        foreach (var prop in root.Elements(OpNs + "property"))
+            prop.SetAttributeValue("pid", pid++);
+        try
+        {
+            using var ws = part.GetStream(FileMode.Create, FileAccess.Write);
+            new XDocument(new XDeclaration("1.0", "UTF-8", "yes"), root).Save(ws);
+        }
+        catch { }
     }
 
     // ── Write protection ─────────────────────────────────────────────────

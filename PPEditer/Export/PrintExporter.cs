@@ -31,6 +31,8 @@ internal sealed class SlidePaginator : DocumentPaginator
     private readonly bool              _blackWhite;
     private readonly Size              _pageSize;
 
+    private readonly DocProperties _docProps;
+
     internal SlidePaginator(PresentationModel model, PrintLayout layout,
                             bool blackWhite, Size pageSize)
     {
@@ -38,6 +40,7 @@ internal sealed class SlidePaginator : DocumentPaginator
         _layout     = layout;
         _blackWhite = blackWhite;
         _pageSize   = pageSize;
+        _docProps   = model.GetDocProperties();
     }
 
     public override bool                      IsPageCountValid => true;
@@ -74,8 +77,13 @@ internal sealed class SlidePaginator : DocumentPaginator
         double aspect  = _model.SlideWidth / (double)_model.SlideHeight;
         var (imgW, imgH) = FitRect(_pageSize.Width, availH, aspect);
 
-        var bmp = RenderSlide(part, imgW, imgH);
-        dc.DrawImage(bmp, new Rect((_pageSize.Width - imgW) / 2.0, 0, imgW, imgH));
+        var bmp    = RenderSlide(part, imgW, imgH);
+        var imgRect = new Rect((_pageSize.Width - imgW) / 2.0, 0, imgW, imgH);
+        dc.DrawImage(bmp, imgRect);
+
+        if (_docProps.WatermarkShowOnPrint)
+            WatermarkRenderer.DrawOnContext(dc, _docProps.WatermarkText,
+                _docProps.WatermarkKind, imgRect);
 
         if (notesH > 0)
         {
@@ -103,9 +111,13 @@ internal sealed class SlidePaginator : DocumentPaginator
             var part = _model.GetSlidePart(startIdx + j);
             if (part is null) continue;
 
-            double top = j * slotH + (slotH - thumbH) / 2.0;
-            var bmp = RenderSlide(part, thumbW, thumbH);
-            dc.DrawImage(bmp, new Rect(4, top, thumbW, thumbH));
+            double top     = j * slotH + (slotH - thumbH) / 2.0;
+            var    bmp     = RenderSlide(part, thumbW, thumbH);
+            var    thumbRc = new Rect(4, top, thumbW, thumbH);
+            dc.DrawImage(bmp, thumbRc);
+            if (_docProps.WatermarkShowOnPrint)
+                WatermarkRenderer.DrawOnContext(dc, _docProps.WatermarkText,
+                    _docProps.WatermarkKind, thumbRc);
 
             // Draw rule lines for handwritten notes
             const int lineCount = 6;

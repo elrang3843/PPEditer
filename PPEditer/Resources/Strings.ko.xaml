@@ -304,6 +304,15 @@
     <sys:String x:Key="Dlg_DocInfo">문서 정보</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabGeneral">일반</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TabSecurity">보안</sys:String>
+    <sys:String x:Key="Dlg_DocInfo_TabWatermark">워터마크</sys:String>
+    <sys:String x:Key="Dlg_WM_Kind">워터마크 종류</sys:String>
+    <sys:String x:Key="Dlg_WM_None">없음</sys:String>
+    <sys:String x:Key="Dlg_WM_Diagonal">대각선 텍스트</sys:String>
+    <sys:String x:Key="Dlg_WM_Horizontal">수평 텍스트</sys:String>
+    <sys:String x:Key="Dlg_WM_Text">워터마크 텍스트</sys:String>
+    <sys:String x:Key="Dlg_WM_Preview">미리보기</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnPrint">인쇄시 출력</sys:String>
+    <sys:String x:Key="Dlg_WM_ShowOnSlide">프리젠테이션시 표시</sys:String>
     <sys:String x:Key="Dlg_DocInfo_TitleLbl">제목:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_SubjectLbl">주제:</sys:String>
     <sys:String x:Key="Dlg_DocInfo_AuthorLbl">작성자:</sys:String>

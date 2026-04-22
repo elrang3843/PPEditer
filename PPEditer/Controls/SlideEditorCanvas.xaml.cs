@@ -160,6 +160,20 @@ public partial class SlideEditorCanvas : UserControl
             SelectShapeByTreeIndex(savedTreeIdx);
     }
 
+    /// <summary>Overlays a watermark on the slide view. Pass null props or Kind=None to clear.</summary>
+    public void SetWatermark(DocProperties? props)
+    {
+        if (props is null || props.WatermarkKind == WatermarkKind.None
+            || string.IsNullOrWhiteSpace(props.WatermarkText))
+        {
+            WatermarkHost.Content = null;
+            return;
+        }
+        WatermarkHost.Content = WatermarkRenderer.BuildOverlay(
+            props.WatermarkText, props.WatermarkKind,
+            SlideCanvas.Width, SlideCanvas.Height);
+    }
+
     public void Invalidate(int treeIdxToSelect)
     {
         CommitEdit(save: false);

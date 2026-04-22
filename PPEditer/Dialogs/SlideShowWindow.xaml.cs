@@ -82,6 +82,7 @@ public partial class SlideShowWindow : Window
         {
             SlideContainer.Children.Clear();
             SlideContainer.Children.Add(newVb);
+            AddWatermarkOverlay();
             _activeViewbox = newVb;
             _activeCanvas  = newCanvas;
             FlushAutoPlay();
@@ -95,6 +96,7 @@ public partial class SlideShowWindow : Window
         void Finish()
         {
             SlideContainer.Children.Remove(old);
+            AddWatermarkOverlay();
             _activeViewbox = newVb;
             _activeCanvas  = newCanvas;
             _transitioning = false;
@@ -315,6 +317,19 @@ public partial class SlideShowWindow : Window
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
+
+    private void AddWatermarkOverlay()
+    {
+        // Remove any previous watermark overlay (last child if non-Viewbox).
+        if (SlideContainer.Children.Count > 0
+            && SlideContainer.Children[^1] is not Viewbox)
+            SlideContainer.Children.RemoveAt(SlideContainer.Children.Count - 1);
+
+        var props = _model.GetDocProperties();
+        if (!props.WatermarkShowOnSlide) return;
+        var el = WatermarkRenderer.BuildOverlay(props, _model.SlideWidth, _model.SlideHeight);
+        if (el is not null) SlideContainer.Children.Add(el);
+    }
 
     private static FrameworkElement? FindShape(Canvas c, int idx) =>
         c.Children.OfType<FrameworkElement>()
