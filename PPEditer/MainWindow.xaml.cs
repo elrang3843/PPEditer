@@ -113,7 +113,7 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(_ => OnUngroup()), Key.G, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnCharProperties), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnParaProperties), Key.P, ModifierKeys.Control | ModifierKeys.Shift));
-        kb.Add(new KeyBinding(new RelayCommand(OnPrint),          Key.P, ModifierKeys.Control));
+        kb.Add(new KeyBinding(new RelayCommand(_ => OnPrint()),    Key.P, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(_ => OnSlideShow()), Key.F5, ModifierKeys.None));
     }
 
@@ -382,7 +382,7 @@ public partial class MainWindow : Window
         => AppStatusBar.Visibility = MenuToggleStatus.IsChecked
             ? Visibility.Visible : Visibility.Collapsed;
 
-    private void OnToggleNotes(object? _ = null)
+    private void OnToggleNotes(object sender, RoutedEventArgs e)
     {
         bool show = MenuToggleNotes.IsChecked;
         NotesRow.Height          = show ? new GridLength(150, GridUnitType.Pixel) : new GridLength(0);
@@ -415,7 +415,8 @@ public partial class MainWindow : Window
 
     // ── Print ─────────────────────────────────────────────────────────
 
-    private void OnPrint(object? _ = null)
+    private void OnPrint(object sender, RoutedEventArgs e) => OnPrint();
+    private void OnPrint()
     {
         if (!_model.IsOpen) return;
         SaveCurrentNotes();
