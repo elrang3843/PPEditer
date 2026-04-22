@@ -41,10 +41,14 @@ public static class ScreenHelper
     {
         var rects = new List<NativeRect>();
 
-        // The callback is synchronous, so the closure is alive throughout the call.
-        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero,
-            (_, _, ref r, _) => { rects.Add(r); return true; },
-            IntPtr.Zero);
+        // Named method required — C# < 14 doesn't allow `ref` in discard-parameter lambdas.
+        bool Callback(IntPtr hMon, IntPtr hdc, ref NativeRect r, IntPtr data)
+        {
+            rects.Add(r);
+            return true;
+        }
+
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, Callback, IntPtr.Zero);
 
         // Convert physical pixels → WPF device-independent units.
         GetDpiScale(out double sx, out double sy);
