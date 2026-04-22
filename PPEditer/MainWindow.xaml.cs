@@ -349,7 +349,7 @@ public partial class MainWindow : Window
         RefreshAll();
         SetStatus(S("Msg_TextBoxAdded"));
         if (treeIdx >= 0)
-            EditorCanvas.StartEditByTreeIndex(treeIdx);
+            EditorCanvas.StartEditByTreeIndex(treeIdx, selectAll: true);
         UpdateActions();
     }
 

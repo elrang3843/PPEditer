@@ -176,14 +176,14 @@ public partial class SlideEditorCanvas : UserControl
     public bool   IsEditing   => _editor is not null;
 
     /// <summary>Start editing the shape with the specified tree index (if it has a TextBody).</summary>
-    public void StartEditByTreeIndex(int treeIdx)
+    public void StartEditByTreeIndex(int treeIdx, bool selectAll = false)
     {
         if (_nativeCanvas is null) return;
         for (int i = 0; i < _nativeCanvas.Children.Count; i++)
         {
             if (_nativeCanvas.Children[i] is FrameworkElement fe && fe.Tag is int t && t == treeIdx)
             {
-                StartEdit(_nativeCanvas, i);
+                StartEdit(_nativeCanvas, i, selectAll);
                 return;
             }
         }
@@ -1079,7 +1079,7 @@ public partial class SlideEditorCanvas : UserControl
 
     // ── Inline text editing ────────────────────────────────────────────
 
-    private void StartEdit(Canvas canvas, int canvasIdx)
+    private void StartEdit(Canvas canvas, int canvasIdx, bool selectAll = false)
     {
         if (canvas.Children[canvasIdx] is not FrameworkElement target) return;
         if (target.Tag is not int treeIdx) return;
@@ -1119,7 +1119,10 @@ public partial class SlideEditorCanvas : UserControl
         _editingTreeIdx = treeIdx;
         canvas.Children.Add(_editor);
         _editor.Focus();
-        _editor.CaretPosition = _editor.Document.ContentEnd;
+        if (selectAll)
+            _editor.SelectAll();
+        else
+            _editor.CaretPosition = _editor.Document.ContentEnd;
 
         // Add context menu for character/paragraph properties
         var charCtx  = new ContextMenu();
