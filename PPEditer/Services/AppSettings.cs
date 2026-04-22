@@ -18,6 +18,11 @@ public sealed class AppSettings
     public string Language                  { get; set; } = "ko";
     public string Theme                     { get; set; } = "Light";
 
+    /// <summary>Monitor index for the presentation (slide show) window. -1 = auto.</summary>
+    public int ShowMonitorIndex      { get; set; } = -1;
+    /// <summary>Monitor index for the presenter view window. -1 = auto.</summary>
+    public int PresenterMonitorIndex { get; set; } = -1;
+
     // ── Load / Save ────────────────────────────────────────────────────
     public static AppSettings Load()
     {

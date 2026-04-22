@@ -1224,59 +1224,41 @@ public partial class MainWindow : Window
     private void PositionPresenterView(Dialogs.SlideShowWindow showWnd,
                                        Dialogs.PresenterViewWindow presWnd)
     {
-        double primaryW  = SystemParameters.PrimaryScreenWidth;
-        double primaryH  = SystemParameters.PrimaryScreenHeight;
-        double virtualW  = SystemParameters.VirtualScreenWidth;
-        double virtualH  = SystemParameters.VirtualScreenHeight;
-        double virtualL  = SystemParameters.VirtualScreenLeft;
-        double virtualT  = SystemParameters.VirtualScreenTop;
+        var monitors = Services.ScreenHelper.GetMonitors();
+        var s        = Services.AppSettings.Current;
 
-        bool hasMultiple = virtualW > primaryW || virtualH > primaryH;
-
-        if (hasMultiple)
+        if (monitors.Count >= 2)
         {
-            // Presentation window: stays on primary monitor (left = 0, top = 0)
-            showWnd.WindowState = WindowState.Normal;
-            showWnd.Left = 0; showWnd.Top = 0;
-            showWnd.WindowState = WindowState.Maximized;
+            // Resolve show monitor: saved preference, or primary (index 0 is primary by EnumDisplayMonitors order).
+            int primaryIdx = monitors.Select((m, i) => (m, i)).FirstOrDefault(x => x.m.IsPrimary).i;
+            int showIdx = (s.ShowMonitorIndex >= 0 && s.ShowMonitorIndex < monitors.Count)
+                          ? s.ShowMonitorIndex : primaryIdx;
 
-            // Presenter view: secondary monitor
-            if (virtualL < 0)
-            {
-                // Secondary is to the LEFT
-                presWnd.Left = virtualL;
-                presWnd.Top  = 0;
-            }
-            else if (virtualW > primaryW)
-            {
-                // Secondary is to the RIGHT
-                presWnd.Left = primaryW;
-                presWnd.Top  = 0;
-            }
-            else if (virtualT < 0)
-            {
-                // Secondary is ABOVE
-                presWnd.Left = 0;
-                presWnd.Top  = virtualT;
-            }
-            else
-            {
-                // Secondary is BELOW
-                presWnd.Left = 0;
-                presWnd.Top  = primaryH;
-            }
-            presWnd.WindowState = WindowState.Maximized;
+            // Resolve presenter monitor: saved preference if different, otherwise the other monitor.
+            int presIdx = (s.PresenterMonitorIndex >= 0 && s.PresenterMonitorIndex < monitors.Count
+                           && s.PresenterMonitorIndex != showIdx)
+                          ? s.PresenterMonitorIndex
+                          : showIdx == 0 ? 1 : 0;
+
+            Services.ScreenHelper.MaximizeOnMonitor(showWnd, monitors, showIdx);
+            Services.ScreenHelper.MaximizeOnMonitor(presWnd, monitors, presIdx);
+            return;
         }
-        else
-        {
-            // Single monitor — presenter view as floating window
-            presWnd.WindowStartupLocation = WindowStartupLocation.Manual;
-            presWnd.Width  = 780;
-            presWnd.Height = 540;
-            presWnd.Left   = 30;
-            presWnd.Top    = 30;
-            presWnd.WindowState = WindowState.Normal;
-        }
+
+        // Single monitor — maximize show, presenter as floating window.
+        showWnd.WindowState = WindowState.Maximized;
+        presWnd.WindowStartupLocation = WindowStartupLocation.Manual;
+        presWnd.Width  = 780;
+        presWnd.Height = 540;
+        presWnd.Left   = 30;
+        presWnd.Top    = 30;
+        presWnd.WindowState = WindowState.Normal;
+    }
+
+    private void OnDisplaySettings(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Dialogs.DisplaySettingsDialog { Owner = this };
+        dlg.ShowDialog();
     }
 
     // ── XAML event bridges ────────────────────────────────────────────

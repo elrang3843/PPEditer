@@ -161,6 +161,12 @@
                               Click="OnThemeDark"/>
                 </MenuItem>
 
+                <Separator/>
+
+                <!-- 디스플레이 설정 -->
+                <MenuItem Header="{DynamicResource Ms_DisplaySettings}"
+                          Click="OnDisplaySettings"/>
+
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Help}">

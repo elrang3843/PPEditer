@@ -112,6 +112,11 @@
     <sys:String x:Key="Ms_Theme">테마(_T)</sys:String>
     <sys:String x:Key="Ms_ThemeLight">밝은 테마</sys:String>
     <sys:String x:Key="Ms_ThemeDark">어두운 테마</sys:String>
+    <sys:String x:Key="Ms_DisplaySettings">디스플레이 설정(_D)...</sys:String>
+    <sys:String x:Key="Dlg_DisplaySettings">디스플레이 설정</sys:String>
+    <sys:String x:Key="Lbl_ShowMonitor">발표 화면 모니터</sys:String>
+    <sys:String x:Key="Lbl_PresenterMonitor">발표자 도구 모니터</sys:String>
+    <sys:String x:Key="Opt_AutoDetect">자동 감지</sys:String>
     <sys:String x:Key="Ms_Help">도움말(_H)</sys:String>
     <sys:String x:Key="Ms_UserManual">사용방법(_U)...</sys:String>
     <sys:String x:Key="Ms_License">라이선스 정보(_L)...</sys:String>
