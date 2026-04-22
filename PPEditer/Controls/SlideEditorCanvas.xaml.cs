@@ -1128,7 +1128,9 @@ public partial class SlideEditorCanvas : UserControl
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             FontFamily       = new FontFamily("맑은 고딕"),
         };
-        _editor.Document.PagePadding = new Thickness(0);
+        // A small page padding prevents the caret from being clipped at the
+        // right/bottom edge of the content area (WPF caret rendering quirk).
+        _editor.Document.PagePadding = new Thickness(2);
         Panel.SetZIndex(_editor, 10000);
         Canvas.SetLeft(_editor, Canvas.GetLeft(target));
         Canvas.SetTop(_editor,  Canvas.GetTop(target));
