@@ -25,6 +25,8 @@
     <sys:String x:Key="Ms_ZoomFit">창 맞춤(_F)</sys:String>
     <sys:String x:Key="Ms_SlidePanel">슬라이드 패널(_P)</sys:String>
     <sys:String x:Key="Ms_StatusBar">상태 표시줄(_S)</sys:String>
+    <sys:String x:Key="Ms_NotesPanel">노트 패널(_N)</sys:String>
+    <sys:String x:Key="Ms_Print">인쇄(_P)...</sys:String>
     <sys:String x:Key="Ms_Insert">삽입(_I)</sys:String>
     <sys:String x:Key="Ms_InsertTextBox">텍스트 상자(_T)...</sys:String>
     <sys:String x:Key="Ms_InsertImage">그림(_I)...</sys:String>
@@ -246,6 +248,16 @@
     <sys:String x:Key="Dlg_Emoji_Cat4">여행</sys:String>
     <sys:String x:Key="Dlg_Emoji_Cat5">기호</sys:String>
     <sys:String x:Key="Btn_Close">닫기</sys:String>
+    <sys:String x:Key="Btn_Print">인쇄</sys:String>
+    <sys:String x:Key="Lbl_NotesPanel">슬라이드 노트</sys:String>
+    <sys:String x:Key="Dlg_Print">인쇄</sys:String>
+    <sys:String x:Key="Dlg_Print_Layout">인쇄 레이아웃</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideOnly">슬라이드만</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideNotes">슬라이드 + 노트</sys:String>
+    <sys:String x:Key="Dlg_Print_Handout3">유인물 (한 쪽에 3장)</sys:String>
+    <sys:String x:Key="Dlg_Print_Options">옵션</sys:String>
+    <sys:String x:Key="Dlg_Print_BlackWhite">흑백 인쇄</sys:String>
+    <sys:String x:Key="Err_PrintFailed">인쇄 중 오류가 발생했습니다.</sys:String>
     <sys:String x:Key="Lbl_InsertFailed">삽입 오류</sys:String>
     <sys:String x:Key="Err_InsertFailed">삽입 실패:</sys:String>
     <sys:String x:Key="Dlg_OpenFilter">프레젠테이션 파일|*.pptx;*.ppt|모든 파일|*.*</sys:String>

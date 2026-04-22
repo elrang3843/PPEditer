@@ -1261,6 +1261,95 @@ public sealed class PresentationModel : IDisposable
         return tree.Elements<OpenXmlCompositeElement>().ToList().IndexOf(shape);
     }
 
+    // ── Slide Notes ──────────────────────────────────────────────────────
+
+    /// <summary>Returns the plain-text notes for the given slide (empty string if none).</summary>
+    public string GetSlideNotes(int slideIndex)
+    {
+        var notesPart = GetSlidePart(slideIndex)?.NotesSlidePart;
+        if (notesPart?.NotesSlide is null) return string.Empty;
+        var bodyShape = FindNotesBodyShape(notesPart);
+        if (bodyShape?.TextBody is null) return string.Empty;
+        return string.Join(Environment.NewLine,
+            bodyShape.TextBody.Elements<A.Paragraph>()
+                .Select(p => string.Concat(
+                    p.Elements<A.Run>().Select(r => r.Text?.Text ?? string.Empty))));
+    }
+
+    /// <summary>Writes plain-text notes for the given slide, creating NotesSlidePart if absent.</summary>
+    public void SetSlideNotes(int slideIndex, string text)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+
+        var notesPart = slidePart.NotesSlidePart;
+        if (notesPart is null)
+        {
+            notesPart = slidePart.AddNewPart<NotesSlidePart>();
+            CreateBlankNotesSlide(notesPart);
+        }
+
+        var bodyShape = FindNotesBodyShape(notesPart);
+        if (bodyShape is null) return;
+
+        if (bodyShape.TextBody is null)
+            bodyShape.Append(new TextBody(new A.BodyProperties(), new A.ListStyle()));
+
+        var txBody = bodyShape.TextBody!;
+        foreach (var p in txBody.Elements<A.Paragraph>().ToList())
+            p.Remove();
+
+        foreach (var line in text.Split('\n'))
+        {
+            var para = new A.Paragraph();
+            if (!string.IsNullOrEmpty(line))
+                para.Append(new A.Run(new A.Text(line)));
+            txBody.Append(para);
+        }
+
+        notesPart.NotesSlide!.Save();
+        _modified = true;
+    }
+
+    private static Shape? FindNotesBodyShape(NotesSlidePart notesPart) =>
+        notesPart.NotesSlide?.CommonSlideData?.ShapeTree?
+            .Elements<Shape>()
+            .FirstOrDefault(s =>
+            {
+                var ph = s.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?
+                          .GetFirstChild<PlaceholderShape>();
+                return ph?.Index?.Value == 1u || ph?.Type?.Value == PlaceholderValues.Body;
+            });
+
+    private static void CreateBlankNotesSlide(NotesSlidePart notesPart)
+    {
+        new NotesSlide(
+            new CommonSlideData(
+                new ShapeTree(
+                    new NonVisualGroupShapeProperties(
+                        new NonVisualDrawingProperties { Id = 1u, Name = "" },
+                        new NonVisualGroupShapeDrawingProperties(),
+                        new ApplicationNonVisualDrawingProperties()),
+                    new GroupShapeProperties(new A.TransformGroup()),
+                    new Shape(
+                        new NonVisualShapeProperties(
+                            new NonVisualDrawingProperties { Id = 2u, Name = "Slide Image 1" },
+                            new NonVisualShapeDrawingProperties(),
+                            new ApplicationNonVisualDrawingProperties(
+                                new PlaceholderShape { Type = PlaceholderValues.SlideImage })),
+                        new ShapeProperties()),
+                    new Shape(
+                        new NonVisualShapeProperties(
+                            new NonVisualDrawingProperties { Id = 3u, Name = "Notes Placeholder 2" },
+                            new NonVisualShapeDrawingProperties(),
+                            new ApplicationNonVisualDrawingProperties(
+                                new PlaceholderShape { Type = PlaceholderValues.Body, Index = 1u })),
+                        new ShapeProperties(),
+                        new TextBody(new A.BodyProperties(), new A.ListStyle())))),
+            new ColorMapOverride(new A.MasterColorMapping()))
+            .Save(notesPart);
+    }
+
     private static uint GetMaxShapeId(ShapeTree tree)
     {
         uint max = 1u;

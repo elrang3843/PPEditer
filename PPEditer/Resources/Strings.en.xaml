@@ -25,6 +25,8 @@
     <sys:String x:Key="Ms_ZoomFit">_Fit to Window</sys:String>
     <sys:String x:Key="Ms_SlidePanel">Slide _Panel</sys:String>
     <sys:String x:Key="Ms_StatusBar">_Status Bar</sys:String>
+    <sys:String x:Key="Ms_NotesPanel">_Notes Panel</sys:String>
+    <sys:String x:Key="Ms_Print">_Print...</sys:String>
     <sys:String x:Key="Ms_Insert">_Insert</sys:String>
     <sys:String x:Key="Ms_InsertTextBox">_Text Box...</sys:String>
     <sys:String x:Key="Ms_InsertImage">_Image...</sys:String>
@@ -246,6 +248,16 @@
     <sys:String x:Key="Dlg_Emoji_Cat4">Travel</sys:String>
     <sys:String x:Key="Dlg_Emoji_Cat5">Symbols</sys:String>
     <sys:String x:Key="Btn_Close">Close</sys:String>
+    <sys:String x:Key="Btn_Print">Print</sys:String>
+    <sys:String x:Key="Lbl_NotesPanel">Slide Notes</sys:String>
+    <sys:String x:Key="Dlg_Print">Print</sys:String>
+    <sys:String x:Key="Dlg_Print_Layout">Print Layout</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideOnly">Slides only</sys:String>
+    <sys:String x:Key="Dlg_Print_SlideNotes">Slides with notes</sys:String>
+    <sys:String x:Key="Dlg_Print_Handout3">Handout (3 slides per page)</sys:String>
+    <sys:String x:Key="Dlg_Print_Options">Options</sys:String>
+    <sys:String x:Key="Dlg_Print_BlackWhite">Black &amp; white</sys:String>
+    <sys:String x:Key="Err_PrintFailed">Print failed.</sys:String>
     <sys:String x:Key="Lbl_InsertFailed">Insert Error</sys:String>
     <sys:String x:Key="Err_InsertFailed">Insert failed:</sys:String>
     <sys:String x:Key="Dlg_OpenFilter">Presentation files|*.pptx;*.ppt|All files|*.*</sys:String>

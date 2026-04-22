@@ -19,6 +19,8 @@ public partial class MainWindow : Window
     private int  _currentSlide;
     private bool _suppressZoomEvents;
     private bool _suppressFormatEvents;
+    private bool _suppressNotesEvents;
+    private bool _notesDirty;
     private RichTextBox? _activeEditor;
 
     private const int RecentMax = 10;
@@ -27,7 +29,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        SlidePanel.SlideSelected    += idx => { _currentSlide = idx; ShowCurrentSlide(); UpdateActions(); };
+        SlidePanel.SlideSelected    += idx =>
+        {
+            SaveCurrentNotes();
+            _currentSlide = idx;
+            ShowCurrentSlide();
+            LoadCurrentNotes();
+            UpdateActions();
+        };
         EditorCanvas.EditingStarted += OnEditorEditingStarted;
         EditorCanvas.TextCommitted  += OnEditorTextCommitted;
         EditorCanvas.ShapeMoved     += OnShapeMoved;
@@ -104,6 +113,7 @@ public partial class MainWindow : Window
         kb.Add(new KeyBinding(new RelayCommand(_ => OnUngroup()), Key.G, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnCharProperties), Key.F, ModifierKeys.Control | ModifierKeys.Shift));
         kb.Add(new KeyBinding(new RelayCommand(OnParaProperties), Key.P, ModifierKeys.Control | ModifierKeys.Shift));
+        kb.Add(new KeyBinding(new RelayCommand(OnPrint),          Key.P, ModifierKeys.Control));
         kb.Add(new KeyBinding(new RelayCommand(_ => OnSlideShow()), Key.F5, ModifierKeys.None));
     }
 
@@ -152,6 +162,7 @@ public partial class MainWindow : Window
     {
         if (!_model.IsOpen) return;
         if (string.IsNullOrEmpty(_model.FilePath)) { OnSaveAs(); return; }
+        SaveCurrentNotes();
         try
         {
             _model.Save();
@@ -169,6 +180,7 @@ public partial class MainWindow : Window
     private void OnSaveAs(object? _ = null)
     {
         if (!_model.IsOpen) return;
+        SaveCurrentNotes();
         var dlg = new SaveFileDialog
         {
             Filter     = S("Dlg_SaveFilter"),
@@ -369,6 +381,56 @@ public partial class MainWindow : Window
     private void OnToggleStatus(object? _ = null)
         => AppStatusBar.Visibility = MenuToggleStatus.IsChecked
             ? Visibility.Visible : Visibility.Collapsed;
+
+    private void OnToggleNotes(object? _ = null)
+    {
+        bool show = MenuToggleNotes.IsChecked;
+        NotesRow.Height          = show ? new GridLength(150, GridUnitType.Pixel) : new GridLength(0);
+        NotesSplitterRow.Height  = show ? new GridLength(4)                       : new GridLength(0);
+    }
+
+    // ── Notes panel ───────────────────────────────────────────────────
+
+    private void LoadCurrentNotes()
+    {
+        if (!_model.IsOpen) return;
+        _suppressNotesEvents = true;
+        NotesTextBox.Text    = _model.GetSlideNotes(_currentSlide);
+        _suppressNotesEvents = false;
+        _notesDirty          = false;
+    }
+
+    private void SaveCurrentNotes()
+    {
+        if (!_model.IsOpen || !_notesDirty) return;
+        _model.SetSlideNotes(_currentSlide, NotesTextBox.Text);
+        _notesDirty = false;
+    }
+
+    private void OnNotesTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_suppressNotesEvents)
+            _notesDirty = true;
+    }
+
+    // ── Print ─────────────────────────────────────────────────────────
+
+    private void OnPrint(object? _ = null)
+    {
+        if (!_model.IsOpen) return;
+        SaveCurrentNotes();
+        var dlg = new PrintLayoutDialog(this);
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            PrintExporter.Print(_model, dlg.SelectedLayout, dlg.BlackWhite);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_PrintFailed")}\n{ex.Message}",
+                            S("Lbl_Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
 
     private void OnUserManual(object s, RoutedEventArgs e) => new UserManualDialog { Owner = this }.ShowDialog();
     private void OnLicense   (object s, RoutedEventArgs e) => new LicenseDialog   { Owner = this }.ShowDialog();
@@ -943,6 +1005,7 @@ public partial class MainWindow : Window
     {
         SlidePanel.Refresh(_model, _currentSlide);
         ShowCurrentSlide();
+        LoadCurrentNotes();
         UpdateTitle();
         UpdateActions();
         UpdateSlideInfo();
@@ -985,6 +1048,7 @@ public partial class MainWindow : Window
 
         MenuSave.IsEnabled      = has && _model.Modified;
         MenuSaveAs.IsEnabled    = has;
+        MenuPrint.IsEnabled     = has;
         MenuExportPdf.IsEnabled = has;
         MenuAddSlide.IsEnabled  = has;
         MenuDupSlide.IsEnabled  = has;

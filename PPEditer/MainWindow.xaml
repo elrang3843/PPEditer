@@ -19,6 +19,7 @@
                 <MenuItem x:Name="MenuSave"   Header="{DynamicResource Ms_Save}"     InputGestureText="Ctrl+S"       Click="OnSave"/>
                 <MenuItem x:Name="MenuSaveAs" Header="{DynamicResource Ms_SaveAs}"   InputGestureText="Ctrl+Shift+S" Click="OnSaveAs"/>
                 <Separator/>
+                <MenuItem x:Name="MenuPrint"     Header="{DynamicResource Ms_Print}"     InputGestureText="Ctrl+P"       Click="OnPrint" IsEnabled="False"/>
                 <MenuItem x:Name="MenuExportPdf" Header="{DynamicResource Ms_ExportPdf}" InputGestureText="Ctrl+Shift+E" Click="OnExportPdf"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource Ms_Exit}" InputGestureText="Alt+F4" Click="OnExit"/>
@@ -55,6 +56,7 @@
                 <Separator/>
                 <MenuItem x:Name="MenuTogglePanel"  Header="{DynamicResource Ms_SlidePanel}" IsCheckable="True" IsChecked="True" Click="OnTogglePanel"/>
                 <MenuItem x:Name="MenuToggleStatus" Header="{DynamicResource Ms_StatusBar}"  IsCheckable="True" IsChecked="True" Click="OnToggleStatus"/>
+                <MenuItem x:Name="MenuToggleNotes"  Header="{DynamicResource Ms_NotesPanel}" IsCheckable="True" IsChecked="True" Click="OnToggleNotes"/>
             </MenuItem>
 
             <MenuItem Header="{DynamicResource Ms_Insert}">
@@ -353,7 +355,53 @@
                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                           Background="#DDDDDD" ShowsPreview="True"/>
 
-            <controls:SlideEditorCanvas x:Name="EditorCanvas" Grid.Column="2"/>
+            <!-- 오른쪽 열: 편집 캔버스 + 노트 패널 -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition x:Name="NotesSplitterRow" Height="4"/>
+                    <RowDefinition x:Name="NotesRow" Height="150" MinHeight="60" MaxHeight="400"/>
+                </Grid.RowDefinitions>
+
+                <controls:SlideEditorCanvas x:Name="EditorCanvas" Grid.Row="0"/>
+
+                <GridSplitter Grid.Row="1" Height="4"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                              Background="#DDDDDD" ShowsPreview="True"/>
+
+                <!-- 노트 패널 -->
+                <Border x:Name="NotesPanel" Grid.Row="2"
+                        BorderBrush="{DynamicResource PanelHeaderBg}"
+                        BorderThickness="0,1,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="28"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 헤더 -->
+                        <Border Grid.Row="0" Background="{DynamicResource PanelHeaderBg}">
+                            <TextBlock x:Name="NotesPanelHeader"
+                                       VerticalAlignment="Center" Margin="8,0"
+                                       Foreground="{DynamicResource PanelHeaderFg}"
+                                       Text="{DynamicResource Lbl_NotesPanel}"/>
+                        </Border>
+
+                        <!-- 노트 입력 TextBox -->
+                        <TextBox x:Name="NotesTextBox" Grid.Row="1"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 BorderThickness="0"
+                                 Padding="8,4"
+                                 FontFamily="맑은 고딕, Segoe UI"
+                                 FontSize="12"
+                                 Background="{DynamicResource CanvasBg}"
+                                 Foreground="{DynamicResource FgColor}"
+                                 TextChanged="OnNotesTextChanged"/>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>
