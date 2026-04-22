@@ -2,29 +2,173 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title=" "
-        Width="192" Height="148"
+        Width="420" Height="400"
         WindowStyle="ToolWindow"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         Topmost="True"
-        WindowStartupLocation="Manual">
-    <StackPanel Margin="6">
-        <UniformGrid x:Name="ColorGrid" Rows="4" Columns="6" Margin="0,0,0,6"/>
-        <DockPanel Margin="0,0,0,6">
-            <Border x:Name="PreviewSwatch" Width="24" Height="24"
-                    BorderBrush="Gray" BorderThickness="1"
-                    DockPanel.Dock="Left" Margin="0,0,6,0"/>
-            <TextBlock Text="#" VerticalAlignment="Center" Margin="0,0,2,0"/>
-            <TextBox x:Name="TbHex" MaxLength="6" DockPanel.Dock="Right" Width="70"
-                     HorizontalAlignment="Right" Margin="4,0,0,0"
-                     TextChanged="OnHexTextChanged"/>
-            <TextBlock VerticalAlignment="Center" Text="hex"/>
+        WindowStartupLocation="Manual"
+        FontFamily="맑은 고딕, Segoe UI" FontSize="12">
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="200"/>
+            <RowDefinition Height="8"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="8"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── Row 0: Spectrum + Hue strip ─────────────────────────── -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="20"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- SV plane: White→Hue / Transparent→Black -->
+            <Grid Grid.Column="0" x:Name="SpectrumGrid"
+                  ClipToBounds="True" Cursor="Crosshair"
+                  MouseDown="OnSpectrumDown"
+                  MouseMove="OnSpectrumMove"
+                  MouseUp="OnSpectrumUp">
+                <!-- Horizontal gradient: White → current Hue (set in code) -->
+                <Rectangle x:Name="RectHueGrad"/>
+                <!-- Vertical overlay: Transparent → Black -->
+                <Rectangle IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="Transparent" Offset="0"/>
+                            <GradientStop Color="Black"       Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <!-- Crosshair cursor -->
+                <Canvas>
+                    <Ellipse x:Name="SpectrumCursor"
+                             Width="12" Height="12"
+                             Stroke="White" StrokeThickness="2"
+                             Fill="Transparent"
+                             IsHitTestVisible="False">
+                        <Ellipse.Effect>
+                            <DropShadowEffect ShadowDepth="0" BlurRadius="2"
+                                             Color="Black" Opacity="0.85"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                </Canvas>
+            </Grid>
+
+            <!-- Hue strip (vertical rainbow) -->
+            <Grid Grid.Column="2" x:Name="HueGrid"
+                  ClipToBounds="True" Cursor="SizeNS"
+                  MouseDown="OnHueDown"
+                  MouseMove="OnHueMove"
+                  MouseUp="OnHueUp">
+                <Rectangle IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#FF0000" Offset="0"/>
+                            <GradientStop Color="#FFFF00" Offset="0.167"/>
+                            <GradientStop Color="#00FF00" Offset="0.333"/>
+                            <GradientStop Color="#00FFFF" Offset="0.500"/>
+                            <GradientStop Color="#0000FF" Offset="0.667"/>
+                            <GradientStop Color="#FF00FF" Offset="0.833"/>
+                            <GradientStop Color="#FF0000" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <!-- Hue position indicator -->
+                <Canvas>
+                    <Rectangle x:Name="HueCursor"
+                               Width="20" Height="4"
+                               Fill="White" Stroke="#555" StrokeThickness="0.5"
+                               IsHitTestVisible="False"/>
+                </Canvas>
+            </Grid>
+        </Grid>
+
+        <!-- ── Row 2: Preview swatch + RGB sliders ──────────────────── -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="62"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: color swatch + hex input -->
+            <StackPanel Grid.Column="0">
+                <Border x:Name="PreviewSwatch"
+                        Height="72" BorderBrush="#888" BorderThickness="1"
+                        Margin="0,0,0,4"/>
+                <DockPanel>
+                    <TextBlock Text="#" VerticalAlignment="Center"
+                               Foreground="#666" Margin="0,0,2,0"/>
+                    <TextBox x:Name="TbHex" MaxLength="6"
+                             FontFamily="Consolas, Courier New" FontSize="11"
+                             TextChanged="OnHexChanged"/>
+                </DockPanel>
+            </StackPanel>
+
+            <!-- Right: R / G / B each with slider + numeric input -->
+            <Grid Grid.Column="2" VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="26"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="4"/>
+                    <ColumnDefinition Width="46"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="R"
+                           VerticalAlignment="Center"
+                           Foreground="#CC2222" FontWeight="Bold"/>
+                <Slider    Grid.Row="0" Grid.Column="1" x:Name="SlR"
+                           Minimum="0" Maximum="255" VerticalAlignment="Center"
+                           ValueChanged="OnRgbSliderChanged"/>
+                <TextBox   Grid.Row="0" Grid.Column="3" x:Name="TbR"
+                           MaxLength="3" VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           TextChanged="OnRgbTextChanged"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="G"
+                           VerticalAlignment="Center"
+                           Foreground="#228822" FontWeight="Bold"/>
+                <Slider    Grid.Row="2" Grid.Column="1" x:Name="SlG"
+                           Minimum="0" Maximum="255" VerticalAlignment="Center"
+                           ValueChanged="OnRgbSliderChanged"/>
+                <TextBox   Grid.Row="2" Grid.Column="3" x:Name="TbG"
+                           MaxLength="3" VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           TextChanged="OnRgbTextChanged"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="B"
+                           VerticalAlignment="Center"
+                           Foreground="#2222CC" FontWeight="Bold"/>
+                <Slider    Grid.Row="4" Grid.Column="1" x:Name="SlB"
+                           Minimum="0" Maximum="255" VerticalAlignment="Center"
+                           ValueChanged="OnRgbSliderChanged"/>
+                <TextBox   Grid.Row="4" Grid.Column="3" x:Name="TbB"
+                           MaxLength="3" VerticalAlignment="Center"
+                           TextAlignment="Center"
+                           TextChanged="OnRgbTextChanged"/>
+            </Grid>
+        </Grid>
+
+        <!-- ── Row 4: Quick-palette + OK / Cancel ────────────────────── -->
+        <DockPanel Grid.Row="4">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="{DynamicResource Btn_Ok}"     Width="68"
+                        Margin="6,0,0,0" IsDefault="True" Click="OnOk"/>
+                <Button Content="{DynamicResource Btn_Cancel}" Width="68"
+                        Margin="6,0,0,0" IsCancel="True"  Click="OnCancel"/>
+            </StackPanel>
+            <UniformGrid x:Name="ColorGrid" Rows="1" Columns="12"/>
         </DockPanel>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="{DynamicResource Btn_Ok}"     Width="60" Margin="0,0,6,0"
-                    IsDefault="True" Click="OnOk"/>
-            <Button Content="{DynamicResource Btn_Cancel}" Width="60"
-                    IsCancel="True" Click="OnCancel"/>
-        </StackPanel>
-    </StackPanel>
+    </Grid>
 </Window>
