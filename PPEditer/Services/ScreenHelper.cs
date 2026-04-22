@@ -83,14 +83,29 @@ public static class ScreenHelper
     }
 
     /// <summary>Positions and maximizes <paramref name="wnd"/> on the monitor at <paramref name="monitorIndex"/>.</summary>
+    /// <remarks>
+    /// WPF ignores Left/Top for monitor selection when WindowState=Maximized is set before
+    /// the window has an HWND. We set Normal+position before Show(), then maximize on Loaded
+    /// so the window's HWND already exists and Windows picks the correct monitor.
+    /// </remarks>
     public static void MaximizeOnMonitor(Window wnd, IReadOnlyList<MonitorInfo> monitors, int monitorIndex)
     {
         if (monitorIndex < 0 || monitorIndex >= monitors.Count) return;
         var m = monitors[monitorIndex];
-        // Place window inside target monitor, then maximize — WPF maximizes on the monitor the window is on.
-        wnd.WindowState = WindowState.Normal;
-        wnd.Left        = m.Left + 1;
-        wnd.Top         = m.Top  + 1;
-        wnd.WindowState = WindowState.Maximized;
+
+        wnd.WindowStartupLocation = WindowStartupLocation.Manual;
+        wnd.WindowState           = WindowState.Normal;
+        wnd.Left                  = m.Left + 1;
+        wnd.Top                   = m.Top  + 1;
+
+        // Maximize AFTER the window has an HWND so Windows picks the right monitor.
+        wnd.Loaded += OnLoaded;
+
+        static void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            var w = (Window)sender;
+            w.Loaded -= OnLoaded;
+            w.WindowState = WindowState.Maximized;
+        }
     }
 }
