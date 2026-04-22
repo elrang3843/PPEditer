@@ -28,7 +28,7 @@
 
             <!-- SV plane: White→Hue / Transparent→Black -->
             <Grid Grid.Column="0" x:Name="SpectrumGrid"
-                  ClipToBounds="True" Cursor="Crosshair"
+                  ClipToBounds="True" Cursor="Cross"
                   MouseDown="OnSpectrumDown"
                   MouseMove="OnSpectrumMove"
                   MouseUp="OnSpectrumUp">
