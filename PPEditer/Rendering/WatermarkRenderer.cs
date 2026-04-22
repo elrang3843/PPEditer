@@ -12,7 +12,7 @@ public static class WatermarkRenderer
 
     static WatermarkRenderer()
     {
-        Brush = new SolidColorBrush(Color.FromArgb(55, 180, 20, 20));
+        Brush = new SolidColorBrush(Color.FromArgb(90, 180, 20, 20));
         Brush.Freeze();
     }
 

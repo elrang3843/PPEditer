@@ -24,7 +24,9 @@
                         </Viewbox>
                         <!-- Watermark overlay — same Stretch=Uniform so it scales with the slide -->
                         <ContentControl x:Name="WatermarkHost"
-                                        IsHitTestVisible="False" Focusable="False"/>
+                                        IsHitTestVisible="False" Focusable="False"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch"/>
                     </Grid>
                 </Border>
             </Grid>

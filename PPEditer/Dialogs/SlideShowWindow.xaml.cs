@@ -318,17 +318,29 @@ public partial class SlideShowWindow : Window
 
     // ── Helpers ───────────────────────────────────────────────────────
 
+    private const string WatermarkTag = "__wm__";
+
     private void AddWatermarkOverlay()
     {
-        // Remove any previous watermark overlay (last child if non-Viewbox).
-        if (SlideContainer.Children.Count > 0
-            && SlideContainer.Children[^1] is not Viewbox)
-            SlideContainer.Children.RemoveAt(SlideContainer.Children.Count - 1);
+        // Remove any previous watermark overlay (tagged element).
+        for (int i = SlideContainer.Children.Count - 1; i >= 0; i--)
+        {
+            if (SlideContainer.Children[i] is FrameworkElement fe
+                && (string?)fe.Tag == WatermarkTag)
+            {
+                SlideContainer.Children.RemoveAt(i);
+                break;
+            }
+        }
 
         var props = _model.GetDocProperties();
         if (!props.WatermarkShowOnSlide) return;
         var el = WatermarkRenderer.BuildOverlay(props, _model.SlideWidth, _model.SlideHeight);
-        if (el is not null) SlideContainer.Children.Add(el);
+        if (el is FrameworkElement wmEl)
+        {
+            wmEl.Tag = WatermarkTag;
+            SlideContainer.Children.Add(wmEl);
+        }
     }
 
     private static FrameworkElement? FindShape(Canvas c, int idx) =>
