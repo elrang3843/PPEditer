@@ -52,7 +52,7 @@ public partial class DocInfoDialog : Window
             WatermarkKind.Horizontal => 2,
             _                        => 0,
         };
-        CboWmText.Text       = props.WatermarkText;
+        TxWmText.Text       = props.WatermarkText;
         ChkWmPrint.IsChecked = props.WatermarkShowOnPrint;
         ChkWmSlide.IsChecked = props.WatermarkShowOnSlide;
         UpdateWmPreview();
@@ -152,7 +152,7 @@ public partial class DocInfoDialog : Window
     private void UpdateWmPreview()
     {
         var kind = SelectedWmKind();
-        var text = CboWmText.Text.Trim();
+        var text = TxWmText.Text.Trim();
         WmPreviewHost.Content = kind != WatermarkKind.None && !string.IsNullOrWhiteSpace(text)
             ? WatermarkRenderer.BuildOverlay(text, kind, 320, 180)
             : null;
@@ -174,7 +174,7 @@ public partial class DocInfoDialog : Window
             Company = TxCompany.Text.Trim(),
 
             WatermarkKind        = SelectedWmKind(),
-            WatermarkText        = CboWmText.Text.Trim(),
+            WatermarkText        = TxWmText.Text.Trim(),
             WatermarkShowOnPrint = ChkWmPrint.IsChecked == true,
             WatermarkShowOnSlide = ChkWmSlide.IsChecked == true,
         };

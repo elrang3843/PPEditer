@@ -168,16 +168,8 @@
 
                     <!-- 텍스트 -->
                     <TextBlock Text="{DynamicResource Dlg_WM_Text}" Margin="0,0,0,4"/>
-                    <ComboBox x:Name="CboWmText" IsEditable="True" Margin="0,0,0,12"
-                              Text="" TextBoxBase.TextChanged="OnWmTextChanged">
-                        <ComboBoxItem Content="기밀"/>
-                        <ComboBoxItem Content="사본"/>
-                        <ComboBoxItem Content="견본"/>
-                        <ComboBoxItem Content="승인전"/>
-                        <ComboBoxItem Content="DRAFT"/>
-                        <ComboBoxItem Content="CONFIDENTIAL"/>
-                        <ComboBoxItem Content="COPY"/>
-                    </ComboBox>
+                    <TextBox x:Name="TxWmText" Margin="0,0,0,12"
+                             TextChanged="OnWmTextChanged"/>
 
                     <!-- 미리보기 -->
                     <TextBlock Text="{DynamicResource Dlg_WM_Preview}" Margin="0,0,0,4"/>
