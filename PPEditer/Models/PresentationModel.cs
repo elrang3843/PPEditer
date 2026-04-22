@@ -1697,6 +1697,8 @@ public sealed class PresentationModel : IDisposable
         try
         {
             var pp = _doc.PackageProperties;
+            if (string.IsNullOrEmpty(pp.Creator))        pp.Creator        = Environment.UserName;
+            if (string.IsNullOrEmpty(pp.LastModifiedBy)) pp.LastModifiedBy = Environment.UserName;
             pp.Modified = DateTime.UtcNow;
             if (pp.Created is null) pp.Created = DateTime.UtcNow;
             pp.Revision = ((int.TryParse(pp.Revision, out int rev) ? rev : 0) + 1).ToString();
