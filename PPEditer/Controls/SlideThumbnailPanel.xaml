@@ -25,7 +25,18 @@
                   BorderThickness="0"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                   SelectionChanged="ThumbnailList_SelectionChanged"
-                  MouseDoubleClick="ThumbnailList_MouseDoubleClick">
+                  MouseDoubleClick="ThumbnailList_MouseDoubleClick"
+                  KeyDown="ThumbnailList_KeyDown"
+                  PreviewMouseRightButtonDown="ThumbnailList_PreviewMouseRightButtonDown">
+            <ListView.ContextMenu>
+                <ContextMenu Opened="OnContextMenuOpened">
+                    <MenuItem x:Name="CtxMenuCut"    Header="{DynamicResource Ms_Cut}"   Click="OnCtxCut"/>
+                    <MenuItem x:Name="CtxMenuCopy"   Header="{DynamicResource Ms_Copy}"  Click="OnCtxCopy"/>
+                    <MenuItem x:Name="CtxMenuPaste"  Header="{DynamicResource Ms_Paste}" Click="OnCtxPaste"/>
+                    <Separator/>
+                    <MenuItem x:Name="CtxMenuDelete" Header="{DynamicResource Ctx_Delete}" Click="OnCtxDelete"/>
+                </ContextMenu>
+            </ListView.ContextMenu>
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Center"/>

@@ -32,6 +32,12 @@ public sealed class PresentationModel : IDisposable
     private bool          _wmShowOnPrint = true;
     private bool          _wmShowOnSlide = true;
 
+    // ── Slide clipboard (static — survives slide/document switches) ──────
+    private static byte[]?   _slideClipXml;
+    private static (string rId, string contentType, byte[] data)[]? _slideClipParts;
+    private static (string rId, Uri uri)? _slideClipLayout;
+    public  static bool HasSlideClipboard => _slideClipXml is not null;
+
     // ── Properties ──────────────────────────────────────────────────────
 
     public bool   IsOpen    => _doc != null;
@@ -233,6 +239,100 @@ public sealed class PresentationModel : IDisposable
 
         pp.Presentation.Save();
         _modified = true;
+    }
+
+    // ── Slide clipboard ─────────────────────────────────────────────────
+
+    public void CopySlideToClipboard(int index)
+    {
+        var src = GetSlidePart(index);
+        if (src is null) return;
+
+        using var ms = new MemoryStream();
+        using (var s = src.GetStream(FileMode.Open, FileAccess.Read)) s.CopyTo(ms);
+        _slideClipXml = ms.ToArray();
+
+        _slideClipLayout = null;
+        var parts = new List<(string, string, byte[])>();
+        foreach (var rel in src.Parts)
+        {
+            if (rel.OpenXmlPart is SlideLayoutPart lp)
+            {
+                _slideClipLayout = (rel.RelationshipId, lp.Uri);
+            }
+            else if (rel.OpenXmlPart is ImagePart ip)
+            {
+                using var pms = new MemoryStream();
+                using (var s = ip.GetStream(FileMode.Open, FileAccess.Read)) s.CopyTo(pms);
+                parts.Add((rel.RelationshipId, ip.ContentType, pms.ToArray()));
+            }
+            // NotesSlidePart, ChartPart, etc. are intentionally skipped
+        }
+        _slideClipParts = [.. parts];
+    }
+
+    public int PasteSlideFromClipboard(int afterIndex)
+    {
+        if (_slideClipXml is null) return afterIndex;
+        PushUndo();
+
+        var pp      = _doc!.PresentationPart!;
+        var newPart = pp.AddNewPart<SlidePart>();
+
+        using (var dst = newPart.GetStream(FileMode.Create))
+            dst.Write(_slideClipXml, 0, _slideClipXml.Length);
+
+        // Find and attach the layout from the current document
+        if (_slideClipLayout.HasValue)
+        {
+            var (layoutRId, layoutUri) = _slideClipLayout.Value;
+            SlideLayoutPart? found = null;
+            foreach (var smId in pp.Presentation.SlideMasterIdList?.Elements<SlideMasterId>() ?? [])
+            {
+                if (smId.RelationshipId?.Value is not string mRId) continue;
+                if (pp.GetPartById(mRId) is not SlideMasterPart mPart) continue;
+                foreach (var lp in mPart.SlideLayoutParts)
+                    if (lp.Uri == layoutUri) { found = lp; break; }
+                if (found is not null) break;
+            }
+            if (found is null)
+            {
+                // Fallback: first available layout in the presentation
+                foreach (var smId in pp.Presentation.SlideMasterIdList?.Elements<SlideMasterId>() ?? [])
+                {
+                    if (smId.RelationshipId?.Value is not string mRId) continue;
+                    if (pp.GetPartById(mRId) is not SlideMasterPart mPart) continue;
+                    found = mPart.SlideLayoutParts.FirstOrDefault();
+                    if (found is not null) break;
+                }
+            }
+            if (found is not null)
+                newPart.AddPart(found, layoutRId);
+        }
+
+        // Restore image sub-parts with original relationship IDs
+        if (_slideClipParts is not null)
+        {
+            foreach (var (rId, contentType, data) in _slideClipParts)
+            {
+                var imgPart = newPart.AddNewPart<ImagePart>(contentType, rId);
+                using var s = imgPart.GetStream(FileMode.Create);
+                s.Write(data, 0, data.Length);
+            }
+        }
+
+        var idList = pp.Presentation.SlideIdList!;
+        var ids    = idList.Elements<SlideId>().ToList();
+        uint maxId = ids.Select(s => s.Id?.Value ?? 0u).DefaultIfEmpty(255u).Max();
+        var newId  = new SlideId { Id = maxId + 1, RelationshipId = pp.GetIdOfPart(newPart) };
+        if (afterIndex >= 0 && afterIndex < ids.Count)
+            idList.InsertAfter(newId, ids[afterIndex]);
+        else
+            idList.Append(newId);
+
+        pp.Presentation.Save();
+        _modified = true;
+        return afterIndex + 1;
     }
 
     // ── Shape content ───────────────────────────────────────────────────

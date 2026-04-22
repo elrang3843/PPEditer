@@ -19,6 +19,10 @@ public partial class SlideThumbnailPanel : UserControl
 {
     public event Action<int>? SlideSelected;
     public event Action<int>? SlideDoubleClicked;
+    public event Action<int>? SlideCopyRequested;
+    public event Action<int>? SlideCutRequested;
+    public event Action<int>? SlidePasteRequested;
+    public event Action<int>? SlideDeleteRequested;
 
     private readonly ObservableCollection<SlideThumbnailItem> _items = new();
     private PresentationModel? _model;
@@ -88,5 +92,72 @@ public partial class SlideThumbnailPanel : UserControl
     {
         if (ThumbnailList.SelectedIndex >= 0)
             SlideDoubleClicked?.Invoke(ThumbnailList.SelectedIndex);
+    }
+
+    private void ThumbnailList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var container = ItemsControl.ContainerFromElement(ThumbnailList, e.OriginalSource as DependencyObject) as ListViewItem;
+        if (container is not null)
+            container.IsSelected = true;
+    }
+
+    private void ThumbnailList_KeyDown(object sender, KeyEventArgs e)
+    {
+        int idx = ThumbnailList.SelectedIndex;
+        if (idx < 0 || _model?.IsOpen != true) return;
+
+        if (e.Key == Key.C && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            SlideCopyRequested?.Invoke(idx);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.X && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            SlideCutRequested?.Invoke(idx);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            SlidePasteRequested?.Invoke(idx);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete)
+        {
+            SlideDeleteRequested?.Invoke(idx);
+            e.Handled = true;
+        }
+    }
+
+    private void OnContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        bool hasItem = ThumbnailList.SelectedIndex >= 0 && _model?.IsOpen == true;
+        CtxMenuCut.IsEnabled    = hasItem;
+        CtxMenuCopy.IsEnabled   = hasItem;
+        CtxMenuPaste.IsEnabled  = PresentationModel.HasSlideClipboard && _model?.IsOpen == true;
+        CtxMenuDelete.IsEnabled = hasItem && _model?.SlideCount > 1;
+    }
+
+    private void OnCtxCopy(object sender, RoutedEventArgs e)
+    {
+        if (ThumbnailList.SelectedIndex >= 0)
+            SlideCopyRequested?.Invoke(ThumbnailList.SelectedIndex);
+    }
+
+    private void OnCtxCut(object sender, RoutedEventArgs e)
+    {
+        if (ThumbnailList.SelectedIndex >= 0)
+            SlideCutRequested?.Invoke(ThumbnailList.SelectedIndex);
+    }
+
+    private void OnCtxPaste(object sender, RoutedEventArgs e)
+    {
+        if (ThumbnailList.SelectedIndex >= 0)
+            SlidePasteRequested?.Invoke(ThumbnailList.SelectedIndex);
+    }
+
+    private void OnCtxDelete(object sender, RoutedEventArgs e)
+    {
+        if (ThumbnailList.SelectedIndex >= 0)
+            SlideDeleteRequested?.Invoke(ThumbnailList.SelectedIndex);
     }
 }

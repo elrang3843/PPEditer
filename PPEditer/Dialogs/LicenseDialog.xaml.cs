@@ -26,7 +26,7 @@ public partial class LicenseDialog : Window
         Add(p, H1("이 소프트웨어"));
         Add(p, LibCard(
             name:      "PPEditer",
-            version:   "1.7.0",
+            version:   "1.9.0",
             copyright: "Copyright © 2026 Noh JinMoon (HANDTECH — 상상공작소)",
             license:   "MIT License",
             links:     [
