@@ -18,6 +18,9 @@ public partial class SlideShowWindow : Window
     private Canvas?  _activeCanvas;
     private readonly Queue<ShapeAnimation> _pendingAnims = new();
 
+    /// <summary>Fired whenever the displayed slide changes (index is 0-based).</summary>
+    public event Action<int>? SlideChanged;
+
     public SlideShowWindow(PresentationModel model, int startIndex)
     {
         InitializeComponent();
@@ -28,6 +31,9 @@ public partial class SlideShowWindow : Window
 
     // ── Navigation ────────────────────────────────────────────────────
 
+    /// <summary>Navigate relative to the current slide (delta: +1 = next, -1 = prev).</summary>
+    public void Navigate(int delta) { if (delta > 0) GoNext(); else GoPrev(); }
+
     private void GoNext()
     {
         if (_transitioning) return;
@@ -35,6 +41,7 @@ public partial class SlideShowWindow : Window
         if (_index < _model.SlideCount - 1)
         {
             _index++;
+            SlideChanged?.Invoke(_index);
             ShowSlide(_model.GetSlideTransition(_index));
         }
         else Close();
@@ -44,7 +51,12 @@ public partial class SlideShowWindow : Window
     {
         if (_transitioning) return;
         _pendingAnims.Clear();
-        if (_index > 0) { _index--; ShowSlide(new SlideTransition { Kind = TransitionKind.None }); }
+        if (_index > 0)
+        {
+            _index--;
+            SlideChanged?.Invoke(_index);
+            ShowSlide(new SlideTransition { Kind = TransitionKind.None });
+        }
     }
 
     // ── Slide display ─────────────────────────────────────────────────

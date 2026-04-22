@@ -258,6 +258,12 @@
     <sys:String x:Key="Dlg_Print_Options">Options</sys:String>
     <sys:String x:Key="Dlg_Print_BlackWhite">Black &amp; white</sys:String>
     <sys:String x:Key="Err_PrintFailed">Print failed.</sys:String>
+    <sys:String x:Key="Dlg_PresenterView">Presenter View — PPEditer</sys:String>
+    <sys:String x:Key="Lbl_NextSlide">Next Slide</sys:String>
+    <sys:String x:Key="Lbl_LastSlide">End of Presentation</sys:String>
+    <sys:String x:Key="Lbl_PresenterNotes">Speaker Notes</sys:String>
+    <sys:String x:Key="Btn_PresenterPrev">◀ Prev</sys:String>
+    <sys:String x:Key="Btn_PresenterNext">Next ▶</sys:String>
     <sys:String x:Key="Lbl_InsertFailed">Insert Error</sys:String>
     <sys:String x:Key="Err_InsertFailed">Insert failed:</sys:String>
     <sys:String x:Key="Dlg_OpenFilter">Presentation files|*.pptx;*.ppt|All files|*.*</sys:String>

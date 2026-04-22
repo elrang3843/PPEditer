@@ -1204,9 +1204,79 @@ public partial class MainWindow : Window
     private void OnSlideShow(object? _ = null)
     {
         if (!_model.IsOpen) return;
+        SaveCurrentNotes();
         EditorCanvas.CommitEdit(save: true);
-        var wnd = new Dialogs.SlideShowWindow(_model, _currentSlide);
-        wnd.ShowDialog();
+
+        var showWnd = new Dialogs.SlideShowWindow(_model, _currentSlide);
+        var presWnd = new Dialogs.PresenterViewWindow(_model, _currentSlide);
+        presWnd.AttachShowWindow(showWnd);
+
+        // Close both when either is closed
+        showWnd.Closed += (_, _) => { try { presWnd.Close(); } catch { } };
+        presWnd.Closed += (_, _) => { try { if (showWnd.IsLoaded) showWnd.Close(); } catch { } };
+
+        PositionPresenterView(showWnd, presWnd);
+
+        presWnd.Show();
+        showWnd.ShowDialog();
+    }
+
+    private void PositionPresenterView(Dialogs.SlideShowWindow showWnd,
+                                       Dialogs.PresenterViewWindow presWnd)
+    {
+        double primaryW  = SystemParameters.PrimaryScreenWidth;
+        double primaryH  = SystemParameters.PrimaryScreenHeight;
+        double virtualW  = SystemParameters.VirtualScreenWidth;
+        double virtualH  = SystemParameters.VirtualScreenHeight;
+        double virtualL  = SystemParameters.VirtualScreenLeft;
+        double virtualT  = SystemParameters.VirtualScreenTop;
+
+        bool hasMultiple = virtualW > primaryW || virtualH > primaryH;
+
+        if (hasMultiple)
+        {
+            // Presentation window: stays on primary monitor (left = 0, top = 0)
+            showWnd.WindowState = WindowState.Normal;
+            showWnd.Left = 0; showWnd.Top = 0;
+            showWnd.WindowState = WindowState.Maximized;
+
+            // Presenter view: secondary monitor
+            if (virtualL < 0)
+            {
+                // Secondary is to the LEFT
+                presWnd.Left = virtualL;
+                presWnd.Top  = 0;
+            }
+            else if (virtualW > primaryW)
+            {
+                // Secondary is to the RIGHT
+                presWnd.Left = primaryW;
+                presWnd.Top  = 0;
+            }
+            else if (virtualT < 0)
+            {
+                // Secondary is ABOVE
+                presWnd.Left = 0;
+                presWnd.Top  = virtualT;
+            }
+            else
+            {
+                // Secondary is BELOW
+                presWnd.Left = 0;
+                presWnd.Top  = primaryH;
+            }
+            presWnd.WindowState = WindowState.Maximized;
+        }
+        else
+        {
+            // Single monitor — presenter view as floating window
+            presWnd.WindowStartupLocation = WindowStartupLocation.Manual;
+            presWnd.Width  = 780;
+            presWnd.Height = 540;
+            presWnd.Left   = 30;
+            presWnd.Top    = 30;
+            presWnd.WindowState = WindowState.Normal;
+        }
     }
 
     // ── XAML event bridges ────────────────────────────────────────────
