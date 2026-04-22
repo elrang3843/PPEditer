@@ -40,6 +40,10 @@ public partial class SlideEditorCanvas : UserControl
     public event Action<int, int[]>? ShapesGroupRequested;
     /// <summary>User requested ungrouping of a GroupShape. (slideIdx, treeIdx)</summary>
     public event Action<int, int>? ShapeUngroupRequested;
+    /// <summary>User deleted multiple shapes. (slideIdx, treeIdxs sorted ascending)</summary>
+    public event Action<int, int[]>? ShapesDeleted;
+    /// <summary>User requested paste of clipboard shapes. (slideIdx, cloned elements to insert)</summary>
+    public event Action<int, OpenXmlCompositeElement[]>? ShapesPasteRequested;
     /// <summary>User requested character properties while editing. (slideIdx, treeIdx)</summary>
     public event Action<int, int>? CharPropertiesRequested;
     /// <summary>User requested paragraph properties while editing. (slideIdx, treeIdx)</summary>
@@ -119,6 +123,9 @@ public partial class SlideEditorCanvas : UserControl
     // ── Multi-select state ─────────────────────────────────────────────
     private readonly HashSet<int>            _multiTreeIdxs  = [];
     private readonly Dictionary<int, Canvas> _multiOverlays  = [];
+
+    // ── Shape clipboard ────────────────────────────────────────────────
+    private static readonly List<OpenXmlCompositeElement> _shapeClipboard = [];
 
     // ── Drag state ─────────────────────────────────────────────────────
 
@@ -310,7 +317,11 @@ public partial class SlideEditorCanvas : UserControl
 
         if (e.ClickCount == 1)
         {
+            var prevNative = _nativeCanvas;
             CommitEdit(save: true);
+            // If CommitEdit triggered a rebuild, switch to the new canvas.
+            if (_nativeCanvas != prevNative && _nativeCanvas is not null)
+                canvas = _nativeCanvas;
             int idx = HitTest(canvas, clickPos);
             if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && idx >= 0 && _selectedIdx >= 0)
             {
@@ -425,9 +436,36 @@ public partial class SlideEditorCanvas : UserControl
         }
         else if (e.Key == Key.Delete && _selectedIdx >= 0 && _editor is null)
         {
-            if (_selectedTreeIdx >= 0)
-                ShapeDeleted?.Invoke(_slideIndex, _selectedTreeIdx);
+            var toDelete = SelectedTreeIndices;
+            if (toDelete.Length == 1)
+                ShapeDeleted?.Invoke(_slideIndex, toDelete[0]);
+            else if (toDelete.Length > 1)
+                ShapesDeleted?.Invoke(_slideIndex, toDelete);
             e.Handled = true;
+        }
+        else if (_editor is null && _selectedIdx >= 0 &&
+                 (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            if (e.Key == Key.C)
+            {
+                CopySelectedShapes();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.X)
+            {
+                CopySelectedShapes();
+                var toDelete = SelectedTreeIndices;
+                if (toDelete.Length == 1)
+                    ShapeDeleted?.Invoke(_slideIndex, toDelete[0]);
+                else if (toDelete.Length > 1)
+                    ShapesDeleted?.Invoke(_slideIndex, toDelete);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.V && _shapeClipboard.Count > 0)
+            {
+                ShapesPasteRequested?.Invoke(_slideIndex, [.. _shapeClipboard]);
+                e.Handled = true;
+            }
         }
         else if (_selectedIdx >= 0 && _editor is null &&
                  (e.Key == Key.Left || e.Key == Key.Right ||
@@ -1255,6 +1293,40 @@ public partial class SlideEditorCanvas : UserControl
 
     public object? GetSelectionProperty(DependencyProperty prop)
         => _editor?.Selection.GetPropertyValue(prop);
+
+    // ── Clipboard helpers ──────────────────────────────────────────────
+
+    public bool IsShapeSelected => _selectedIdx >= 0 && _editor is null;
+    public bool HasClipboard => _shapeClipboard.Count > 0;
+
+    public void CopyShapes() { CopySelectedShapes(); }
+    public void CutShapes()
+    {
+        CopySelectedShapes();
+        var toDelete = SelectedTreeIndices;
+        if (toDelete.Length == 1)
+            ShapeDeleted?.Invoke(_slideIndex, toDelete[0]);
+        else if (toDelete.Length > 1)
+            ShapesDeleted?.Invoke(_slideIndex, toDelete);
+    }
+    public void PasteShapes()
+    {
+        if (_shapeClipboard.Count > 0)
+            ShapesPasteRequested?.Invoke(_slideIndex, [.. _shapeClipboard]);
+    }
+
+    private void CopySelectedShapes()
+    {
+        if (_slidePart is null || _selectedTreeIdx < 0) return;
+        var elements = _slidePart.Slide.CommonSlideData?.ShapeTree?
+            .Elements<OpenXmlCompositeElement>().ToList();
+        if (elements is null) return;
+        _shapeClipboard.Clear();
+        foreach (int ti in SelectedTreeIndices)
+            if (ti >= 0 && ti < elements.Count)
+                if (elements[ti].CloneNode(true) is OpenXmlCompositeElement clone)
+                    _shapeClipboard.Add(clone);
+    }
 
     // ── Character style (GetEditorCharStyle / ApplyEditorCharStyle) ────
 

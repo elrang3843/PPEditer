@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using DocumentFormat.OpenXml;
 using Microsoft.Win32;
 using PPEditer.Dialogs;
 using PPEditer.Export;
@@ -55,6 +56,18 @@ public partial class MainWindow : Window
         EditorCanvas.TextBoxDrawn             += OnTextBoxDrawn;
         EditorCanvas.ShapeRotated             += OnShapeRotated;
         EditorCanvas.SelectionChanged         += UpdateActions;
+        EditorCanvas.ShapesDeleted            += OnShapesDeleted;
+        EditorCanvas.ShapesPasteRequested     += OnShapesPasteRequested;
+
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy,
+            (_, _) => EditorCanvas.CopyShapes(),
+            (_, e2) => e2.CanExecute = EditorCanvas.IsShapeSelected));
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Cut,
+            (_, _) => EditorCanvas.CutShapes(),
+            (_, e2) => e2.CanExecute = EditorCanvas.IsShapeSelected));
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Paste,
+            (_, _) => EditorCanvas.PasteShapes(),
+            (_, e2) => e2.CanExecute = EditorCanvas.HasClipboard));
 
         RegisterKeyBindings();
         InitSettings();
@@ -494,6 +507,29 @@ public partial class MainWindow : Window
         UpdateTitle();
         UpdateActions();
         SetStatus(S("Msg_ShapeDeleted"));
+    }
+
+    private void OnShapesDeleted(int slideIdx, int[] treeIdxs)
+    {
+        _model.DeleteShapes(slideIdx, treeIdxs);
+        EditorCanvas.Invalidate(preserveSelection: false);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_ShapeDeleted"));
+    }
+
+    private void OnShapesPasteRequested(int slideIdx, OpenXmlCompositeElement[] shapes)
+    {
+        var newIdxs = _model.PasteShapes(slideIdx, shapes);
+        int selectIdx = newIdxs.Length > 0 ? newIdxs[^1] : -1;
+        if (selectIdx >= 0)
+            EditorCanvas.Invalidate(selectIdx);
+        else
+            EditorCanvas.Invalidate(preserveSelection: false);
+        SlidePanel.RefreshSingle(slideIdx);
+        UpdateTitle();
+        UpdateActions();
     }
 
     private void OnShapeResized(int slideIdx, int treeIdx,

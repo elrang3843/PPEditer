@@ -829,6 +829,74 @@ public sealed class PresentationModel : IDisposable
         _modified = true;
     }
 
+    public void DeleteShapes(int slideIndex, int[] treeIdxs)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return;
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return;
+
+        PushUndo();
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        // Remove in descending order to keep indices stable
+        foreach (int ti in treeIdxs.Distinct().OrderByDescending(x => x))
+            if (ti >= 0 && ti < elements.Count)
+                elements[ti].Remove();
+        slidePart.Slide.Save();
+        _modified = true;
+    }
+
+    public int[] PasteShapes(int slideIndex, IReadOnlyList<OpenXmlCompositeElement> shapes)
+    {
+        var slidePart = GetSlidePart(slideIndex);
+        if (slidePart is null) return [];
+        var tree = slidePart.Slide.CommonSlideData?.ShapeTree;
+        if (tree is null) return [];
+
+        PushUndo();
+        const long OffsetEmu = 360_000L; // ~1 cm
+        var elements = tree.Elements<OpenXmlCompositeElement>().ToList();
+        int startIdx = elements.Count;
+        int nextId   = GetMaxNvId(tree) + 1;
+        var newIdxs  = new List<int>();
+
+        foreach (var shape in shapes)
+        {
+            var clone = (OpenXmlCompositeElement)shape.CloneNode(true);
+            SetNvId(clone, nextId++);
+            ShiftOffset(clone, OffsetEmu, OffsetEmu);
+            tree.AppendChild(clone);
+            newIdxs.Add(startIdx++);
+        }
+        slidePart.Slide.Save();
+        _modified = true;
+        return [.. newIdxs];
+    }
+
+    private static int GetMaxNvId(OpenXmlElement tree)
+    {
+        int max = 0;
+        foreach (var nvPr in tree.Descendants<NonVisualDrawingProperties>())
+            if (nvPr.Id?.HasValue == true) max = Math.Max(max, (int)nvPr.Id.Value);
+        return max;
+    }
+
+    private static void SetNvId(OpenXmlElement shape, int newId)
+    {
+        var nvPr = shape.Descendants<NonVisualDrawingProperties>().FirstOrDefault();
+        if (nvPr is null) return;
+        nvPr.Id   = (uint)newId;
+        nvPr.Name = $"Shape {newId}";
+    }
+
+    private static void ShiftOffset(OpenXmlElement shape, long dx, long dy)
+    {
+        var off = shape.Descendants<A.Offset>().FirstOrDefault();
+        if (off is null) return;
+        if (off.X?.HasValue == true) off.X = off.X.Value + dx;
+        if (off.Y?.HasValue == true) off.Y = off.Y.Value + dy;
+    }
+
     /// <summary>Resize / reposition a shape to the given EMU coordinates.</summary>
     public void ResizeShape(int slideIndex, int shapeTreeIndex,
         long leftEmu, long topEmu, long widthEmu, long heightEmu)
