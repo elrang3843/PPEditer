@@ -1232,17 +1232,18 @@ public partial class SlideEditorCanvas : UserControl
     private static void ScaleFlowDoc(FlowDocument doc, double scale)
     {
         if (Math.Abs(scale - 1.0) < 0.001) return;
+        var fontSizeProp = System.Windows.Documents.TextElement.FontSizeProperty;
         foreach (var para in doc.Blocks.OfType<Paragraph>())
         {
-            if (para.ReadLocalValue(TextElement.FontSizeProperty) != DependencyProperty.UnsetValue)
+            if (para.ReadLocalValue(fontSizeProp) != DependencyProperty.UnsetValue)
                 para.FontSize *= scale;
             if (para.LineHeight > 0 && !double.IsNaN(para.LineHeight))
                 para.LineHeight *= scale;
             var m = para.Margin;
-            para.Margin    = new Thickness(m.Left * scale, m.Top * scale, m.Right * scale, m.Bottom * scale);
+            para.Margin     = new Thickness(m.Left * scale, m.Top * scale, m.Right * scale, m.Bottom * scale);
             para.TextIndent *= scale;
             foreach (var run in para.Inlines.OfType<Run>())
-                if (run.ReadLocalValue(TextElement.FontSizeProperty) != DependencyProperty.UnsetValue)
+                if (run.ReadLocalValue(fontSizeProp) != DependencyProperty.UnsetValue)
                     run.FontSize *= scale;
         }
     }
