@@ -391,4 +391,27 @@
     <sys:String x:Key="Dlg_Para_InvalidInput">올바른 숫자 값을 입력하세요.</sys:String>
     <sys:String x:Key="Msg_ParaPropsSaved">문단 속성이 변경되었습니다.</sys:String>
 
+    <!-- ══ 탬플릿 ══════════════════════════════════════════════════════════ -->
+    <sys:String x:Key="Ms_Template">탬플릿(_M)</sys:String>
+    <sys:String x:Key="Ms_Template_Open">탬플릿 불러오기(_O)...</sys:String>
+    <sys:String x:Key="Ms_Template_NewFrom">탬플릿으로 새로 만들기(_N)...</sys:String>
+    <sys:String x:Key="Ms_Template_Save">탬플릿 저장(_S)</sys:String>
+    <sys:String x:Key="Ms_Template_SaveAs">탬플릿 다른 이름으로 저장(_A)...</sys:String>
+    <sys:String x:Key="Ms_Template_ExitMode">탬플릿 편집 모드 종료(_X)</sys:String>
+    <sys:String x:Key="Lbl_TemplateMode">탬플릿 편집 중</sys:String>
+    <sys:String x:Key="Dlg_TemplatePickTitle">탬플릿 선택</sys:String>
+    <sys:String x:Key="Dlg_TemplateOpenFilter">프레젠테이션 파일|*.pptx|모든 파일|*.*</sys:String>
+    <sys:String x:Key="Dlg_TemplateOpenTitle">탬플릿 파일 불러오기</sys:String>
+    <sys:String x:Key="Dlg_TemplateSaveFilter">PowerPoint 파일|*.pptx|모든 파일|*.*</sys:String>
+    <sys:String x:Key="Dlg_TemplateSaveTitle">탬플릿 다른 이름으로 저장</sys:String>
+    <sys:String x:Key="Dlg_Template_Folder">표준 탬플릿 폴더</sys:String>
+    <sys:String x:Key="Dlg_Template_Browse">다른 위치 찾아보기...</sys:String>
+    <sys:String x:Key="Dlg_Template_Create">새 프레젠테이션 만들기</sys:String>
+    <sys:String x:Key="Dlg_Template_NoTemplates">저장된 탬플릿이 없습니다.&#x0a;'탬플릿 다른 이름으로 저장'으로 탬플릿을 추가하세요.</sys:String>
+    <sys:String x:Key="Msg_TemplateOpened">탬플릿 편집 모드로 열었습니다.</sys:String>
+    <sys:String x:Key="Msg_TemplateSaved">탬플릿이 저장되었습니다.</sys:String>
+    <sys:String x:Key="Msg_TemplateSavedAs">탬플릿이 저장되었습니다: {0}</sys:String>
+    <sys:String x:Key="Msg_TemplateNewCreated">탬플릿으로 새 프레젠테이션을 만들었습니다.</sys:String>
+    <sys:String x:Key="Msg_TemplateExitMode">탬플릿 편집 모드를 종료했습니다.</sys:String>
+
 </ResourceDictionary>

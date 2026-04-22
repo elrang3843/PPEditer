@@ -105,6 +105,23 @@
                           InputGestureText="Ctrl+Shift+J" Click="OnInsertEmoji"/>
             </MenuItem>
 
+            <!-- ── 탬플릿 메뉴 ─────────────────────────────────────────── -->
+            <MenuItem Header="{DynamicResource Ms_Template}">
+                <MenuItem Header="{DynamicResource Ms_Template_Open}"   Click="OnTemplateOpen"/>
+                <MenuItem Header="{DynamicResource Ms_Template_NewFrom}" Click="OnTemplateNewFrom"/>
+                <Separator/>
+                <MenuItem x:Name="MenuTemplateSave"
+                          Header="{DynamicResource Ms_Template_Save}"
+                          Click="OnTemplateSave"/>
+                <MenuItem x:Name="MenuTemplateSaveAs"
+                          Header="{DynamicResource Ms_Template_SaveAs}"
+                          Click="OnTemplateSaveAs"/>
+                <Separator/>
+                <MenuItem x:Name="MenuTemplateExitMode"
+                          Header="{DynamicResource Ms_Template_ExitMode}"
+                          Click="OnTemplateExitMode"/>
+            </MenuItem>
+
             <MenuItem Header="{DynamicResource Ms_Slide}">
                 <MenuItem x:Name="MenuAddSlide" Header="{DynamicResource Ms_AddSlide}" InputGestureText="Ctrl+M"            Click="OnAddSlide"/>
                 <MenuItem x:Name="MenuDupSlide" Header="{DynamicResource Ms_DupSlide}" InputGestureText="Ctrl+D"            Click="OnDupSlide"/>

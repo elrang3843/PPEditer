@@ -92,6 +92,21 @@ public sealed class PresentationModel : IDisposable
         _redoStack.Clear();
     }
 
+    public void NewFromTemplate(string templatePath)
+    {
+        Dispose();
+        _stream = new MemoryStream();
+        using (var fs = File.OpenRead(templatePath))
+            fs.CopyTo(_stream);
+        _stream.Position = 0;
+        _doc      = PresentationDocument.Open(_stream, true);
+        _filePath = null;
+        _modified = true;
+        _undoStack.Clear();
+        _redoStack.Clear();
+        ResetWatermarkCache();
+    }
+
     public void Save(string? filePath = null)
     {
         if (_doc is null) return;
