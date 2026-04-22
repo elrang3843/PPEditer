@@ -108,6 +108,11 @@ public partial class UserManualDialog : Window
 
         Add(p, H2("암호 설정"));
         Add(p, Para("파일 > 문서 정보 (Ctrl+Shift+I) > 암호 설정에서 PPTX 파일에 열기 암호를 설정하거나 제거합니다."));
+
+        Add(p, H2("자동 저장"));
+        Add(p, Para("설정 > 자동 저장에서 자동 저장 간격을 설정합니다."));
+        Add(p, Bullet("1 / 2 / 5 / 10 / 30분 간격 선택 가능"));
+        Add(p, Bullet("저장 경로가 없는 새 파일은 저장 위치 지정 알림을 표시합니다."));
         return p;
     }
 
@@ -156,6 +161,16 @@ public partial class UserManualDialog : Window
         Add(p, Bullet("편집 완료: Esc 키 또는 도형 바깥 클릭."));
         Add(p, Bullet("줄 바꿈: Enter 키."));
         Add(p, Bullet("굵게 Ctrl+B / 기울임 Ctrl+I / 밑줄 Ctrl+U"));
+
+        Add(p, H2("복사 / 잘라내기 / 붙여넣기"));
+        Add(p, Bullet("복사: 도형 선택 후 Ctrl+C"));
+        Add(p, Bullet("잘라내기: 도형 선택 후 Ctrl+X"));
+        Add(p, Bullet("붙여넣기: Ctrl+V (복사된 도형이 1 cm 오른쪽 아래에 삽입됩니다)"));
+        Add(p, Bullet("여러 도형을 선택한 상태에서도 일괄 복사/잘라내기/붙여넣기가 가능합니다."));
+
+        Add(p, H2("도형 회전"));
+        Add(p, Bullet("도형 선택 후 우클릭 > 회전을 선택합니다."));
+        Add(p, Bullet("각도를 직접 입력하여 회전합니다."));
 
         Add(p, H2("도형 그리기  (삽입 메뉴 또는 도구 모음)"));
         Add(p, Bullet("텍스트 상자: 삽입 > 텍스트 상자 (Ctrl+Shift+T)"));
@@ -263,6 +278,18 @@ public partial class UserManualDialog : Window
 
         Add(p, H2("슬라이드 쇼 종료"));
         Add(p, Para("마지막 슬라이드에서 다음으로 이동하거나 Esc를 누르면 종료됩니다."));
+
+        Add(p, H2("발표자 도구 (Presenter View)"));
+        Add(p, Para("슬라이드 > 발표자 도구 또는 설정 > 모니터 설정에서 활성화합니다."));
+        Add(p, Bullet("현재 슬라이드와 다음 슬라이드를 동시에 확인"));
+        Add(p, Bullet("슬라이드 노트를 발표자 화면에서 확인"));
+        Add(p, Bullet("경과 시간 표시"));
+        Add(p, Bullet("설정 > 모니터 설정에서 발표 화면과 발표자 화면 모니터를 각각 선택할 수 있습니다."));
+
+        Add(p, H2("슬라이드 노트"));
+        Add(p, Para("보기 > 노트 표시/숨김으로 편집 화면 하단에 노트 영역을 표시합니다."));
+        Add(p, Bullet("각 슬라이드별 발표 메모를 작성할 수 있습니다."));
+        Add(p, Bullet("노트 내용은 발표자 도구 화면과 인쇄 출력에서도 표시됩니다."));
         return p;
     }
 

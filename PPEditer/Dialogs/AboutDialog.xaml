@@ -33,7 +33,7 @@
                            FontSize="22" FontWeight="Bold" Margin="0,0,0,2"/>
                 <TextBlock Text="Planning Proposal Editor"
                            FontSize="11" Foreground="#666666" Margin="0,0,0,12"/>
-                <TextBlock Text="버전 1.0.0" Margin="0,0,0,4"/>
+                <TextBlock Text="버전 1.7.0" Margin="0,0,0,4"/>
                 <TextBlock Text="회사: HANDTECH (핸텍) — 상상공작소" Margin="0,2"/>
                 <TextBlock Text="저작권자: 노진문 (Noh JinMoon)" Margin="0,2"/>
                 <TextBlock Text="라이선스: MIT License" Margin="0,2"/>
