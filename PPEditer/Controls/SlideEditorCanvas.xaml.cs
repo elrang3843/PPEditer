@@ -1161,7 +1161,13 @@ public partial class SlideEditorCanvas : UserControl
 
         EditingStarted?.Invoke(_editor);
 
-        _editor.LostFocus += (_, _) => { if (!SuppressLostFocusCommit) CommitEdit(save: true); };
+        _editor.LostFocus += (_, _) =>
+        {
+            if (SuppressLostFocusCommit) return;
+            var focused = Keyboard.FocusedElement as DependencyObject;
+            if (focused is MenuItem || focused is MenuBase) return;
+            CommitEdit(save: true);
+        };
         _editor.KeyDown   += Editor_KeyDown;
     }
 

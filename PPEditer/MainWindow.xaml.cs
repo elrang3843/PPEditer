@@ -474,6 +474,7 @@ public partial class MainWindow : Window
         TbInsertTxBox.IsEnabled = false;
         rtb.SelectionChanged += Editor_SelectionChanged;
         SyncFormatToolbar();
+        UpdateActions();   // re-enable Math / CharMap / Emoji items
     }
 
     private void OnShapeMoved(int slideIdx, int treeIdx, long dx, long dy)
