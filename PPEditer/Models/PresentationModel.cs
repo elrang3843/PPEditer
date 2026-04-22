@@ -1520,38 +1520,19 @@ public sealed class PresentationModel : IDisposable
         var p = new DocProperties();
         if (_doc is null) return p;
 
-        // Core properties
-        var corePart = _doc.CoreFilePropertiesPart;
-        if (corePart is not null)
+        // Core properties via SDK typed API (reliable across SDK versions)
+        try
         {
-            try
-            {
-                XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
-                XNamespace dc      = "http://purl.org/dc/elements/1.1/";
-                XNamespace dcterms = "http://purl.org/dc/terms/";
-
-                var xdoc = XDocument.Load(corePart.GetStream());
-                var root = xdoc.Root!;
-
-                p.Title          = root.Element(dc      + "title")?.Value          ?? string.Empty;
-                p.Subject        = root.Element(dc      + "subject")?.Value        ?? string.Empty;
-                p.Author         = root.Element(dc      + "creator")?.Value        ?? string.Empty;
-                p.LastModifiedBy = root.Element(cp      + "lastModifiedBy")?.Value ?? string.Empty;
-
-                if (int.TryParse(root.Element(cp + "revision")?.Value, out int rev))
-                    p.Revision = rev;
-
-                if (DateTime.TryParse(root.Element(dcterms + "created")?.Value,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.RoundtripKind, out var created))
-                    p.Created = created;
-                if (DateTime.TryParse(root.Element(dcterms + "modified")?.Value,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.RoundtripKind, out var modified))
-                    p.Modified = modified;
-            }
-            catch { }
+            var pp           = _doc.PackageProperties;
+            p.Title          = pp.Title          ?? string.Empty;
+            p.Subject        = pp.Subject        ?? string.Empty;
+            p.Author         = pp.Creator        ?? string.Empty;
+            p.LastModifiedBy = pp.LastModifiedBy ?? string.Empty;
+            if (int.TryParse(pp.Revision, out int rev)) p.Revision = rev;
+            p.Created  = pp.Created;
+            p.Modified = pp.Modified;
         }
+        catch { }
 
         // Extended properties (Manager, Company)
         var extPart = _doc.ExtendedFilePropertiesPart;
@@ -1644,58 +1625,16 @@ public sealed class PresentationModel : IDisposable
 
     private void SaveCorePropertiesFull(DocProperties props)
     {
-        XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
-        XNamespace dc      = "http://purl.org/dc/elements/1.1/";
-        XNamespace dcterms = "http://purl.org/dc/terms/";
-        XNamespace xsi     = "http://www.w3.org/2001/XMLSchema-instance";
-
-        var corePart = _doc!.CoreFilePropertiesPart;
-        XDocument xdoc;
-
-        if (corePart is null)
-        {
-            corePart = _doc.AddCoreFilePropertiesPart();
-            xdoc = new XDocument(
-                new XElement(cp + "coreProperties",
-                    new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
-        }
-        else
-        {
-            try   { xdoc = XDocument.Load(corePart.GetStream()); }
-            catch
-            {
-                xdoc = new XDocument(
-                    new XElement(cp + "coreProperties",
-                        new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
-                        new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
-            }
-        }
-
-        var root = xdoc.Root!;
-        var now  = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-        XmlSetOrCreate(root, dc      + "title",          props.Title);
-        XmlSetOrCreate(root, dc      + "subject",        props.Subject);
-        XmlSetOrCreate(root, dc      + "creator",        props.Author);
-        XmlSetOrCreate(root, cp      + "lastModifiedBy", Environment.UserName);
-        XmlSetOrCreate(root, dcterms + "modified",       now, xsi + "type", "dcterms:W3CDTF");
-
-        if (root.Element(dcterms + "created") is null)
-            XmlSetOrCreate(root, dcterms + "created", now, xsi + "type", "dcterms:W3CDTF");
-
-        var revEl = root.Element(cp + "revision");
-        int rev   = revEl is not null && int.TryParse(revEl.Value, out int r) ? r + 1 : 1;
-        XmlSetOrCreate(root, cp + "revision", rev.ToString());
-
         try
         {
-            using var ws = corePart.GetStream(FileMode.Create, FileAccess.Write);
-            xdoc.Save(ws);
+            var pp = _doc!.PackageProperties;
+            pp.Title          = string.IsNullOrEmpty(props.Title)   ? null : props.Title;
+            pp.Subject        = string.IsNullOrEmpty(props.Subject) ? null : props.Subject;
+            pp.Creator        = string.IsNullOrEmpty(props.Author)  ? null : props.Author;
+            pp.LastModifiedBy = Environment.UserName;
+            pp.Modified       = DateTime.UtcNow;
+            if (pp.Created is null) pp.Created = DateTime.UtcNow;
+            pp.Revision = ((int.TryParse(pp.Revision, out int rev) ? rev : 0) + 1).ToString();
         }
         catch { }
     }
@@ -1755,49 +1694,13 @@ public sealed class PresentationModel : IDisposable
     private void UpdateSaveMetadata()
     {
         if (_doc is null) return;
-
-        XNamespace cp      = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
-        XNamespace dc      = "http://purl.org/dc/elements/1.1/";
-        XNamespace dcterms = "http://purl.org/dc/terms/";
-        XNamespace xsi     = "http://www.w3.org/2001/XMLSchema-instance";
-
-        var corePart = _doc.CoreFilePropertiesPart;
-        XDocument xdoc;
-
-        if (corePart is null)
-        {
-            try { corePart = _doc.AddCoreFilePropertiesPart(); }
-            catch { return; }
-            xdoc = new XDocument(
-                new XElement(cp + "coreProperties",
-                    new XAttribute(XNamespace.Xmlns + "cp",      cp.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dc",      dc.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "dcterms", dcterms.NamespaceName),
-                    new XAttribute(XNamespace.Xmlns + "xsi",     xsi.NamespaceName)));
-        }
-        else
-        {
-            try   { xdoc = XDocument.Load(corePart.GetStream()); }
-            catch { return; }
-        }
-
-        var root = xdoc.Root!;
-        var now  = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-
-        XmlSetOrCreate(root, cp      + "lastModifiedBy", Environment.UserName);
-        XmlSetOrCreate(root, dcterms + "modified",       now, xsi + "type", "dcterms:W3CDTF");
-
-        if (root.Element(dcterms + "created") is null)
-            XmlSetOrCreate(root, dcterms + "created", now, xsi + "type", "dcterms:W3CDTF");
-
-        var revEl = root.Element(cp + "revision");
-        int rev   = revEl is not null && int.TryParse(revEl.Value, out int r) ? r + 1 : 1;
-        XmlSetOrCreate(root, cp + "revision", rev.ToString());
-
         try
         {
-            using var ws = corePart.GetStream(FileMode.Create, FileAccess.Write);
-            xdoc.Save(ws);
+            var pp = _doc.PackageProperties;
+            pp.LastModifiedBy = Environment.UserName;
+            pp.Modified       = DateTime.UtcNow;
+            if (pp.Created is null) pp.Created = DateTime.UtcNow;
+            pp.Revision = ((int.TryParse(pp.Revision, out int rev) ? rev : 0) + 1).ToString();
         }
         catch { }
     }
