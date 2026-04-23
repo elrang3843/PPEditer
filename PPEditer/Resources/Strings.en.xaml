@@ -391,4 +391,27 @@
     <sys:String x:Key="Dlg_Para_InvalidInput">Please enter valid numeric values.</sys:String>
     <sys:String x:Key="Msg_ParaPropsSaved">Paragraph properties updated.</sys:String>
 
+    <!-- ══ Template ══════════════════════════════════════════════════════════ -->
+    <sys:String x:Key="Ms_Template">_Template</sys:String>
+    <sys:String x:Key="Ms_Template_Open">_Open Template...</sys:String>
+    <sys:String x:Key="Ms_Template_NewFrom">_New from Template...</sys:String>
+    <sys:String x:Key="Ms_Template_Save">_Save Template</sys:String>
+    <sys:String x:Key="Ms_Template_SaveAs">Save Template _As...</sys:String>
+    <sys:String x:Key="Ms_Template_ExitMode">E_xit Template Mode</sys:String>
+    <sys:String x:Key="Lbl_TemplateMode">Template Edit Mode</sys:String>
+    <sys:String x:Key="Dlg_TemplatePickTitle">Choose Template</sys:String>
+    <sys:String x:Key="Dlg_TemplateOpenFilter">Presentation Files|*.pptx|All Files|*.*</sys:String>
+    <sys:String x:Key="Dlg_TemplateOpenTitle">Open Template File</sys:String>
+    <sys:String x:Key="Dlg_TemplateSaveFilter">PowerPoint Files|*.pptx|All Files|*.*</sys:String>
+    <sys:String x:Key="Dlg_TemplateSaveTitle">Save Template As</sys:String>
+    <sys:String x:Key="Dlg_Template_Folder">Standard Template Folder</sys:String>
+    <sys:String x:Key="Dlg_Template_Browse">Browse Other Location...</sys:String>
+    <sys:String x:Key="Dlg_Template_Create">Create New Presentation</sys:String>
+    <sys:String x:Key="Dlg_Template_NoTemplates">No templates saved yet.&#x0a;Use 'Save Template As' to add templates.</sys:String>
+    <sys:String x:Key="Msg_TemplateOpened">Opened in template edit mode.</sys:String>
+    <sys:String x:Key="Msg_TemplateSaved">Template saved.</sys:String>
+    <sys:String x:Key="Msg_TemplateSavedAs">Template saved: {0}</sys:String>
+    <sys:String x:Key="Msg_TemplateNewCreated">New presentation created from template.</sys:String>
+    <sys:String x:Key="Msg_TemplateExitMode">Exited template edit mode.</sys:String>
+
 </ResourceDictionary>

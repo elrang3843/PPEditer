@@ -27,6 +27,11 @@ public partial class MainWindow : Window
 
     private readonly DispatcherTimer _autoSaveTimer = new();
 
+    private bool _isTemplateMode;
+    private static readonly string TemplatesFolder =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                     "PPEditer", "Templates");
+
     private const int RecentMax = 10;
 
     public MainWindow()
@@ -144,6 +149,7 @@ public partial class MainWindow : Window
     {
         if (!ConfirmDiscard()) return;
         _model.New();
+        _isTemplateMode = false;
         _currentSlide = 0;
         RefreshAll();
         SetStatus(S("Msg_NewCreated"));
@@ -166,6 +172,7 @@ public partial class MainWindow : Window
         try
         {
             _model.Open(path);
+            _isTemplateMode = false;
             _currentSlide = 0;
             AddRecent(path);
             RebuildRecentMenu();
@@ -226,6 +233,114 @@ public partial class MainWindow : Window
             MessageBox.Show(this, $"{S("Err_SaveFailed")}\n{ex.Message}",
                             S("Lbl_SaveError"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    // ── Template commands ─────────────────────────────────────────────
+
+    private void OnTemplateOpen(object sender, RoutedEventArgs e)
+    {
+        if (!ConfirmDiscard()) return;
+        var dlg = new OpenFileDialog
+        {
+            Filter           = S("Dlg_TemplateOpenFilter"),
+            Title            = S("Dlg_TemplateOpenTitle"),
+            InitialDirectory = Directory.Exists(TemplatesFolder) ? TemplatesFolder : null,
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            _model.Open(dlg.FileName);
+            _isTemplateMode = true;
+            _currentSlide = 0;
+            AddRecent(dlg.FileName);
+            RebuildRecentMenu();
+            RefreshAll();
+            SetStatus(S("Msg_TemplateOpened"));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_OpenFailed")}\n{ex.Message}",
+                            S("Lbl_OpenError"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnTemplateNewFrom(object sender, RoutedEventArgs e)
+    {
+        if (!ConfirmDiscard()) return;
+        Directory.CreateDirectory(TemplatesFolder);
+        var dlg = new TemplatePickerDialog(TemplatesFolder) { Owner = this };
+        if (dlg.ShowDialog() != true || dlg.SelectedPath is null) return;
+        try
+        {
+            _model.NewFromTemplate(dlg.SelectedPath);
+            _isTemplateMode = false;
+            _currentSlide = 0;
+            RefreshAll();
+            SetStatus(S("Msg_TemplateNewCreated"));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_OpenFailed")}\n{ex.Message}",
+                            S("Lbl_OpenError"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnTemplateSave(object sender, RoutedEventArgs e)
+    {
+        if (!_model.IsOpen || !_isTemplateMode) return;
+        if (string.IsNullOrEmpty(_model.FilePath)) { OnTemplateSaveAs(sender, e); return; }
+        SaveCurrentNotes();
+        try
+        {
+            _model.Save();
+            UpdateTitle();
+            UpdateActions();
+            SetStatus(S("Msg_TemplateSaved"));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_SaveFailed")}\n{ex.Message}",
+                            S("Lbl_SaveError"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnTemplateSaveAs(object sender, RoutedEventArgs e)
+    {
+        if (!_model.IsOpen) return;
+        SaveCurrentNotes();
+        Directory.CreateDirectory(TemplatesFolder);
+        var dlg = new SaveFileDialog
+        {
+            Filter           = S("Dlg_TemplateSaveFilter"),
+            Title            = S("Dlg_TemplateSaveTitle"),
+            DefaultExt       = "pptx",
+            InitialDirectory = TemplatesFolder,
+            FileName         = _model.FileName,
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        var path = dlg.FileName;
+        if (!path.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase)) path += ".pptx";
+        try
+        {
+            _model.Save(path);
+            _isTemplateMode = true;
+            UpdateTitle();
+            UpdateActions();
+            SetStatus(string.Format(S("Msg_TemplateSavedAs"), Path.GetFileName(path)));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"{S("Err_SaveFailed")}\n{ex.Message}",
+                            S("Lbl_SaveError"), MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnTemplateExitMode(object sender, RoutedEventArgs e)
+    {
+        _isTemplateMode = false;
+        UpdateTitle();
+        UpdateActions();
+        SetStatus(S("Msg_TemplateExitMode"));
     }
 
     private void OnExportPdf(object? _ = null)
@@ -1118,7 +1233,14 @@ public partial class MainWindow : Window
         UpdateSlideInfo();
     }
 
-    private void UpdateTitle() => Title = _model.IsOpen ? _model.WindowTitle : "PPEditer";
+    private void UpdateTitle()
+    {
+        if (!_model.IsOpen) { Title = "PPEditer"; return; }
+        if (_isTemplateMode)
+            Title = $"{(_model.Modified ? "* " : "")}[{S("Lbl_TemplateMode")}] {_model.FileName} - PPEditer";
+        else
+            Title = _model.WindowTitle;
+    }
 
     private void UpdateSlideInfo()
     {
@@ -1181,6 +1303,10 @@ public partial class MainWindow : Window
         MenuUngroup.IsEnabled   = isGroup;
         MenuCharProps.IsEnabled = has && editing;
         MenuParaProps.IsEnabled = has && editing;
+
+        MenuTemplateSave.IsEnabled    = has && _isTemplateMode && _model.Modified;
+        MenuTemplateSaveAs.IsEnabled  = has;
+        MenuTemplateExitMode.IsEnabled = _isTemplateMode;
     }
 
     private void SetStatus(string msg) => StatusMsg.Text = msg;
