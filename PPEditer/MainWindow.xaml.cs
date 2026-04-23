@@ -46,6 +46,10 @@ public partial class MainWindow : Window
             LoadCurrentNotes();
             UpdateActions();
         };
+        SlidePanel.SlideCopyRequested   += OnSlideCopy;
+        SlidePanel.SlideCutRequested    += OnSlideCut;
+        SlidePanel.SlidePasteRequested  += OnSlidePaste;
+        SlidePanel.SlideDeleteRequested += OnSlideDeleteFromPanel;
         EditorCanvas.EditingStarted += OnEditorEditingStarted;
         EditorCanvas.TextCommitted  += OnEditorTextCommitted;
         EditorCanvas.ShapeMoved     += OnShapeMoved;
@@ -476,6 +480,51 @@ public partial class MainWindow : Window
         if (!_model.IsOpen || _currentSlide >= _model.SlideCount - 1) return;
         _model.MoveSlide(_currentSlide, _currentSlide + 1);
         _currentSlide++;
+        RefreshAll();
+    }
+
+    // ── Slide panel clipboard ─────────────────────────────────────────
+
+    private void OnSlideCopy(int index)
+    {
+        if (!_model.IsOpen) return;
+        _model.CopySlideToClipboard(index);
+    }
+
+    private void OnSlideCut(int index)
+    {
+        if (!_model.IsOpen) return;
+        _model.CopySlideToClipboard(index);
+        if (_model.SlideCount > 1)
+        {
+            _model.DeleteSlide(index);
+            _currentSlide = Math.Min(index, _model.SlideCount - 1);
+            RefreshAll();
+        }
+    }
+
+    private void OnSlidePaste(int afterIndex)
+    {
+        if (!_model.IsOpen || !PresentationModel.HasSlideClipboard) return;
+        _currentSlide = _model.PasteSlideFromClipboard(afterIndex);
+        RefreshAll();
+    }
+
+    private void OnSlideDeleteFromPanel(int index)
+    {
+        if (!_model.IsOpen) return;
+        if (_model.SlideCount <= 1)
+        {
+            MessageBox.Show(this, S("Err_LastSlide"),
+                            S("Lbl_DeleteFail"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var r = MessageBox.Show(this,
+            string.Format(S("Msg_ConfirmDelete"), index + 1),
+            S("Lbl_DeleteConfirm"), MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (r != MessageBoxResult.Yes) return;
+        _model.DeleteSlide(index);
+        _currentSlide = Math.Min(index, _model.SlideCount - 1);
         RefreshAll();
     }
 
