@@ -114,5 +114,37 @@ Distributed under the MIT License. See component 1 for the full license text.
 
 ---
 
-*This file is provided to satisfy the copyright-notice preservation requirement of the MIT License.
-The PPEditer application itself is also distributed under the MIT License — see [LICENSE](./LICENSE).*
+## 5. Native WPF Runtime DLLs
+
+The following native (non-managed) DLL files are included in the self-contained deployment.
+They are produced by Microsoft and distributed under **Microsoft's .NET Redistribution Rights**,
+which explicitly permit redistribution as part of self-contained .NET applications.
+
+| File | Purpose |
+|------|---------|
+| `coreclr.dll` | .NET CoreCLR runtime host |
+| `clrjit.dll` | .NET JIT compiler |
+| `clrgc.dll` | .NET garbage collector |
+| `wpfgfx_cor3.dll` | WPF graphics engine |
+| `PresentationNative_cor3.dll` | WPF native bridge |
+| `PenImc_cor3.dll` | WPF pen / touch input |
+| `vcruntime140_cor3.dll` | Visual C++ runtime for .NET |
+| `D3DCompiler_47.dll` | DirectX shader compiler (WPF hardware rendering) |
+
+**Copyright © Microsoft Corporation**
+
+Redistribution of these files is permitted under:
+- **.NET Redistribution Policy**: https://github.com/dotnet/core/blob/main/license-information.md  
+- **Visual C++ Redistributable License** (for `vcruntime140_cor3.dll`): included in the Microsoft Visual C++ Redistributable package  
+- **DirectX Redistribution Rights** (for `D3DCompiler_47.dll`): governed by the Windows SDK / DirectX REDIST terms; see `REDIST.TXT` in the Windows SDK
+
+These files are provided **as-is** by Microsoft and are not modified by this project.  
+Source for the MIT-licensed portions: https://github.com/dotnet/wpf  
+Source for the .NET runtime: https://github.com/dotnet/runtime
+
+---
+
+*This file is provided to satisfy the copyright-notice preservation requirement of the MIT License,
+and to document Microsoft's redistribution rights for native runtime components.*  
+*The PPEditer application itself is also distributed under the MIT License — see [LICENSE](./LICENSE).*  
+***This file must be included in every binary distribution (ZIP release) of PPEditer.***
