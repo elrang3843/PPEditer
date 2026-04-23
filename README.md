@@ -395,11 +395,12 @@ Full changelog: [HISTORY.md](./HISTORY.md)
 
 | Component | License | Role |
 |-----------|---------|------|
-| C# / WPF (.NET 8) | MIT (Microsoft) | UI framework |
-| DocumentFormat.OpenXml SDK v3 | MIT (Microsoft) | PPTX read/write |
-| PDFsharp | MIT (empira) | PDF export |
+| C# / WPF (.NET 8) | MIT (Microsoft / .NET Foundation) | UI framework |
+| DocumentFormat.OpenXml SDK v3.2.0 | MIT (Microsoft) | PPTX read/write |
+| PDFsharp v6.1.1 | MIT (empira Software GmbH) | PDF export |
 
-All dependencies are MIT-licensed and fully compatible with this project's MIT license.
+All dependencies are MIT-licensed and fully compatible with this project's MIT license.  
+Full copyright notices and license texts: [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)
 
 ---
 
